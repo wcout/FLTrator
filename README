@@ -46,7 +46,7 @@ The other part are the objects, that can be put into the landscape:
 
 Rockets
 -------
-	- Can be shot at with missiles and bombs.
+   - Can be shot at with missiles and bombs.
    - Always destroy ship at collision.
    - Get more dangerous with each level.
 
@@ -60,7 +60,7 @@ Drops
 Badies
 ------
    - Are also nasty as they block the way.
-   - Can be attacked with missiles, but need it needs 5 hits to succeed.
+   - Can be attacked with missiles, but it needs 5 hits to succeed.
    - Are always deadly when touched.
 
 Clouds
@@ -76,7 +76,7 @@ And most important of course is the:
 
 Spaceship
 ---------
-	- Can fire missiles horizontally.
+   - Can fire missiles horizontally.
    - Can drop bombs vertically.
    - Can lag speed for some time, or speed up, which can be very usefull.
 
@@ -103,7 +103,7 @@ If you have created some interesting new landscapes I would be glad to see them!
 Licence
 ~~~~~~~
 
-The game code is licensed under LPGL 3 or later.
+The game code is licensed under GPL 3 or later.
 
 FLTrator uses images from:
 
