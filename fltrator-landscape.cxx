@@ -82,9 +82,13 @@ static string homeDir()
 static string imgPath( const string& file_ )
 //-------------------------------------------------------------------------------
 {
+	static const char imgDir[] = "images/";
 	if ( access( file_.c_str(), R_OK ) == 0 )
 		return file_;
-	return homeDir() + "images/" + file_;
+	string localPath( imgDir + file_ );
+	if ( access( localPath.c_str(), R_OK ) == 0 )
+		return localPath;
+	return homeDir() + imgDir + file_;
 }
 
 //--------------------------------------------------------------------------
