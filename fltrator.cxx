@@ -1,4 +1,3 @@
-//
 // Copyright 2015 Christian Grabner.
 //
 // This file is part of FLTrator.
@@ -56,15 +55,21 @@ static const unsigned  MAX_LEVEL_REPEAT = 3;
 static const unsigned SCREEN_W = 800;
 static const unsigned SCREEN_H = 600;
 
+#if HAVE_SLOW_CPU
+#define USE_FLTK_RUN
+#define DEFAULT_FPS 40
+#else
+#define DEFAULT_FPS 200
+#endif
+
 #ifdef WIN32
 #ifdef USE_FLTK_RUN
 static const unsigned FPS = 64;
 #else
-static const unsigned FPS = 200;
+static const unsigned FPS = DEFAULT_FPS;
 #endif
 #else
-static const unsigned FPS = 200;
-//static const unsigned FPS = 100;
+static const unsigned FPS = DEFAULT_FPS;
 #endif
 
 static const double FRAMES = 1. / FPS;
@@ -280,17 +285,17 @@ private:
 };
 
 //-------------------------------------------------------------------------------
-class PlaySound
+class Audio
 //-------------------------------------------------------------------------------
 {
 public:
-	static PlaySound *instance();
+	static Audio *instance();
 	bool play( const char *file_ );
 	bool disabled() const { return _disabled; }
 	void disable( bool disable_ = true ) { _disabled = disable_; }
 	void cmd( const string& cmd_ ) { _cmd = cmd_; }
 private:
-	PlaySound() :
+	Audio() :
 		_disabled( false ) {}
 private:
 	bool _disabled;
@@ -298,19 +303,19 @@ private:
 };
 
 //-------------------------------------------------------------------------------
-// class PlaySound
+// class Audio
 //-------------------------------------------------------------------------------
 /*static*/
-PlaySound *PlaySound::instance()
+Audio *Audio::instance()
 //-------------------------------------------------------------------------------
 {
-	static PlaySound *inst = 0;
+	static Audio *inst = 0;
 	if ( !inst )
-		inst = new PlaySound();
+		inst = new Audio();
 	return inst;
 }
 
-bool PlaySound::play( const char *file_ )
+bool Audio::play( const char *file_ )
 //-------------------------------------------------------------------------------
 {
 	int ret = 0;
@@ -346,7 +351,7 @@ bool PlaySound::play( const char *file_ )
 		si.cb = sizeof(si);
 		si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
 		si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
-		si.hStdOutput =  GetStdHandle(STD_OUTPUT_HANDLE);
+		si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
 		si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
 		si.wShowWindow = SW_HIDE;
 		PROCESS_INFORMATION pi;
@@ -356,7 +361,7 @@ bool PlaySound::play( const char *file_ )
 		CloseHandle(pi.hThread);
 #elif __APPLE__
 		if ( cmd.empty() )
-			 cmd =  "play -q " + wavPath( file_ ) + " &";
+			 cmd = "play -q " + wavPath( file_ ) + " &";
 //		printf( "cmd: %s\n", cmd.c_str() );
 		ret = system( cmd.c_str() );
 #else
@@ -488,7 +493,7 @@ void Object::start( size_t speed_/* = 1*/ )
 		image( img );
 	_speed = speed_;
 	Fl::add_timeout( timeout(), cb_update, this );
-	PlaySound::instance()->play( start_sound() );
+	Audio::instance()->play( start_sound() );
 	_state = 1;
 }
 
@@ -522,7 +527,7 @@ void Object::draw_collision() const
 		int Y = random() % h();
 		if ( !isTransparent( X, Y ) )
 		{
-			fl_rectf( x() + X, y() + Y, 4, 4,
+			fl_rectf( x() + X - 2 , y() + Y - 2 , 4, 4,
 				( random() % 2 ? FL_RED : FL_YELLOW ) );
 		}
 	}
@@ -962,7 +967,7 @@ private:
 	void onDemo();
 	void onLostFocus();
 	void onGotFocus();
-	void onNextScreen( bool fromBegin_ =  false );
+	void onNextScreen( bool fromBegin_ = false );
 	void onTitleScreen();
 	void onStateChange( State from_state_ );
 	void onUpdate();
@@ -1027,7 +1032,7 @@ private:
 // class FltWin : public Fl_Double_Window
 //-------------------------------------------------------------------------------
 FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
-	Inherited( SCREEN_W, SCREEN_H, "FL-Trator v1.2" ),
+	Inherited( SCREEN_W, SCREEN_H, "FL-Trator v1.3" ),
 	_state( START ),
 	_xoff( 0 ),
 	_left( false), _right( false ), _up( false ), _down( false ),
@@ -1060,6 +1065,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	string unknown_option;
 	string arg;
 	bool usage( false );
+	bool full_screen( false );
 	while ( argc-- > 1 )
 	{
 		if ( unknown_option.size() )
@@ -1078,7 +1084,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		}
 		else if ( arg.find( "-A" ) == 0 )
 		{
-			PlaySound::instance()->cmd( arg.substr( 2 ) );
+			Audio::instance()->cmd( arg.substr( 2 ) );
 		}
 		else if ( arg.find( "-U" ) == 0 )
 		{
@@ -1096,11 +1102,14 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 					case 'e':
 						_enable_boss_key = true;
 						break;
+					case 'f':
+						full_screen = true;
+						break;
 					case 'n':
 						reset_user = true;
 						break;
 					case 's':
-						PlaySound::instance()->disable();
+						Audio::instance()->disable();
 						break;
 					case 'i':
 						_internal_levels = true;
@@ -1137,6 +1146,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		printf("Options:\n");
 		printf("  -c\thide mouse cursor in window\n" );
 		printf("  -e\tenable Esc as boss key\n" );
+		printf("  -f\tenable full screen mode\n" );
 		printf("  -h\tdisplay this help\n" );
 		printf("  -i\tplay internal (auto-generated) levels\n" );
 		printf("  -n\treset user (only if startet with -U)\n" );
@@ -1157,6 +1167,8 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	// set spaceship image as icon
 	Fl_RGB_Image icon( (Fl_Pixmap *)_spaceship->image() );
 	Fl_Window::default_icon( &icon );
+//	if ( full_screen )
+//		resizable( this );
 
 	_cfg = new Cfg( "CG", "fltrator" );
 
@@ -1169,13 +1181,18 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 #ifdef USE_FLTK_RUN
 	Fl::add_timeout( FRAMES, cb_update, this );
 #endif
-	// try to center on current screen
-	int X, Y, W, H;
-	Fl::screen_xywh( X, Y, W, H );
-	position( ( W - w() ) / 2, ( H - h() ) / 2 );
+	if ( !full_screen )
+	{
+		// try to center on current screen
+		int X, Y, W, H;
+		Fl::screen_xywh( X, Y, W, H );
+		position( ( W - w() ) / 2, ( H - h() ) / 2 );
+	}
 
 	changeState();
 	show();
+	if ( full_screen )
+		fullscreen();
 
 	if ( _hide_cursor )
 	{
@@ -1204,12 +1221,12 @@ void FltWin::onStateChange( State from_state_ )
 			onDemo();
 			break;
 		case LEVEL_FAIL:
-			PlaySound::instance()->play( "ship_x.wav" );
+			Audio::instance()->play( "ship_x.wav" );
 		case LEVEL_DONE:
 		{
 			if ( _state == LEVEL_DONE )
 			{
-				PlaySound::instance()->play ( "done.wav" );
+				Audio::instance()->play ( "done.wav" );
 				if ( _score > _old_score )
 					_old_score = _score;
 				_done_level = _level;
@@ -1487,7 +1504,7 @@ void FltWin::create_terrain()
 	{
 		// sky
 		range = h() / 5;
-		int top =  h() / 12;
+		int top = h() / 12;
 		for ( size_t i = 0; i < T.size(); i++ )
 		{
 			int ground = T[i].ground_level();
@@ -1643,7 +1660,7 @@ void FltWin::check_missile_hits()
 			     (*m)->rect().inside( (*r)->rect())) )
 			{
 				// rocket hit by missile
-				PlaySound::instance()->play( "missile_hit.wav" );
+				Audio::instance()->play( "missile_hit.wav" );
 				(*r)->explode();
 				add_score( 20 );
 
@@ -1665,7 +1682,7 @@ void FltWin::check_missile_hits()
 				(*b)->hit();
 				if ( (*b)->hits() >= 5 )
 				{
-					PlaySound::instance()->play( "bady_hit.wav" );
+					Audio::instance()->play( "bady_hit.wav" );
 					delete *b;
 					b = Badies.erase(b);
 					add_score( 100 );
@@ -1686,7 +1703,7 @@ void FltWin::check_missile_hits()
 			{
 				// drop hit by missile
 				(*d)->hit();
-				PlaySound::instance()->play( "drop_hit.wav" );
+				Audio::instance()->play( "drop_hit.wav" );
 				delete *d;
 				d = Drops.erase(d);
 				add_score( 5 );
@@ -1714,7 +1731,7 @@ void FltWin::check_bomb_hits()
 			     (*b)->rect().inside( (*r)->rect())) )
 			{
 				// rocket hit by bomb
-				PlaySound::instance()->play( "bomb_x.wav" );
+				Audio::instance()->play( "bomb_x.wav" );
 				(*r)->explode();
 				add_score( 50 );
 
@@ -1757,22 +1774,28 @@ void FltWin::check_drop_hits()
 	{
 		if ( (*d)->dropped() && (*d)->rect().inside( _spaceship->rect() ) )
 		{
-			// drop 'hit' by spaceship
-//			printf( "drop fully hit spaceship\n" );
-			redraw();
-			Fl::wait();	// Hack: wait for collision detection, otherwise there will be none!
-			delete *d;
-			d = Drops.erase(d);
-			continue;
+			// drop maybe hit spaceship - is within it's bounding box
+//			printf( "drop inside spaceship rectangle\n" );
+			if ( collision( *(*d), w(), h() ) )
+			{
+//				printf( "drop fully hit spaceship\n" );
+				delete *d;
+				d = Drops.erase(d);
+				_collision = true;
+				continue;
+			}
 		}
 		else if ( (*d)->dropped() && (*d)->rect().intersects( _spaceship->rect() ) )
 		{
 			// drop touches spaceship
 //			printf( "drop only partially hit spaceship\n" );
-			if ( (*d)->x() > _spaceship->x() )
+			if ( (*d)->x() > _spaceship->x() )	// front of ship
 				(*d)->x( (*d)->x() + 10 );
-			else
+#if 0
+// removed deflection on rear of ship (looks awkward!)
+			else // rear of ship
 				(*d)->x( (*d)->x() - 10 );
+#endif
 			++d;
 		}
 		else
@@ -1847,7 +1870,6 @@ void FltWin::create_objects()
 			printf( "#drops: %lu\n", (unsigned long)Drops.size() );
 #endif
 		}
-
 		if ( o & O_BADY && i - _bady.w() / 2 < w() )
 		{
 			bool turn( random() % 3 == 0 );
@@ -1863,7 +1885,6 @@ void FltWin::create_objects()
 			printf( "#badies: %lu\n", (unsigned long)Badies.size() );
 #endif
 		}
-
 		if ( o & O_CUMULUS && i - _cumulus.w() / 2 < w() )
 		{
 			bool turn( random() % 3 == 0 );
@@ -2431,12 +2452,12 @@ void FltWin::draw()
 	draw_objects( true );	// objects for collision check
 
 	if ( !paused() && !_done && _state != DEMO )
-		_collision = collision( *_spaceship, w(), h() );
+		_collision |= collision( *_spaceship, w(), h() );
 
 	if ( _collision && _cheatMode )
 	{
 		if ( _xoff % 20 == 0 )
-			PlaySound::instance()->play( "boink.wav" );
+			Audio::instance()->play( "boink.wav" );
 		_collision = false;
 	}
 
@@ -2497,7 +2518,7 @@ void FltWin::setUser()
 void FltWin::keyClick() const
 //-------------------------------------------------------------------------------
 {
-	PlaySound::instance()->play( "drop.wav" );
+	Audio::instance()->play( "drop.wav" );
 }
 
 void FltWin::toggleUser( bool prev_/* = false */ )
@@ -2523,8 +2544,7 @@ void FltWin::toggleUser( bool prev_/* = false */ )
 		setUser();
 
 		keyClick();
-
-		_frame = 0;	// hack: immediate display
+		onTitleScreen();	// immediate display + reset demo timer
 	}
 }
 
@@ -2553,7 +2573,7 @@ int FltWin::handle( int e_ )
 	if ( e_ == FL_KEYUP && ( _state != SCORE ) && ( 's' == c ) )
 	{
 		keyClick();
-		PlaySound::instance()->disable( !PlaySound::instance()->disabled() );
+		Audio::instance()->disable( !Audio::instance()->disabled() );
 		keyClick();
 	}
 
@@ -2722,7 +2742,7 @@ void FltWin::onDemo()
 	onNextScreen( true );
 }
 
-void FltWin::onNextScreen( bool fromBegin_/* =  false*/ )
+void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 //-------------------------------------------------------------------------------
 {
 	delete _spaceship;

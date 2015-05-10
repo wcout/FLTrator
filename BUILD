@@ -84,6 +84,50 @@ or:
   make install (optional)
 
 
+Running fullscreen under Linux
+------------------------------
+
+I found some instructions how to change resolution using Xrandr and created
+a program 'xrand_change_screen_res' and a shell script 'fltrator-fullscreen'.
+Calling this script will change screen resolution to 800x600 before running
+fltrator and restore to original resolution afterwards. Put these programs
+manually somewhere in your path, they are not installed with 'make install'.
+
+
+---
+
+
+General notes about the Windows version
+=======================================
+
+Prologue: I never program for Windows. When I need something for Windows I build
+it with mingw under Linux. So forgive me if I talk nonsense.
+
+I have noticed in some of my recent projects, that it is neary impossible
+with standard procedures to get reliable hispeed timers that work persistant
+under all flavours of Windows. Either they are not accurate or they eat all CPU.
+
+FLTrator normally would like to use a 200Hz timer for scrolling the landscape.
+This is just the right speed for a smooth scrolling by 1 pixel/frame. No problem
+under ANY Linux system. But a BIG problem for a Windows system, as far as I
+experience (But maybe it's just my lack of knowledge, how to setup things right).
+
+I managed to run FLTrator under Windows 7 on a recent quad core processor with 200Hz.
+But the same executable performs utterly poor on an old Windows XP system with
+a Pentium processor.
+
+I found 40Hz to be the ideal rate in this case. Therefore I have added an option
+'HAVE_SLOW_CPU' to compile with a 40Hz timer. This makes the scrolling a little
+jumpy, but maybe this even adds to the retro feeling..
+
+Should you experience bad performance, you can enable the switch in your compile
+shell with:
+
+  export HAVE_SLOW_CPU=1
+
+before running make.
+
+
 Creating a Windows executable using mingw on Linux
 ==================================================
 

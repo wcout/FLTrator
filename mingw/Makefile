@@ -49,7 +49,8 @@ LDLIBS=`$(FLTK_CONFIG) --use-images --ldstaticflags` -static-libgcc -static-libs
 LDLIBSCPP=-static-libgcc -static-libstdc++ -static -lwinmm
 
 FLTKCXXFLAGS = `$(FLTK_CONFIG) --cxxflags`
-CXXFLAGS+= -g -Wall --pedantic $(INCLUDE) $(FLTKCXXFLAGS)
+#CXXDEFS=-DHAVE_SLOW_CPU=1
+CXXFLAGS+=$(CXXDEFS) -g -Wall --pedantic $(INCLUDE) $(FLTKCXXFLAGS)
 #OPT=
 OPT=-O3
 
