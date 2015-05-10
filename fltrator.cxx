@@ -39,6 +39,8 @@
 #include <mmsystem.h>
 #define random rand
 #define srandom srand
+#else
+#include <sys/time.h>
 #endif
 
 // fallback Windows native
@@ -46,10 +48,6 @@
 #define R_OK	4
 #endif
 #define _access access
-
-
-// umcomment to draw a black line at rim of ground/sky?
-//#define DRAW_LS_OUTLINE
 
 static const unsigned MAX_LEVEL = 10;
 //static const int MAX_LEVEL = 2;	// for testing end screen :-)
@@ -59,7 +57,11 @@ static const unsigned SCREEN_W = 800;
 static const unsigned SCREEN_H = 600;
 
 #ifdef WIN32
+#ifdef USE_FLTK_RUN
 static const unsigned FPS = 64;
+#else
+static const unsigned FPS = 200;
+#endif
 #else
 static const unsigned FPS = 200;
 //static const unsigned FPS = 100;
@@ -81,6 +83,7 @@ enum ObjectType
 	O_DROP = 2,
 	O_BADY = 4,
 	O_CUMULUS = 8,
+	O_COLOR_CHANGE = 64,
 
 	// internal
 	O_MISSILE = 1<<16,
@@ -659,6 +662,10 @@ public:
 		else
 			_object &= ~type_;
 	}
+public:
+	Fl_Color bg_color;
+	Fl_Color ls_color;
+	Fl_Color sky_color;
 private:
 	int _ground_level;
 	int _sky_level;
@@ -669,6 +676,34 @@ private:
 class Terrain : public vector<TerrainPoint>
 //-------------------------------------------------------------------------------
 {
+typedef vector<TerrainPoint> Inherited;
+public:
+	Terrain() :
+		Inherited()
+	{
+		init();
+	}
+	void clear()
+	{
+		Inherited::clear();
+		init();
+	}
+	void init()
+	{
+		bg_color = FL_BLUE;
+		ls_color = FL_GREEN;
+		sky_color = FL_DARK_GREEN;
+		ls_outline_width = 0;
+		outline_color_sky = FL_BLACK;
+		outline_color_ground = FL_BLACK;
+	}
+public:
+	Fl_Color bg_color;
+	Fl_Color ls_color;
+	Fl_Color sky_color;
+	unsigned  ls_outline_width;
+	Fl_Color outline_color_sky;
+	Fl_Color outline_color_ground;
 };
 
 //-------------------------------------------------------------------------------
@@ -726,6 +761,7 @@ public:
 		SCORE
 	};
 	FltWin( int argc_ = 0, const char *argv_[] = 0 );
+	int run();
 private:
 	void add_score( unsigned score_ );
 	void position_spaceship();
@@ -768,17 +804,16 @@ private:
 	void onTitleScreen();
 	void onStateChange( State from_state_ );
 	void onUpdate();
+	void onUpdateDemo();
 	bool paused() const { return _state == PAUSED; }
 	void bombUnlock();
 	static void cb_bomb_unlock( void *d_ );
 	static void cb_demo( void *d_ );
 	static void cb_paused( void *d_ );
 	static void cb_update( void *d_ );
+	State state() const { return _state; }
 protected:
 	Terrain T;
-	Fl_Color BG_COLOR;
-	Fl_Color LS_COLOR;
-	Fl_Color SKY_COLOR;
 	vector<Missile *> Missiles;
 	vector<Bomb *> Bombs;
 	vector<Rocket *> Rockets;
@@ -818,16 +853,14 @@ private:
 	bool _enable_boss_key; // ESC
 	bool _focus_out;
 	bool _no_random;
+	bool _hide_cursor;
 };
 
 //-------------------------------------------------------------------------------
 // class FltWin : public Fl_Double_Window
 //-------------------------------------------------------------------------------
 FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
-	Inherited( SCREEN_W, SCREEN_H, "FL-Trator v1.0" ),
-	BG_COLOR( FL_BLUE ),
-	LS_COLOR( FL_GREEN ),
-	SKY_COLOR( FL_DARK_GREEN ),
+	Inherited( SCREEN_W, SCREEN_H, "FL-Trator v1.1" ),
 	_state( START ),
 	_xoff( 0 ),
 	_left( false), _right( false ), _up( false ), _down( false ),
@@ -849,7 +882,8 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_internal_levels( false ),
 	_enable_boss_key( false ),
 	_focus_out( true ),
-	_no_random( false )
+	_no_random( false ),
+	_hide_cursor( false )
 {
 	int argc( argc_ );
 	unsigned argi( 1 );
@@ -863,6 +897,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 			printf( "\tlevel      [1, 10] startlevel\n");
 			printf( "\tlevelfile  name of levelfile (for testing a new level)\n");
 			printf("Options:\n");
+			printf("  -c\thide mouse cursor in window\n" );
 			printf("  -e\tenable Esc as boss key\n" );
 			printf("  -i\tplay internal (auto-generated) levels\n" );
 			printf("  -p\tdisable pause on focus out\n" );
@@ -889,6 +924,9 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 			{
 				switch ( arg[i] )
 				{
+					case 'c':
+						_hide_cursor = true;
+						break;
 					case 'e':
 						_enable_boss_key = true;
 						break;
@@ -925,8 +963,9 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	create_terrain();
 	position_spaceship();
 	_hiscore = _old_hiscore;	// set from previous game!
+#ifdef USE_FLTK_RUN
 	Fl::add_timeout( FRAMES, cb_update, this );
-
+#endif
 	// try to center on current screen
 	int X, Y, W, H;
 	Fl::screen_xywh( X, Y, W, H );
@@ -934,6 +973,13 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 
 	changeState();
 	show();
+
+	if ( _hide_cursor )
+	{
+		// hide mouse cursor
+		cursor( FL_CURSOR_NONE, (Fl_Color)0, (Fl_Color)0 );
+		default_cursor( FL_CURSOR_NONE, (Fl_Color)0, (Fl_Color)0 );
+	}
 }
 
 void FltWin::onStateChange( State from_state_ )
@@ -1080,7 +1126,7 @@ bool FltWin::collision( Object& o_, int w_, int h_ )
 
 	// background color r/g/b
 	unsigned char  R, G, B;
-	Fl::get_color( BG_COLOR, R, G, B );
+	Fl::get_color( T.bg_color, R, G, B );
 //	printf("check for BG-Color %X/%X/%X\n", R, G, B );
 
 #ifdef DEBUG
@@ -1158,36 +1204,42 @@ void FltWin::create_terrain()
 	switch ( _level % 4 )
 	{
 		case 0:
-			BG_COLOR = FL_YELLOW;
-			LS_COLOR = fl_rgb_color(0x61,0x2f,0x04);	// brownish
+			T.bg_color = FL_YELLOW;
+			T.ls_color = fl_rgb_color(0x61,0x2f,0x04);	// brownish
 			break;
 		case 1:
-			BG_COLOR = FL_BLUE;
-			LS_COLOR = FL_GREEN;
+			T.bg_color = FL_BLUE;
+			T.ls_color = FL_GREEN;
 			break;
 		case 2:
-			BG_COLOR = FL_GRAY;
-			LS_COLOR = FL_RED;
+			T.bg_color = FL_GRAY;
+			T.ls_color = FL_RED;
+			T.ls_outline_width = _level / 2;
+			T.outline_color_ground = FL_WHITE;
+			T.outline_color_sky = FL_WHITE;
 			break;
 		case 3:
-			BG_COLOR = FL_CYAN;
-			LS_COLOR = FL_DARK_GREEN;
+			T.bg_color = FL_CYAN;
+			T.ls_color = FL_DARK_GREEN;
+			T.ls_outline_width = _level > 5 ? 4 : 1;
+			T.outline_color_ground = FL_CYAN;
+			T.outline_color_sky = FL_CYAN;
 			break;
 	}
 	if ( sky )
 	{
-		Fl_Color temp = BG_COLOR;
-		BG_COLOR = LS_COLOR;
-		LS_COLOR = temp;
-		LS_COLOR = fl_darker( LS_COLOR );
-		BG_COLOR = fl_lighter( BG_COLOR );
+		Fl_Color temp = T.bg_color;
+		T.bg_color = T.ls_color;
+		T.ls_color = temp;
+		T.ls_color = fl_darker( T.ls_color );
+		T.bg_color = fl_lighter( T.bg_color );
 	}
 	else if ( _level > 5 )
 	{
-		BG_COLOR = fl_darker( BG_COLOR );
-		LS_COLOR = fl_darker( LS_COLOR );
+		T.bg_color = fl_darker( T.bg_color );
+		T.ls_color = fl_darker( T.ls_color );
 	}
-	SKY_COLOR = LS_COLOR;
+	T.sky_color = T.ls_color;
 
 	int range = (h() * (sky ? 2 : 3)) / 5;
 	int bott = h() / 5;
@@ -1622,12 +1674,20 @@ bool FltWin::loadLevel( int level_, const string levelFileName_/* = ""*/ )
 	if ( !f.is_open() )
 		return false;
 //	printf( "reading level %d from %s\n", level_, levelFileName.c_str() );
+	unsigned long version;
 	unsigned long flags;
+	f >> version;
 	f >> flags;
-	f >> flags;
-	f >> BG_COLOR;
-	f >> LS_COLOR;
-	f >> SKY_COLOR;
+	if ( version )
+	{
+		// new format
+		f >> T.ls_outline_width;
+		f >> T.outline_color_ground;
+		f >> T.outline_color_sky;
+	}
+	f >> T.bg_color;
+	f >> T.ls_color;
+	f >> T.sky_color;
 
 	while ( f.good() )	// access data is ignored!
 	{
@@ -1638,6 +1698,20 @@ bool FltWin::loadLevel( int level_, const string levelFileName_/* = ""*/ )
 		f >> obj;
 		if ( f.good() )
 			T.push_back( TerrainPoint( g, s, obj ) );
+		if ( obj & O_COLOR_CHANGE )
+		{
+			// fetch extra data for color change object
+			Fl_Color bg_color, ls_color, sky_color;
+			f >> bg_color;
+			f >> ls_color;
+			f >> sky_color;
+			if ( f.good() )
+			{
+				T.back().bg_color = bg_color;
+				T.back().ls_color = ls_color;
+				T.back().sky_color = sky_color;
+			}
+		}
 	}
 	return true;
 }
@@ -2047,22 +2121,42 @@ void FltWin::draw()
 	if ( G_paused && _frame % 10 != 0 )	// don't hog the CPU in paused level mode
 		return;
 
+	// handle color change
+	if ( T[_xoff].object() & O_COLOR_CHANGE )
+	{
+		T.sky_color = T[_xoff].sky_color;
+		T.ls_color = T[_xoff].ls_color;
+		T.bg_color = T[_xoff].bg_color;
+	}
+
 	// draw bg
-	fl_draw_box( FL_FLAT_BOX, 0, 0, w(), h(), BG_COLOR );
+	fl_draw_box( FL_FLAT_BOX, 0, 0, w(), h(), T.bg_color );
 
 	// draw landscacpe
 	for ( int i = 0; i < w(); i++ )
 	{
-		fl_color( SKY_COLOR );
+		fl_color( T.sky_color );
 		fl_yxline( i, -1, T[_xoff + i].sky_level() );
-			fl_color( LS_COLOR );
+		fl_color( T.ls_color );
 		fl_yxline( i, h() - T[_xoff + i].ground_level(), h() );
+	}
 
-#ifdef DRAW_LS_OUTLINE
-		fl_color( FL_BLACK );
-		fl_point( i, T[_xoff + i].sky_level() );
-		fl_point( i, h() - T[_xoff + i].ground_level() );
-#endif
+	// draw outline
+	if ( T.ls_outline_width )
+	{
+		fl_line_style( FL_SOLID, T.ls_outline_width );
+		for ( int i = 0; i < w(); i++ )
+		{
+			if ( T[_xoff + i].sky_level() >= 0 )
+			{
+				fl_color( T.outline_color_sky );
+				fl_line ( i - 1, T[_xoff + i - 1].sky_level(), i + 1, T[_xoff + i + 1].sky_level() );
+			}
+			fl_color( T.outline_color_ground );
+			fl_line( i - 1, h() - T[_xoff + i - 1].ground_level(), i + 1,
+				h() - T[_xoff + i + 1].ground_level() );
+		}
+		fl_line_style( 0 );
 	}
 
 	draw_score();
@@ -2261,8 +2355,11 @@ void FltWin::cb_paused( void *d_ )
 void FltWin::cb_update( void *d_ )
 //-------------------------------------------------------------------------------
 {
-	((FltWin *)d_)->onUpdate();
+	FltWin *f = (FltWin *)d_;
+	f->state() == FltWin::DEMO ? f->onUpdateDemo() : f->onUpdate();
+#ifdef USE_FLTK_RUN
 	Fl::repeat_timeout( FRAMES, cb_update, d_ );
+#endif
 }
 
 void FltWin::onActionKey()
@@ -2376,6 +2473,26 @@ void FltWin::onTitleScreen()
 		Fl::add_timeout( 20.0, cb_demo, this );
 }
 
+void FltWin::onUpdateDemo()
+//-------------------------------------------------------------------------------
+{
+	create_objects();
+
+	update_objects();
+
+	redraw();
+
+	if ( _done )
+	{
+		onNextScreen();	// ... but for now, just skip pause in demo mode
+		return;	// do not increment _xoff now!
+	}
+
+	_xoff += DX;
+	if ( _xoff + /*2 * */w() >= (int)T.size() - 1 )
+		_done = true;
+}
+
 void FltWin::onUpdate()
 //-------------------------------------------------------------------------------
 {
@@ -2389,8 +2506,7 @@ void FltWin::onUpdate()
 
 	update_objects();
 
-	if ( _state != DEMO )
-		check_hits();
+	check_hits();
 
 	if ( paused() )
 	{
@@ -2406,7 +2522,7 @@ void FltWin::onUpdate()
 	{
 		int ox = _spaceship->x();
 		_spaceship->right();
-		if ( ox != _spaceship->x() )+
+		if ( ox != _spaceship->x() )
 			_speed_right++;
 	}
 	if ( _up )
@@ -2418,22 +2534,11 @@ void FltWin::onUpdate()
 	if ( _collision )
 		changeState( LEVEL_FAIL );
 	else if ( _done )
-	{
-		if ( _state == DEMO )	// TODO: handle this via state
-		{
-			onNextScreen();	// ... but for now, just skip pause in demo mode
-			return;	// do not increment _xoff now!
-		}
-		else
-			changeState( LEVEL_DONE );
-	}
-//	if ( _state != LEVEL && _state != DEMO )
-//		return;
+		changeState( LEVEL_DONE );
 
 	_xoff += DX;
 	if ( _xoff + /*2 * */w() >= (int)T.size() - 1 )
 		_done = true;
-//	printf( "_xoff = %u / %d  %d\n", _xoff, (int)T.size(), _done );
 }
 
 void FltWin::bombUnlock()
@@ -2442,11 +2547,74 @@ void FltWin::bombUnlock()
 	_bomb_lock = false;
 }
 
+int FltWin::run()
+//-------------------------------------------------------------------------------
+{
+#ifdef USE_FLTK_RUN
+	return Fl::run();
+#else
+
+#ifndef WIN32
+	unsigned long startTime;
+	unsigned long endTime;
+	struct timeval _tv;
+#else
+	LARGE_INTEGER startTime, endTime, elapsedMicroSeconds;
+	LARGE_INTEGER frequency;
+
+	SetPriorityClass( GetCurrentProcess(), HIGH_PRIORITY_CLASS );
+
+	QueryPerformanceFrequency( &frequency );
+	QueryPerformanceCounter( &startTime );
+#endif
+
+	unsigned delayMilliSeconds = 1000 / FPS;
+
+	while ( Fl::first_window() )
+	{
+		unsigned elapsedMilliSeconds = 0;
+
+		while ( elapsedMilliSeconds < delayMilliSeconds && Fl::first_window() )
+		{
+#ifndef WIN32
+			Fl::wait( 0.0005 );
+
+			gettimeofday( &_tv, NULL );
+			endTime = _tv.tv_sec * 1000 + _tv.tv_usec / 1000;
+			elapsedMilliSeconds = endTime - startTime;
+#else
+			Fl::wait( 0.0 );
+
+			// Activity to be timed
+
+			QueryPerformanceCounter( &endTime );
+			elapsedMicroSeconds.QuadPart = endTime.QuadPart - startTime.QuadPart;
+
+			//
+			// We now have the elapsed number of ticks, along with the
+			// number of ticks-per-second. We use these values
+			// to convert to the number of elapsed microseconds.
+			// To guard against loss-of-precision, we convert
+			// to microseconds *before* dividing by ticks-per-second.
+			//
+
+			elapsedMicroSeconds.QuadPart *= 1000000;
+			elapsedMicroSeconds.QuadPart /= frequency.QuadPart;
+			elapsedMilliSeconds = elapsedMicroSeconds.QuadPart / 1000;
+#endif
+		}
+		startTime = endTime;
+		_state == DEMO ? onUpdateDemo() : onUpdate();
+	}
+	return 0;
+#endif
+}
+
 //-------------------------------------------------------------------------------
 int main( int argc_, const char *argv_[] )
 //-------------------------------------------------------------------------------
 {
 	fl_register_images();
 	FltWin fltrator( argc_, argv_ );
-	return Fl::run();
+	return fltrator.run();
 }
