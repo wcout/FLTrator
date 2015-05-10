@@ -21,6 +21,8 @@
 #include <FL/Fl_Box.H>
 #include <FL/Fl_Color_Chooser.H>
 #include <FL/Fl_GIF_Image.H>
+#include <FL/Fl_Sys_Menu_Bar.H>
+#include <FL/Fl_File_Chooser.H>
 #include <FL/filename.H>
 #include <FL/Fl.H>
 #include <FL/fl_draw.H>
@@ -39,16 +41,14 @@ static const int MAX_SCREENS = 15;
 static const int SCREEN_W = 800;
 static const int SCREEN_H = 600;
 
-static Fl_Color BG_COLOR = FL_BLUE;
-static Fl_Color GROUND_COLOR = FL_GREEN;
-static Fl_Color SKY_COLOR = FL_DARK_GREEN;
 
 enum ObjectType
 {
 	O_ROCKET = 1,
 	O_DROP = 2,
 	O_BADY = 4,
-	O_CUMULUS = 8
+	O_CUMULUS = 8,
+	O_COLOR_CHANGE = 64
 };
 
 static const char *HelpText = \
@@ -98,21 +98,30 @@ class Object
 public:
 	Object( int id_, const char *image_, const char *name_ = 0 ) :
 		_id( id_ ),
-		_name( name_ ? name_ : "" )
+		_image( 0 ),
+		_name( name_ ? name_ : "" ),
+		_w( 0 ),
+		_h( 0 )
 	{
-		assert( image_ );
-		_image = new Fl_GIF_Image( imgPath( image_ ).c_str() );
-		assert( _image && _image->d() );
+		if ( image_ )
+		{
+			_image = new Fl_GIF_Image( imgPath( image_ ).c_str() );
+			assert( _image && _image->d() );
+		}
 	}
 	const char *name() const { return _name.c_str(); }
 	const int id() const { return _id; }
 	const Fl_Image *image() const { return _image; }
-	int w() const { return _image->w(); }
-	int h() const { return _image->h(); }
+	void w( int w_ ) { _w = w_; }
+	void h( int h_ ) { _h = h_; }
+	int w() const { return _image ? _image->w() : _w; }
+	int h() const { return _image ? _image->h() : _h; }
 private:
 	int _id;
 	Fl_Image *_image;
 	string _name;
+	int _w;
+	int _h;
 };
 
 //--------------------------------------------------------------------------
@@ -150,6 +159,33 @@ public:
 	int sky;
 	int ground;
 	int object;
+	Fl_Color bg_color;
+	Fl_Color ls_color;
+	Fl_Color sky_color;
+};
+
+//-------------------------------------------------------------------------------
+class Terrain : public vector<LSPoint>
+//-------------------------------------------------------------------------------
+{
+typedef vector<LSPoint> Inherited;
+public:
+	Terrain() :
+		Inherited(),
+		bg_color( FL_BLUE ),
+		ls_color( FL_GREEN ),
+		sky_color( FL_DARK_GREEN ),
+		outline_width( 0 ),
+		outline_color_sky( FL_BLACK ),
+		outline_color_ground( FL_BLACK )
+	{}
+public:
+	Fl_Color bg_color;
+	Fl_Color ls_color;
+	Fl_Color sky_color;
+	unsigned outline_width;
+	Fl_Color outline_color_sky;
+	Fl_Color outline_color_ground;
 };
 
 //--------------------------------------------------------------------------
@@ -170,12 +206,20 @@ public:
 			{
 				printf( "reading from %s\n", f_ );
 				if ( loaded_ ) *loaded_ = true;
+				unsigned long version;
 				unsigned long flags;
+				f >> version;
 				f >> flags;
-				f >> flags;
-				f >> BG_COLOR;
-				f >> GROUND_COLOR;
-				f >> SKY_COLOR;
+				if ( version )
+				{
+					// new format
+					f >> _ls.outline_width;
+					f >> _ls.outline_color_ground;
+					f >> _ls.outline_color_sky;
+				}
+				f >> _ls.bg_color;
+				f >> _ls.ls_color;
+				f >> _ls.sky_color;
 
 				while ( f.good() && size() < W )	// access data is ignored!
 				{
@@ -186,6 +230,21 @@ public:
 					f >> o;
 					if ( f.good() )
 						_ls.push_back( LSPoint( g, s, o ) );
+
+					if ( o & O_COLOR_CHANGE )
+					{
+						// fetch extra data for color change object
+						Fl_Color bg_color, ls_color, sky_color;
+						f >> bg_color;
+						f >> ls_color;
+						f >> sky_color;
+						if ( f.good() )
+						{
+							_ls.back().bg_color = bg_color;
+							_ls.back().ls_color = ls_color;
+							_ls.back().sky_color = sky_color;
+						}
+					}
 				}
 			}
 		}
@@ -222,11 +281,20 @@ public:
 		if ( x_ >= 0 && x_ < (int)size() )
 		{
 			if ( set_ )
+			{
 				_ls[ x_ ].object = _ls[ x_ ].object | id_;
+				if ( id_ == O_COLOR_CHANGE )
+				{
+					_ls[ x_ ].bg_color = _ls.bg_color;
+					_ls[ x_ ].ls_color = _ls.ls_color;
+					_ls[ x_ ].sky_color = _ls.sky_color;
+				}
+			}
 			else
 				_ls[ x_ ].object = _ls[ x_ ].object & ~id_;
 		}
 	}
+	LSPoint& point( int x_ ) { return _ls[ x_ ]; }
 	int ground( int x_ ) const { return _ls[ x_ ].ground; }
 	int sky( int x_ ) const { return _ls[ x_ ].sky; }
 	bool hasObject( int obj_, int x_ ) const { return _ls[ x_ ].object & obj_; }
@@ -236,8 +304,23 @@ public:
 	bool hasCumulus( int x_ ) const { return _ls[ x_ ].object & O_CUMULUS; }
 	int object( int x_ ) const { return _ls[ x_ ].object; }
 	size_t size() const { return _ls.size(); }
+	Fl_Color bg_color() const { return _ls.bg_color; }
+	Fl_Color ground_color() const { return _ls.ls_color; }
+	Fl_Color sky_color() const { return _ls.sky_color; }
+	void bg_color( Fl_Color bg_color_ ) { _ls.bg_color = bg_color_; }
+	void ground_color( Fl_Color ground_color_ ) { _ls.ls_color = ground_color_; }
+	void sky_color( Fl_Color sky_color_ ) { _ls.sky_color = sky_color_; }
+	unsigned outline_width() const { return _ls.outline_width; }
+	void outline_width( unsigned outline_width_ ) { _ls.outline_width = outline_width_; }
+	Fl_Color outline_color_ground() const { return _ls.outline_color_ground; }
+	Fl_Color outline_color_sky() const { return _ls.outline_color_sky; }
+	void outline_color_ground( Fl_Color outline_color_ground_ )
+		{ _ls.outline_color_ground = outline_color_ground_ ; }
+	void outline_color_sky( Fl_Color outline_color_sky_ )
+		{ _ls.outline_color_sky = outline_color_sky_ ; }
+	const Terrain& terrain() const { return _ls; }
 private:
-	vector<LSPoint> _ls;
+	Terrain _ls;
 };
 
 //--------------------------------------------------------------------------
@@ -275,10 +358,22 @@ public:
 	void redraw();
 	void save();
 	int searchObject( int obj_, int x_, int y_ );
+	bool get_nearest_color_change_marker( int x_,
+		Fl_Color& sky_color_, Fl_Color& bg_color_, Fl_Color& ground_color_ );
+	bool set_nearest_color_change_marker( int x_,
+		Fl_Color& sky_color_, Fl_Color& bg_color_, Fl_Color& ground_color_ );
 	void selectColor( int x_, int y_ );
 	void setTitle();
 	void xoff( int xoff_ ) { _xoff = xoff_; }
 	int xoff() const { return _xoff; }
+	void onLoad();
+	void onSave() { save(); }
+	void onSaveAs();
+	bool changed() const { return _changed; }
+private:
+	static void load_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onLoad(); }
+	static void save_as_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onSaveAs(); }
+	static void save_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onSave();}
 private:
 	LS *_ls;
 	int _xoff;
@@ -293,6 +388,9 @@ private:
 	bool _scrollLock;
 	int _curr_x;
 	int _curr_y;
+	bool _changed;
+	Fl_Menu_Bar *_menu;
+	bool _menu_shown;
 };
 
 //--------------------------------------------------------------------------
@@ -314,21 +412,46 @@ void PreviewWindow::draw()
 //--------------------------------------------------------------------------
 {
 	Inherited::draw();
-	fl_color( BG_COLOR );
+	fl_color( _ls->bg_color() );
 	fl_rectf( 0, 0, w(), h() );
 
-	fl_color( SKY_COLOR );
+	fl_color( _ls->sky_color());
 	for ( int i = 0; i < (int)_ls->size(); i++ )
 	{
 		int S = _ls->sky( i );
 		fl_line( (int)((double)i/Scale), -1, (int)((double)i/Scale), (int((double)S/Scale)) - 1 );	// TODO: -1 ??
 	}
 
-	fl_color( GROUND_COLOR );
+	fl_color( _ls->ground_color() );
 	for ( int i = 0; i < (int)_ls->size(); i++ )
 	{
 		int G = _ls->ground( i );
 		fl_line( (int)((double)i/Scale), h() - int((double)G/Scale), (int)((double)i/Scale), h() );
+	}
+
+	// draw outline
+	if ( _ls->outline_width() )
+	{
+		// TODO: fix for WIN32
+		fl_line_style( FL_SOLID, 1 );
+		for ( int i = 1; i < (int)_ls->size() - 1; i++ )
+		{
+			int S0 = _ls->sky( i - 1 );
+			int S1 = _ls->sky( i + 1 );
+			int G0 = _ls->ground( i - 1 );
+			int G1 = _ls->ground( i + 1 );
+			fl_color( _ls->outline_color_sky() );
+			fl_line( (int)((double)(i - 1)/Scale),
+			         (int((double)S0/Scale)),
+			         (int)((double)(i + 1)/Scale),
+			         (int((double)S1/Scale)) );
+			fl_color( _ls->outline_color_ground() );
+			fl_line( (int)((double)(i - 1)/Scale),
+			         h() - (int((double)G0/Scale)),
+			         (int)((double)(i + 1)/Scale),
+			         h() - (int((double)G1/Scale)) );
+		}
+		fl_line_style( 0 );
 	}
 }
 
@@ -363,14 +486,17 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_xoff( 0 ),
 	_preview( 0 ),
 	_mode( EDIT_LANDSCAPE ),
-		_rocket( 0 ),
+	_rocket( 0 ),
 	_drop( 0 ),
 	_bady( 0 ),
 	_cumulus( 0 ),
 	_objType( 1 ),
 	_scrollLock( false ),
 	_curr_x( 0 ),
-	_curr_y( 0 )
+	_curr_y( 0 ),
+	_changed( false ),
+	_menu( 0 ),
+	_menu_shown( true )
 //--------------------------------------------------------------------------
 {
 	int screens = 0;
@@ -394,6 +520,8 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	}
 	printf("screens: %d\n", screens );
 	bool loaded;
+	if ( _name.empty() )
+		_name = "_ls.txt";
 	string name( _name.size() ? _name.c_str() : "_ls.txt" );
 	_ls = new LS( screens * w(), name.c_str(), &loaded );
 
@@ -407,6 +535,9 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	objects.push_back( Object( O_DROP, "drop.gif", "Drop" ) );
 	objects.push_back( Object( O_BADY, "bady.gif", "Badguy" ) );
 	objects.push_back( Object( O_CUMULUS, "cumulus.gif", "Good Cloud" ) );
+	objects.push_back( Object( O_COLOR_CHANGE, 0, "Color Change Marker" ) );
+	objects.back().w( 3 );
+	objects.back().h( h() );
 	_rocket = (Fl_Image *)objects.find( O_ROCKET )->image();
 	_drop = (Fl_Image *)objects.find( O_DROP )->image();
 	_bady = (Fl_Image *)objects.find( O_BADY )->image();
@@ -422,6 +553,19 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	}
 
 	color( FL_BLUE );
+
+	static Fl_Menu_Item items[] = {
+	{ "File", 0, 0, 0, FL_SUBMENU },
+		{ "Load level..", 0, load_cb, this, 0 },
+		{ "Save level as..", 0, save_as_cb, this, 0 },
+		{ "Save", 0, save_cb, this, 0 },
+		{ 0 },
+		{ 0 }
+	};
+	_menu = new Fl_Sys_Menu_Bar( 0, 0, 45, 20, "&File" );
+	_menu->box( FL_FLAT_BOX );
+	_menu->menu( items );
+
 	end();
 	setTitle();
 	_preview = new PreviewWindow( h(), _ls );
@@ -441,9 +585,14 @@ void LSEditor::draw()
 {
 	Inherited::draw();
 
-	fl_color( BG_COLOR );
+	Fl_Color bg_color( _ls->bg_color() );
+	Fl_Color sky_color( _ls->sky_color() );
+	Fl_Color ground_color( _ls->ground_color() );
+	get_nearest_color_change_marker( _xoff, sky_color, bg_color, ground_color );
+
+	fl_color( bg_color );
 	fl_rectf( 0, 0, w(), h() );
-	fl_color( SKY_COLOR );
+	fl_color( sky_color );
 
 	for ( int i = _xoff; i < _xoff + w(); i++ )
 	{
@@ -451,11 +600,30 @@ void LSEditor::draw()
 			fl_line( i - _xoff, -1, i - _xoff, S  - 1 );	// TODO: -1 ??
 	}
 
-	fl_color( GROUND_COLOR );
+	fl_color( ground_color );
 	for ( int i = _xoff; i < _xoff + w(); i++ )
 	{
 			int G = h() -_ls->ground( i );
 			fl_line( i - _xoff, G, i - _xoff, h() );
+	}
+
+	// draw outline
+	if ( _ls->outline_width() )
+	{
+		// TODO: fix for WIN32
+		fl_line_style( FL_SOLID, _ls->outline_width() );
+		for ( int i = ( _xoff ? _xoff : 1 ); i < _xoff + w() - 1; i++ )
+		{
+			int S0 = _ls->sky( i - 1 );
+			int G0 = h() -_ls->ground( i  - 1 );
+			int S1 = _ls->sky( i + 1 );
+			int G1 = h() -_ls->ground( i  + 1 );
+			fl_color( _ls->outline_color_sky() );
+			fl_line( i - _xoff - 1, S0, i - _xoff + 1, S1 );
+			fl_color( _ls->outline_color_ground() );
+			fl_line( i - _xoff - 1, G0, i -_xoff + 1, G1 );
+		}
+		fl_line_style( 0 );
 	}
 
 	for ( int i = _xoff; i < _xoff + w(); i++ )
@@ -484,6 +652,13 @@ void LSEditor::draw()
 			if ( _cumulus )
 				_cumulus->draw( i - _xoff - _cumulus->w() / 2, S  );
 		}
+		if ( _ls->hasObject( O_COLOR_CHANGE, i ) )
+		{
+			fl_color( FL_RED );
+			fl_line_style( FL_DOT, 4 ); // set after color (WIN32)!
+			fl_line( i - _xoff, 0, i - _xoff, h() );
+			fl_line_style( 0 );
+		}
 	}
 #if 0
 	// temp. deavtivated till needed (keyboard drawing)
@@ -495,6 +670,7 @@ void LSEditor::draw()
 		fl_line( _curr_x + 5, _curr_y - 5, _curr_x - 6, _curr_y + 6 );
 	}
 #endif
+	Inherited::draw_children();
 }
 
 int LSEditor::handle( int e_ )
@@ -517,6 +693,15 @@ int LSEditor::handle( int e_ )
 			{
 				fl_alert( "%s", HelpText );
 			}
+			if ( 0xffc7 == key ) // F10
+			{
+				if ( _menu_shown )
+					_menu->hide();
+				else
+					_menu->show();
+				_menu_shown = !_menu_shown;
+				redraw();
+			}
 			if (  'm' == key || 'M' == key )
 			{
 				if ( _mode == EDIT_LANDSCAPE && _rocket && _drop && _bady && _cumulus )
@@ -524,6 +709,15 @@ int LSEditor::handle( int e_ )
 				else
 					_mode = EDIT_LANDSCAPE;
 				setTitle();
+			}
+
+			if ( 'o' == key || 'O' == key )
+			{
+				unsigned ow = _ls->outline_width();
+				ow++;
+				ow %= 5;
+				_ls->outline_width( ow );
+				redraw();
 			}
 
 			if ( key == FL_Scroll_Lock )
@@ -609,6 +803,9 @@ int LSEditor::handle( int e_ )
 						case 4:
 							placeObject( O_CUMULUS, x, y );
 							break;
+						case 9:
+							placeObject( O_COLOR_CHANGE, x, y );
+							break;
 						default:
 							placeObject( O_ROCKET, x, y );
 					}
@@ -651,6 +848,8 @@ int LSEditor::handle( int e_ )
 						_ls->setGround( _xoff + X, h() - Y );
 					else
 						_ls->setSky( _xoff + X, Y );
+
+					_changed = true;
 				}
 				xo = x;
 				if ( _scrollLock || Fl::event_shift() )
@@ -675,6 +874,10 @@ int LSEditor::handle( int e_ )
 				redraw();
 			}
 			break;
+		case FL_RELEASE:
+			if ( ( _mode == EDIT_LANDSCAPE ) && _changed )
+				setTitle();
+			break;
 	}
 	return Inherited::handle( e_ );
 }
@@ -690,6 +893,38 @@ void LSEditor::gotoXPos( size_t xpos_ )
 	setTitle();
 	redraw();
 }
+
+void LSEditor::onLoad()
+//--------------------------------------------------------------------------
+{
+	char * name = fl_file_chooser( "Load a level file", "L_*.txt", "", 0 );
+	if ( !name )
+		return;
+	bool loaded( false );
+	LS *ls = new LS( 0, name, &loaded );
+	if ( ls && loaded )
+	{
+		delete _ls;
+		_ls = ls;
+		delete _preview;
+		_preview = new PreviewWindow( h(), _ls );
+		_name = name;
+		_changed = false;
+		setTitle();
+	}
+	redraw();
+}
+
+void LSEditor::onSaveAs()
+//--------------------------------------------------------------------------
+{
+	char * name = fl_file_chooser( "Save level as", "L_*.txt", _name.c_str(), 0 );
+	if ( !name )
+		return;
+	_name = name;
+	save();
+}
+
 
 void LSEditor::placeObject( int obj_, int x_, int y_ )
 //--------------------------------------------------------------------------
@@ -708,6 +943,7 @@ void LSEditor::placeObject( int obj_, int x_, int y_ )
 	{
 		_ls->setObject( obj_, X, true );
 	}
+	_changed = true;
 	redraw();
 }
 
@@ -727,15 +963,30 @@ void LSEditor::save()
 		name = "_ls.txt";
 	printf(" saving to %s\n", name.c_str());
 	ofstream f( name.c_str() );
+	f << 1 << endl;
 	f << 0 << endl;
-	f << 0 << endl;
-	f << BG_COLOR << endl;
-	f << GROUND_COLOR << endl;
-	f << SKY_COLOR << endl;
+	// new format
+	f << _ls->outline_width() << endl;
+	f << _ls->outline_color_ground() << endl;
+	f << _ls->outline_color_sky() << endl;
+
+	f << _ls->bg_color() << endl;
+	f << _ls->ground_color() << endl;
+	f << _ls->sky_color() << endl;
 	for ( size_t i = 0; i <_ls->size(); i++ )
 	{
-		f << _ls->sky( i ) << " " << _ls->ground( i ) << " " << _ls->object( i ) << endl;
+		f << _ls->sky( i ) << " " << _ls->ground( i ) << " " << _ls->object( i );
+		if ( _ls->object( i ) & O_COLOR_CHANGE )
+		{
+			// save extra data for color change object
+			f << " " << _ls->point(i).bg_color;
+			f << " " << _ls->point(i).ls_color;
+			f << " " << _ls->point(i).sky_color;
+		}
+	 	f << endl;
 	}
+	_changed = false;
+	setTitle();
 }
 
 int LSEditor::searchObject( int obj_, int x_, int y_ )
@@ -743,9 +994,8 @@ int LSEditor::searchObject( int obj_, int x_, int y_ )
 {
 	Object *o = objects.find( obj_ );
 	assert( o );
-	const Fl_Image *o_ = o->image();
-		int X = _xoff + x_;
-	int W = o_->w();
+	int X = _xoff + x_;
+	int W = o->w();
 		int x = X - W / 2;
 	if ( x < 0 )
 	{
@@ -763,6 +1013,46 @@ int LSEditor::searchObject( int obj_, int x_, int y_ )
 	return 0;
 }
 
+bool LSEditor::get_nearest_color_change_marker( int x_,
+		Fl_Color& sky_color_, Fl_Color& bg_color_, Fl_Color& ground_color_ )
+//--------------------------------------------------------------------------
+{
+	int X( x_ );
+	while ( X > 0 )
+	{
+		if ( _ls->hasObject( O_COLOR_CHANGE, X ) )
+		{
+			// Hack: access points directly - to much hassle otherwise
+			sky_color_ = _ls->point( X ).sky_color;
+			bg_color_ = _ls->point( X ).bg_color;
+			ground_color_ = _ls->point( X ).ls_color;
+			return true;
+		}
+		--X;
+	}
+	return false;
+}
+
+bool LSEditor::set_nearest_color_change_marker( int x_,
+		Fl_Color& sky_color_, Fl_Color& bg_color_, Fl_Color& ground_color_ )
+//--------------------------------------------------------------------------
+{
+	int X( x_ );
+	while ( X > 0 )
+	{
+		if ( _ls->hasObject( O_COLOR_CHANGE, X ) )
+		{
+			// Hack: access points directly - to much hassle otherwise
+			_ls->point( X ).sky_color = sky_color_;
+			_ls->point( X ).bg_color = bg_color_;
+			_ls->point( X ).ls_color = ground_color_;
+			return true;
+		}
+		--X;
+	}
+	return false;
+}
+
 void LSEditor::selectColor( int x_, int y_ )
 //--------------------------------------------------------------------------
 {
@@ -770,33 +1060,61 @@ void LSEditor::selectColor( int x_, int y_ )
 	int G = _ls->ground( X );
 	int S = _ls->sky( X );
 	Fl_Color c;
+	enum Mode
+	{
+		SKY,
+		GROUND,
+		LS,
+		SKY_OUTLINE,
+		GROUND_OUTLINE
+	};
+	Mode m;
 	string prompt( "Select ");
+	Fl_Color sky_color = _ls->sky_color();
+	Fl_Color ground_color = _ls->ground_color();
+	Fl_Color bg_color = _ls->bg_color();
+	bool marker = get_nearest_color_change_marker( X, sky_color, bg_color, ground_color );
+
+	bool alt = Fl::event_ctrl();
 	if ( y_ < S )
 	{
-		c = SKY_COLOR;
-		prompt += "sky color";
+		c = alt ? _ls->outline_color_sky() : sky_color;
+		m = alt ? SKY_OUTLINE : SKY;
+		prompt += alt ? "sky outline color" : marker ? "sky color marker" : "sky color";
 	}
 	else if ( y_ > h() - G )
 	{
-		c = GROUND_COLOR;
-		prompt += "ground color";
+		c = alt ? _ls->outline_color_ground() : ground_color;
+		m = alt ? GROUND_OUTLINE : GROUND;
+		prompt += alt ? "ground outline color" : marker ? "ground color marker" : "ground color";
 	}
 	else
 	{
-		c = BG_COLOR;
-		prompt += "BG color";
+		c = bg_color;
+		m = LS;
+		prompt += marker ? "BG color marker" : "BG color";
 	}
 	unsigned char r, g, b;
 	Fl::get_color( c, r, g, b );
 	if ( fl_color_chooser( prompt.c_str(), r, g, b, 1 ) )
 	{
 		Fl_Color nc = fl_rgb_color( r, g, b );
-		if ( c == SKY_COLOR )
-			SKY_COLOR = nc;
-		else if ( c == GROUND_COLOR )
-			GROUND_COLOR = nc;
+		if ( m == SKY )
+			sky_color =  nc;
+		else if ( m == GROUND )
+			ground_color = nc;
+		else if ( m == SKY_OUTLINE )
+			_ls->outline_color_sky( nc );
+		else if ( m == GROUND_OUTLINE )
+			_ls->outline_color_ground( nc );
 		else
-			BG_COLOR = nc;
+			bg_color = nc;
+		if ( !set_nearest_color_change_marker( X, sky_color, bg_color, ground_color ) )
+		{
+			_ls->sky_color( sky_color );
+			_ls->ground_color( ground_color );
+			_ls->bg_color( bg_color );
+		}
 		redraw();
 	}
 }
@@ -822,13 +1140,25 @@ void LSEditor::setTitle()
 		case 4:
 			obj = O_CUMULUS;
 			break;
+		case 9:
+			obj = O_COLOR_CHANGE;
+			break;
 		default:
 			obj = O_ROCKET;
 	}
 	placeInfo = _mode == PLACE_OBJECTS ? objects.find( obj )->name() : "";
 	string info( _mode == EDIT_LANDSCAPE ? "EDIT" : ( "PLACE " + placeInfo ) );
-	if( _name.size() )
-		os << _name << "      ";
+	string n( _name );
+	if( n.size() )
+	{
+		if ( n.size() > 40 )
+		{
+			n.erase( 0, n.size() - 40 );
+			n.insert( 0, "..");
+		}
+//		os << n << ( _changed ? "*" : "" ) << "      ";
+	}
+	os << n << ( _changed ? "*" : "" ) << "      ";
 	os << info << "      xpos: " << _xoff << " (Screen " << ( _xoff / w() ) + 1 << "/" << _ls->size() / w() << ")";
 	if ( _mode == EDIT_LANDSCAPE && _scrollLock )
 		os << "                SCROLL";
