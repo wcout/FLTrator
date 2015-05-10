@@ -36,7 +36,7 @@
 #include <sstream>
 using namespace std;
 
-
+static const unsigned MAX_LEVEL = 10;
 static const int MAX_SCREENS = 15;
 static const int SCREEN_W = 800;
 static const int SCREEN_H = 600;
@@ -61,7 +61,8 @@ with left button or the sky with right button.\n \
 Set 'Scroll Lock' to move the view automatically.\n \
 Use 'Ctrl' to draw horizontal lines.\n\n \
 Double click on landscape to select colors for\n \
-ground/land/sky.\n\n \
+ground/land/sky (with 'Ctrl': outline colors).\n \
+Use key 'o' to change outline width.\n\n \
 In PLACE mode select object type to place with\n \
 '1'-'9' and place/remove objects with double click.\n\n \
 When closing the window all changes will be saved.\n \
@@ -79,16 +80,30 @@ static string homeDir()
 	return (string)home_path + "fltrator/";
 }
 
+static string mkPath( const string& dir_, const string& file_ )
+//-------------------------------------------------------------------------------
+{
+	string dir( dir_ );
+	if ( dir.size() && dir[ dir.size() - 1 ] != '/' )
+		dir.push_back( '/' );
+	if ( access( file_.c_str(), R_OK ) == 0 )
+		return file_;
+	string localPath( dir + file_ );
+	if ( access( localPath.c_str(), R_OK ) == 0 )
+		return localPath;
+	return homeDir() + dir + file_;
+}
+
+static string levelPath( const string& file_ )
+//-------------------------------------------------------------------------------
+{
+	return mkPath( "levels", file_ );
+}
+
 static string imgPath( const string& file_ )
 //-------------------------------------------------------------------------------
 {
-	static const char imgDir[] = "images/";
-	if ( access( file_.c_str(), R_OK ) == 0 )
-		return file_;
-	string localPath( imgDir + file_ );
-	if ( access( localPath.c_str(), R_OK ) == 0 )
-		return localPath;
-	return homeDir() + imgDir + file_;
+	return mkPath( "images", file_ );
 }
 
 //--------------------------------------------------------------------------
@@ -160,7 +175,7 @@ public:
 	int ground;
 	int object;
 	Fl_Color bg_color;
-	Fl_Color ls_color;
+	Fl_Color ground_color;
 	Fl_Color sky_color;
 };
 
@@ -173,7 +188,7 @@ public:
 	Terrain() :
 		Inherited(),
 		bg_color( FL_BLUE ),
-		ls_color( FL_GREEN ),
+		ground_color( FL_GREEN ),
 		sky_color( FL_DARK_GREEN ),
 		outline_width( 0 ),
 		outline_color_sky( FL_BLACK ),
@@ -181,7 +196,7 @@ public:
 	{}
 public:
 	Fl_Color bg_color;
-	Fl_Color ls_color;
+	Fl_Color ground_color;
 	Fl_Color sky_color;
 	unsigned outline_width;
 	Fl_Color outline_color_sky;
@@ -193,7 +208,8 @@ class LS
 //--------------------------------------------------------------------------
 {
 public:
-	LS( size_t W_, const char *f_ = 0, bool *loaded_ = 0 )
+	LS( size_t W_, const char *f_ = 0, bool *loaded_ = 0 ) :
+		_flags( 0 )
 	{
 		if ( loaded_ ) *loaded_ = false;
 		// Note: When W_ = 0 and a file is read in
@@ -207,9 +223,8 @@ public:
 				printf( "reading from %s\n", f_ );
 				if ( loaded_ ) *loaded_ = true;
 				unsigned long version;
-				unsigned long flags;
 				f >> version;
-				f >> flags;
+				f >> _flags;
 				if ( version )
 				{
 					// new format
@@ -218,7 +233,7 @@ public:
 					f >> _ls.outline_color_sky;
 				}
 				f >> _ls.bg_color;
-				f >> _ls.ls_color;
+				f >> _ls.ground_color;
 				f >> _ls.sky_color;
 
 				while ( f.good() && size() < W )	// access data is ignored!
@@ -234,14 +249,14 @@ public:
 					if ( o & O_COLOR_CHANGE )
 					{
 						// fetch extra data for color change object
-						Fl_Color bg_color, ls_color, sky_color;
+						Fl_Color bg_color, ground_color, sky_color;
 						f >> bg_color;
-						f >> ls_color;
+						f >> ground_color;
 						f >> sky_color;
 						if ( f.good() )
 						{
 							_ls.back().bg_color = bg_color;
-							_ls.back().ls_color = ls_color;
+							_ls.back().ground_color = ground_color;
 							_ls.back().sky_color = sky_color;
 						}
 					}
@@ -286,7 +301,7 @@ public:
 				if ( id_ == O_COLOR_CHANGE )
 				{
 					_ls[ x_ ].bg_color = _ls.bg_color;
-					_ls[ x_ ].ls_color = _ls.ls_color;
+					_ls[ x_ ].ground_color = _ls.ground_color;
 					_ls[ x_ ].sky_color = _ls.sky_color;
 				}
 			}
@@ -305,10 +320,10 @@ public:
 	int object( int x_ ) const { return _ls[ x_ ].object; }
 	size_t size() const { return _ls.size(); }
 	Fl_Color bg_color() const { return _ls.bg_color; }
-	Fl_Color ground_color() const { return _ls.ls_color; }
+	Fl_Color ground_color() const { return _ls.ground_color; }
 	Fl_Color sky_color() const { return _ls.sky_color; }
 	void bg_color( Fl_Color bg_color_ ) { _ls.bg_color = bg_color_; }
-	void ground_color( Fl_Color ground_color_ ) { _ls.ls_color = ground_color_; }
+	void ground_color( Fl_Color ground_color_ ) { _ls.ground_color = ground_color_; }
 	void sky_color( Fl_Color sky_color_ ) { _ls.sky_color = sky_color_; }
 	unsigned outline_width() const { return _ls.outline_width; }
 	void outline_width( unsigned outline_width_ ) { _ls.outline_width = outline_width_; }
@@ -319,8 +334,10 @@ public:
 	void outline_color_sky( Fl_Color outline_color_sky_ )
 		{ _ls.outline_color_sky = outline_color_sky_ ; }
 	const Terrain& terrain() const { return _ls; }
+	unsigned long flags() const { return _flags; }
 private:
 	Terrain _ls;
+	unsigned long _flags;
 };
 
 //--------------------------------------------------------------------------
@@ -461,6 +478,10 @@ int PreviewWindow::handle( int e_ )
 	int x = Fl::event_x();
 //	int y = Fl::event_y();
 	int mode = Fl::event_clicks() > 0;
+	int c = Fl::event_key();
+	if ( ( e_ == FL_KEYDOWN || e_ == FL_KEYUP ) && c == FL_Escape )
+		// get rid of ecape key closing window
+		return 1;
 
 	switch ( e_ )
 	{
@@ -499,25 +520,82 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_menu_shown( true )
 //--------------------------------------------------------------------------
 {
+	int argc( argc_ );
+	unsigned argi( 1 );
+	int level = 0;
 	int screens = 0;
-	if ( argc_ > 1 )
-		_name = argv_[ 1 ];
-	if ( argc_ > 2 )
+	string levelFile;
+	while ( argc-- > 1 )
 	{
-		if ( isdigit( argv_[ 2 ][ 0 ] ) )
+		string arg( argv_[argi++] );
+		if ( "--help" == arg )
 		{
-			screens = atoi( argv_[ 2 ] );
-			if ( screens <= 0 || screens > MAX_SCREENS )
+			printf( "Usage:\n" );
+			printf( "  %s [level] [levelfile] [options]\n\n", argv_[0] );
+			printf( "              Defaults are _ls.txt -s 15\n\n" );
+			printf( "Options:\n" );
+			printf( "  -p          start in object place mode\n" );
+			printf( "  -s screens  number of screens\n\n" );
+			printf( "Note: Specifying screens with an existing file\n" );
+			printf( "will expand/shrink the file to the given value!\n" );
+			exit( 0 );
+		}
+
+		int maybe_level = atoi( arg.c_str() );
+		if ( maybe_level > 0 && maybe_level <= (int)MAX_LEVEL )
+		{
+			level = maybe_level;
+		}
+		else if ( arg[0] == '-' )
+		{
+			for ( size_t i = 1; i < arg.size(); i++ )
 			{
-				fprintf( stderr, "Invalid screens parameter: %d [1-%d allowed]\n", screens, MAX_SCREENS );
-				exit( -1 );
+				switch ( arg[i] )
+				{
+					case 'p':
+						_mode = PLACE_OBJECTS;
+						break;
+					case 's':
+						if ( argc > 1 )
+						{
+							string s( argv_[ argi++ ] );
+							argc--;
+							screens = atoi( s.c_str() );
+							if ( screens < 2 || screens > MAX_SCREENS )
+							{
+								fprintf( stderr, "Invalid screens parameter: %d [2-%d allowed]\n", screens, MAX_SCREENS );
+								exit( -1 );
+							}
+						}
+						break;
+					default:
+						fprintf( stderr, "Invalid option -%c\n", arg[i] );
+						exit( -1 );
+				}
 			}
 		}
 		else
 		{
-			_mode = PLACE_OBJECTS;
+			levelFile = arg;
+			printf( "level file: '%s'\n", levelFile.c_str() );
 		}
 	}
+	if ( level && levelFile.size() )
+	{
+		printf( "Supply either a level number or a level file!\n" );
+		exit( -1 );
+	}
+	if ( level )
+	{
+		ostringstream os;
+		os << "L_" << level << ".txt";
+		_name = levelPath( os.str() );
+	}
+	else
+	{
+		_name = levelFile;
+	}
+
 	printf("screens: %d\n", screens );
 	bool loaded;
 	if ( _name.empty() )
@@ -565,6 +643,7 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_menu = new Fl_Sys_Menu_Bar( 0, 0, 45, 20, "&File" );
 	_menu->box( FL_FLAT_BOX );
 	_menu->menu( items );
+	_menu->tooltip( "Hide/show this menu with F10" );
 
 	end();
 	setTitle();
@@ -963,8 +1042,8 @@ void LSEditor::save()
 		name = "_ls.txt";
 	printf(" saving to %s\n", name.c_str());
 	ofstream f( name.c_str() );
-	f << 1 << endl;
-	f << 0 << endl;
+	f << 1 << endl;	// version
+	f << _ls->flags() << endl;	// preserved flags (only hand-editable currently)
 	// new format
 	f << _ls->outline_width() << endl;
 	f << _ls->outline_color_ground() << endl;
@@ -980,7 +1059,7 @@ void LSEditor::save()
 		{
 			// save extra data for color change object
 			f << " " << _ls->point(i).bg_color;
-			f << " " << _ls->point(i).ls_color;
+			f << " " << _ls->point(i).ground_color;
 			f << " " << _ls->point(i).sky_color;
 		}
 	 	f << endl;
@@ -1025,7 +1104,7 @@ bool LSEditor::get_nearest_color_change_marker( int x_,
 			// Hack: access points directly - to much hassle otherwise
 			sky_color_ = _ls->point( X ).sky_color;
 			bg_color_ = _ls->point( X ).bg_color;
-			ground_color_ = _ls->point( X ).ls_color;
+			ground_color_ = _ls->point( X ).ground_color;
 			return true;
 		}
 		--X;
@@ -1045,7 +1124,7 @@ bool LSEditor::set_nearest_color_change_marker( int x_,
 			// Hack: access points directly - to much hassle otherwise
 			_ls->point( X ).sky_color = sky_color_;
 			_ls->point( X ).bg_color = bg_color_;
-			_ls->point( X ).ls_color = ground_color_;
+			_ls->point( X ).ground_color = ground_color_;
 			return true;
 		}
 		--X;
@@ -1169,15 +1248,6 @@ void LSEditor::setTitle()
 int main( int argc_, const char *argv_[] )
 //--------------------------------------------------------------------------
 {
-	string arg1 = argc_ > 1 ? argv_[1] : "";
-	if ( arg1 == "-help" || arg1 == "--help" || arg1 == "-h" )
-	{
-		printf( "Usage: %s levelfile screens\n", argv_[0] );
-		printf( "       Defaults are _ls.txt 15\n\n" );
-		printf( "Note: Specifying screens with an existing file\n" );
-		printf( "will expand/shrink the file to that value!\n" );
-		exit( 0 );
-	}
 	LSEditor editor( argc_, argv_ );
 	printf("ready!\n");
 	Fl::run();

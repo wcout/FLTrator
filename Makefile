@@ -24,7 +24,8 @@ LDFLAGS=
 LDLIBS=`$(FLTK_CONFIG) --use-images --ldstaticflags`
 
 FLTKCXXFLAGS = `$(FLTK_CONFIG) --cxxflags`
-CXXFLAGS+= -g -Wall --pedantic $(INCLUDE) $(FLTKCXXFLAGS)
+#CXXDEFS=-DUSE_FLTK_RUN
+CXXFLAGS+=$(CXXDEFS) -g -Wall --pedantic $(INCLUDE) $(FLTKCXXFLAGS)
 #OPT=
 OPT=-O3
 
