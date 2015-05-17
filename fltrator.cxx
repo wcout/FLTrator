@@ -88,6 +88,7 @@ enum ObjectType
 	O_DROP = 2,
 	O_BADY = 4,
 	O_CUMULUS = 8,
+	O_RADAR = 16,
 	O_COLOR_CHANGE = 64,
 
 	// internal
@@ -292,6 +293,7 @@ public:
 	static Audio *instance();
 	bool play( const char *file_ );
 	bool disabled() const { return _disabled; }
+	bool enabled() const { return !_disabled; }
 	void disable( bool disable_ = true ) { _disabled = disable_; }
 	void cmd( const string& cmd_ ) { _cmd = cmd_; }
 private:
@@ -382,6 +384,10 @@ class Object
 public:
 	Object( ObjectType o_, int x_, int y_, const char *image_ = 0, int w_ = 0, int h_ = 0 );
 	virtual ~Object();
+	void animate();
+	void stop_animate() { Fl::remove_timeout( cb_animate, this ); }
+	bool hit();
+	int hits() const { return _hits; }
 	void image( const char *image_ );
 	bool isTransparent( size_t x_, size_t y_ ) const;
 	bool started() const { return _state > 0; }
@@ -415,7 +421,18 @@ public:
 	const Rect rect() const { return Rect( x(), y(), w(), h() ); }
 	Fl_Image *image() const { return _image; }
 	ObjectType o() const { return _o; }
+	const bool isType( ObjectType o_ ) const { return _o == o_; }
+	void onExplosionEnd();
+	static void cb_explosion_end( void *d_ );
+	void crash();
+	void explode();
+	bool exploding() const { return _exploding; }
+	bool exploded() const { return _exploded; }
 private:
+	void _explode( double to_ = 0. );
+	virtual bool onHit() { return false; }
+private:
+	static void cb_animate( void *d_ );
 	static void cb_update( void *d_ );
 protected:
 	ObjectType _o;
@@ -425,8 +442,14 @@ protected:
 	unsigned _state;
 private:
 	bool _nostart;
+	bool _exploding;	// state exploding
+	bool _exploded;
+	bool _hit;	// state 'hit' for explosion drawing
 	double _timeout;
+	double _animate_timeout;
 	Fl_Shared_Image *_image;
+	int _ox;
+	int _hits;
 };
 
 //-------------------------------------------------------------------------------
@@ -442,15 +465,22 @@ Object::Object( ObjectType o_, int x_, int y_,
 	_speed( 1 ),
 	_state(0),
 	_nostart( false ),
+	_exploding( false ),
+	_exploded( false ),
+	_hit( false ),
 	_timeout( 0.05 ),
-	_image( image_ ? Fl_Shared_Image::get( imgPath( image_ ).c_str() ) : 0  )
+	_animate_timeout( 0.0 ),
+	_image( 0 ),
+	_ox( 0 ),
+	_hits( 0 )
 //-------------------------------------------------------------------------------
 {
 	if ( image_ )
 	{
+		image( image_ );
 		assert( _image && _image->count() );
-		_w = _image->w();
-		_h = _image->h();
+		if ( _animate_timeout )
+			Fl::add_timeout( _animate_timeout, cb_animate, this );
 	}
 }
 
@@ -458,22 +488,58 @@ Object::Object( ObjectType o_, int x_, int y_,
 Object::~Object()
 //-------------------------------------------------------------------------------
 {
+	Fl::remove_timeout( cb_animate, this );
 	Fl::remove_timeout( cb_update, this );
+	Fl::remove_timeout( cb_explosion_end, this );
 	if ( _image )
 		_image->release();
+}
+
+void Object::animate()
+//-------------------------------------------------------------------------------
+{
+	_ox += _w;
+	if ( _ox >= _image->w() )
+		_ox = 0;
+}
+
+bool Object::hit()
+//-------------------------------------------------------------------------------
+{
+	_hits++;
+	_explode();
+	return onHit();
 }
 
 void Object::image( const char *image_ )
 //-------------------------------------------------------------------------------
 {
 	assert( image_ );
+	Fl::remove_timeout( cb_animate, this );
 	Fl_Shared_Image *image = Fl_Shared_Image::get( imgPath( image_ ).c_str() );
 	if ( image && image->count() )
 	{
 		if ( _image )
 			_image->release();
 		_image = image;
-		_w = _image->w();
+		_animate_timeout = 0.;
+		const char *p = strstr( image_, "_" );
+		if ( p && isdigit( p[1] ) )
+		{
+			p++;
+			int frames = atoi( p );
+			_w = _image->w() / frames;
+			p = strstr( p, "_" );
+			if ( p )
+			{
+				p++;
+				_animate_timeout = (double)atoi( p ) / 1000;
+			}
+		}
+		else
+		{
+			_w = _image->w();
+		}
 		_h = _image->h();
 	}
 }
@@ -508,13 +574,16 @@ void Object::update()
 void Object::draw()
 //-------------------------------------------------------------------------------
 {
-	_image->draw( x(), y() );
+	if ( !_exploded )
+		_image->draw( x(), y(), _w, _h, _ox, 0 );
 #ifdef DEBUG
 	fl_color(FL_YELLOW);
 	Rect r(rect());
 	fl_rect(r.x(),r.y(),r.w(),r.h());
 	fl_point( cx(), cy() );
 #endif
+	 if ( _exploding || _hit )
+		draw_collision();
 }
 
 void Object::draw_collision() const
@@ -525,7 +594,7 @@ void Object::draw_collision() const
 	{
 		int X = random() % w();
 		int Y = random() % h();
-		if ( !isTransparent( X, Y ) )
+		if ( !isTransparent( X + _ox, Y ) )
 		{
 			fl_rectf( x() + X - 2 , y() + Y - 2 , 4, 4,
 				( random() % 2 ? FL_RED : FL_YELLOW ) );
@@ -541,6 +610,62 @@ void Object::cb_update( void *d_ )
 	Fl::repeat_timeout( ((Object *)d_)->_timeout, cb_update, d_ );
 }
 
+/*static*/
+void Object::cb_animate( void *d_ )
+//-------------------------------------------------------------------------------
+{
+	((Object *)d_)->animate();
+	Fl::repeat_timeout( ((Object *)d_)->_animate_timeout, cb_animate, d_ );
+}
+
+void Object::onExplosionEnd()
+//-------------------------------------------------------------------------------
+{
+	_hit = false;
+	if ( _exploding )
+	{
+//		_exploding = false;
+		_exploded = true;
+	}
+}
+
+/*static*/
+void Object::cb_explosion_end( void *d_ )
+//-------------------------------------------------------------------------------
+{
+	((Object *)d_)->onExplosionEnd();
+}
+
+void Object::crash()
+//-------------------------------------------------------------------------------
+{
+	_explode( 0.2 );
+}
+
+void Object::explode()
+//-------------------------------------------------------------------------------
+{
+	_explode( 0.05 );
+}
+
+void Object::_explode( double to_ )
+//-------------------------------------------------------------------------------
+{
+	if ( !_exploding && !_exploded )
+	{
+		if ( to_ )	// real explosion
+		{
+			_exploding = true;
+			Fl::add_timeout( to_, cb_explosion_end, this );
+		}
+		else	// hit feedback explosion
+		{
+			_hit = true;
+			Fl::add_timeout( 0.02, cb_explosion_end, this );
+		}
+	}
+}
+
 //-------------------------------------------------------------------------------
 class Rocket : public Object
 //-------------------------------------------------------------------------------
@@ -548,29 +673,16 @@ class Rocket : public Object
 typedef Object Inherited;
 public:
 	Rocket( int x_= 0, int y_ = 0 ) :
-		Inherited( O_ROCKET, x_, y_, "rocket.gif" ),
-		_exploding( false ),
-		_exploded( false )
+		Inherited( O_ROCKET, x_, y_, "rocket.gif" )
 	{
-	}
-	virtual ~Rocket()
-	{
-		Fl::remove_timeout( cb_explosion_end, this );
 	}
 	bool lifted() const { return started(); }
 	virtual const char *start_sound() const { return "launch.wav"; }
 	virtual const char* image_started() const { return "rocket_launched.gif"; }
-	void draw()
-	{
-		if ( !_exploded )
-			Inherited::draw();
-		 if ( _exploding )
-			draw_collision();
-	}
 	void update()
 	{
 		if ( G_paused ) return;
-		if ( !_exploding && !_exploded )
+		if ( !exploding() && !exploded() )
 		{
 			size_t delta = ( 1 + _state / 10 ) * _speed;
 			if ( delta > 12 )
@@ -579,37 +691,25 @@ public:
 		}
 		Inherited::update();
 	}
-	void onExplosionEnd()
+};
+
+//-------------------------------------------------------------------------------
+class Radar : public Object
+//-------------------------------------------------------------------------------
+{
+typedef Object Inherited;
+public:
+	Radar( int x_ = 0, int y_ = 0) :
+		Inherited( O_RADAR, x_, y_, "radar_00014_0200.gif" )
 	{
-//		_exploding = false;
-		_exploded = true;
 	}
-	static void cb_explosion_end( void *d_ )
+	bool defunct() const { return hits() > 1; }
+	virtual bool onHit()
 	{
-		((Rocket *)d_)->onExplosionEnd();
+		if ( hits() == 1 )
+			stop_animate();
+		return hits() > 2;
 	}
-	void crash()
-	{
-		_explode( 0.2 );
-	}
-	void explode()
-	{
-		_explode( 0.05 );
-	}
-	bool exploding() const { return _exploding; }
-	bool exploded() const { return _exploded; }
-private:
-	void _explode( double to_ )
-	{
-		if ( !_exploding && !_exploded )
-		{
-			_exploding = true;
-			Fl::add_timeout( to_, cb_explosion_end, this );
-		}
-	}
-private:
-	bool _exploding;
-	bool _exploded;
 };
 
 //-------------------------------------------------------------------------------
@@ -624,9 +724,10 @@ public:
 	}
 	bool dropped() const { return started(); }
 	virtual const char *start_sound() const { return "drop.wav"; }
-	void hit()
+	virtual bool onHit()
 	{
-		//	TODO: other image?
+		// TODO: other image?
+		return false;
 	}
 	void update()
 	{
@@ -647,24 +748,19 @@ typedef Object Inherited;
 public:
 	Bady( int x_ = 0, int y_ = 0 ) :
 		Inherited( O_BADY, x_, y_, "bady.gif" ),
-		_up( false ),	// default zuerst nach unten
-		_hits( 0 )
+		_up( false )	// default zuerst nach unten
 	{
 	}
 	bool moving() const { return started(); }
 	virtual const char *start_sound() const { return "bady.wav"; }
-	void hit()
-	{
-		_hits++;
-		if ( badlyhit() )
-		{
-			image( "bady_hit.gif" );
-		}
-	}
-	int hits() const { return _hits; }
-	bool badlyhit() const { return _hits >= 4; }
 	void turn() { _up = !_up; }
 	bool turned() const { return _up; }
+	virtual bool onHit()
+	{
+		if ( hits() >= 4 )
+			image( "bady_hit.gif" );
+		return hits() > 4;
+	}
 	void update()
 	{
 		if ( G_paused ) return;
@@ -676,7 +772,6 @@ public:
 	}
 private:
 	bool _up;
-	int _hits;
 };
 
 //-------------------------------------------------------------------------------
@@ -936,6 +1031,7 @@ private:
 	void draw_missiles();
 	void draw_bombs();
 	void draw_rockets();
+	void draw_radars();
 	void draw_drops();
 	void draw_badies();
 	void draw_cumuluses();
@@ -956,6 +1052,7 @@ private:
 	void update_badies();
 	void update_cumuluses();
 	void update_rockets();
+	void update_radars();
 	int drawText( int x_, int y_, const char *text_, size_t sz_, Fl_Color c_, ... ) const;
 	void draw_score();
 	void draw_scores();
@@ -986,6 +1083,7 @@ protected:
 	vector<Missile *> Missiles;
 	vector<Bomb *> Bombs;
 	vector<Rocket *> Rockets;
+	vector<Radar *> Radars;
 	vector<Drop *> Drops;
 	vector<Bady *> Badies;
 	vector<Cumulus *> Cumuluses;
@@ -998,6 +1096,7 @@ private:
 	bool _left, _right, _up, _down;
 	Spaceship *_spaceship;
 	Rocket _rocket;
+	Radar _radar;
 	Drop _drop;
 	Bady _bady;
 	Cumulus _cumulus;
@@ -1574,6 +1673,7 @@ void FltWin::draw_objects( bool pre_ )
 		draw_missiles();
 		draw_bombs();
 		draw_rockets();
+		draw_radars();
 		draw_drops();
 		draw_badies();
 	}
@@ -1607,6 +1707,15 @@ void FltWin::draw_rockets()
 	for ( size_t i = 0; i < Rockets.size(); i++ )
 	{
 		Rockets[i]->draw();
+	}
+}
+
+void FltWin::draw_radars()
+//-------------------------------------------------------------------------------
+{
+	for ( size_t i = 0; i < Radars.size(); i++ )
+	{
+		Radars[i]->draw();
 	}
 }
 
@@ -1673,14 +1782,36 @@ void FltWin::check_missile_hits()
 		}
 		if ( m == Missiles.end() ) break;
 
+		vector<Radar *>::iterator ra = Radars.begin();
+		for ( ; ra != Radars.end(); )
+		{
+			if ( !((*ra)->exploding()) &&
+			     ((*m)->rect().intersects( (*ra)->rect() ) ||
+			     (*m)->rect().inside( (*ra)->rect())) )
+			{
+				// radar hit by missile
+				if ( (*ra)->hit() )	// takes 2 missile hits to succeed!
+				{
+					Audio::instance()->play( "missile_hit.wav" );
+					(*ra)->explode();
+					add_score( 40 );
+				}
+				// missile also is gone...
+				delete *m;
+				m = Missiles.erase(m);
+				break;
+			}
+			++ra;
+		}
+		if ( m == Missiles.end() ) break;
+
 		vector<Bady *>::iterator b = Badies.begin();
 		for ( ; b != Badies.end(); )
 		{
 			if ( (*m)->rect().inside( (*b)->rect()) )
 			{
 				// bady hit by missile
-				(*b)->hit();
-				if ( (*b)->hits() >= 5 )
+				if ( (*b)->hit() )
 				{
 					Audio::instance()->play( "bady_hit.wav" );
 					delete *b;
@@ -1741,6 +1872,27 @@ void FltWin::check_bomb_hits()
 				break;
 			}
 			++r;
+		}
+		if ( b == Bombs.end() ) break;
+
+		vector<Radar *>::iterator ra = Radars.begin();
+		for ( ; ra != Radars.end(); )
+		{
+			if ( !((*ra)->exploding()) &&
+			     ((*b)->rect().intersects( (*ra)->rect() ) ||
+			     (*b)->rect().inside( (*ra)->rect())) )
+			{
+				// radar hit by bomb
+				Audio::instance()->play( "bomb_x.wav" );
+				(*ra)->explode();
+				add_score( 50 );
+
+				// bomb also is gone...
+				delete *b;
+				b = Bombs.erase(b);
+				break;
+			}
+			++ra;
 		}
 		if ( b == Bombs.end() ) break;
 
@@ -1861,6 +2013,15 @@ void FltWin::create_objects()
 			printf( "#rockets: %lu\n", (unsigned long)Rockets.size() );
 #endif
 		}
+		if ( o & O_RADAR && i - _radar.w() / 2 < w() )
+		{
+			Radar *r = new Radar( i, h() - T[_xoff + i].ground_level() - _radar.h() / 2 );
+			Radars.push_back( r );
+			o &= ~O_RADAR;
+#ifdef DEBUG
+			printf( "#radars: %lu\n", (unsigned long)Radars.size() );
+#endif
+		}
 		if ( o & O_DROP && i - _drop.w() / 2 < w() )
 		{
 			Drop *d = new Drop( i, T[_xoff + i].sky_level() + _drop.h() / 2 );
@@ -1910,6 +2071,9 @@ void FltWin::delete_objects()
 	for ( size_t i = 0; i < Rockets.size(); i++ )
 		delete Rockets[i];
 	Rockets.clear();
+	for ( size_t i = 0; i < Radars.size(); i++ )
+		delete Radars[i];
+	Radars.clear();
 	for ( size_t i = 0; i < Drops.size(); i++ )
 		delete Drops[i];
 	Drops.clear();
@@ -1982,6 +2146,7 @@ void FltWin::update_objects()
 	update_missiles();
 	update_bombs();
 	update_rockets();
+	update_radars();
 	update_drops();
 	update_badies();
 	update_cumuluses();
@@ -2167,6 +2332,20 @@ void FltWin::update_rockets()
 				each_n /= 3;
 			if ( each_n <= 0 )
 				each_n = 1;
+			// if a radar is within start_dist then the
+			// probability gets much higher
+			int x = Rockets[i]->x();
+			for ( size_t ra = 0; ra < Radars.size(); ra++ )
+			{
+				if ( Radars[ra]->defunct() ) continue;
+				if ( Radars[ra]->x() >= x ) continue;
+				if ( Radars[ra]->x() <= x - start_dist ) continue;
+				// there's a working radar within start_dist
+				each_n /= 5;
+				if ( each_n <= 0 )
+					each_n = 1;
+				break;
+			}
 			int rd = random() % each_n; // L1: 0..9  L10: 0
 //			printf( "each_n = %d, rd = %d\n", each_n, rd );
 			if ( rd == 0 )
@@ -2176,6 +2355,28 @@ void FltWin::update_rockets()
 				continue;
 			}
 			Rockets[i]->nostart( true );
+		}
+	}
+}
+
+void FltWin::update_radars()
+//-------------------------------------------------------------------------------
+{
+	for ( size_t i = 0; i < Radars.size(); i++ )
+	{
+		if ( !paused() )
+			Radars[i]->x( Radars[i]->x() - DX);
+		bool gone = Radars[i]->exploded() || Radars[i]->x() < -Radars[i]->w();
+		if ( gone )
+		{
+#ifdef DEBUG
+			printf( " gone one radar from #%lu\n", (unsigned long)Radars.size() );
+#endif
+			Radar *r = Radars[i];
+			Radars.erase( Radars.begin() + i );
+			delete r;
+			i--;
+			continue;
 		}
 	}
 }
@@ -2389,7 +2590,8 @@ void FltWin::draw_title()
 		drawText( x, 340, "p ............. fire missile", 30, FL_WHITE );
 		drawText( x, 380, "space ...... drop bomb", 30, FL_WHITE );
 		drawText( x, 420, "7-9 .......... hold game", 30, FL_WHITE );
-		drawText( x, 460, "s ............. toggle sound", 30, FL_WHITE );
+		drawText( x, 460, "s ............. %s sound", 30, FL_WHITE,
+			Audio::instance()->enabled() ? "disable" : "enable"  );
 	}
 	if ( G_paused )
 		drawText( -1, h() - 50, "** PAUSED **", 40, FL_YELLOW );
@@ -2575,6 +2777,7 @@ int FltWin::handle( int e_ )
 		keyClick();
 		Audio::instance()->disable( !Audio::instance()->disabled() );
 		keyClick();
+		onTitleScreen();
 	}
 
 	if ( _state == TITLE || _state == SCORE || _state == DEMO )
