@@ -48,6 +48,7 @@ enum ObjectType
 	O_DROP = 2,
 	O_BADY = 4,
 	O_CUMULUS = 8,
+	O_RADAR = 16,
 	O_COLOR_CHANGE = 64
 };
 
@@ -122,15 +123,27 @@ public:
 		{
 			_image = new Fl_GIF_Image( imgPath( image_ ).c_str() );
 			assert( _image && _image->d() );
+			_w = _image->w();
+			_h = _image->h();
+			const char *p = strstr( image_, "_" );
+			if ( p && isdigit( p[1] ) )
+			{
+				p++;
+				int frames = atoi( p );
+				if ( frames )
+				{
+					_w = _image->w() / frames;
+				}
+			}
 		}
 	}
 	const char *name() const { return _name.c_str(); }
 	const int id() const { return _id; }
-	const Fl_Image *image() const { return _image; }
+	Fl_Image *image() const { return _image; }
 	void w( int w_ ) { _w = w_; }
 	void h( int h_ ) { _h = h_; }
-	int w() const { return _image ? _image->w() : _w; }
-	int h() const { return _image ? _image->h() : _h; }
+	int w() const { return _w; }
+	int h() const { return _h; }
 private:
 	int _id;
 	Fl_Image *_image;
@@ -317,6 +330,7 @@ public:
 	bool hasDrop( int x_ ) const { return _ls[ x_ ].object & O_DROP; }
 	bool hasBady( int x_ ) const { return _ls[ x_ ].object & O_BADY; }
 	bool hasCumulus( int x_ ) const { return _ls[ x_ ].object & O_CUMULUS; }
+	bool hasRadar( int x_ ) const { return _ls[ x_ ].object & O_RADAR; }
 	int object( int x_ ) const { return _ls[ x_ ].object; }
 	size_t size() const { return _ls.size(); }
 	Fl_Color bg_color() const { return _ls.bg_color; }
@@ -401,6 +415,7 @@ private:
 	Fl_Image *_drop;
 	Fl_Image *_bady;
 	Fl_Image *_cumulus;
+	Fl_Image *_radar;
 	int _objType;
 	bool _scrollLock;
 	int _curr_x;
@@ -613,6 +628,7 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	objects.push_back( Object( O_DROP, "drop.gif", "Drop" ) );
 	objects.push_back( Object( O_BADY, "bady.gif", "Badguy" ) );
 	objects.push_back( Object( O_CUMULUS, "cumulus.gif", "Good Cloud" ) );
+	objects.push_back( Object( O_RADAR, "radar_00014_0200.gif", "Radar" ) );
 	objects.push_back( Object( O_COLOR_CHANGE, 0, "Color Change Marker" ) );
 	objects.back().w( 3 );
 	objects.back().h( h() );
@@ -620,6 +636,7 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_drop = (Fl_Image *)objects.find( O_DROP )->image();
 	_bady = (Fl_Image *)objects.find( O_BADY )->image();
 	_cumulus = (Fl_Image *)objects.find( O_CUMULUS )->image();
+	_radar = (Fl_Image *)objects.find( O_RADAR )->image();
 
 	if ( _mode == PLACE_OBJECTS )
 	{
@@ -730,6 +747,13 @@ void LSEditor::draw()
 			int S = _ls->sky( i );
 			if ( _cumulus )
 				_cumulus->draw( i - _xoff - _cumulus->w() / 2, S  );
+		}
+		if ( _ls->hasRadar( i ) )
+		{
+			int G = h() -_ls->ground( i );
+			Object *o = objects.find( O_RADAR );
+			if ( o )
+				o->image()->draw( i - _xoff - o->w() / 2, G - o->h(), o->w(), o->h() );
 		}
 		if ( _ls->hasObject( O_COLOR_CHANGE, i ) )
 		{
@@ -881,6 +905,9 @@ int LSEditor::handle( int e_ )
 							break;
 						case 4:
 							placeObject( O_CUMULUS, x, y );
+							break;
+						case 5:
+							placeObject( O_RADAR, x, y );
 							break;
 						case 9:
 							placeObject( O_COLOR_CHANGE, x, y );
@@ -1218,6 +1245,9 @@ void LSEditor::setTitle()
 			break;
 		case 4:
 			obj = O_CUMULUS;
+			break;
+		case 5:
+			obj = O_RADAR;
 			break;
 		case 9:
 			obj = O_COLOR_CHANGE;
