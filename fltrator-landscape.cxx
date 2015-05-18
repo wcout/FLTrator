@@ -222,7 +222,8 @@ class LS
 {
 public:
 	LS( size_t W_, const char *f_ = 0, bool *loaded_ = 0 ) :
-		_flags( 0 )
+		_flags( 0 ),
+		_xoff( 0 )
 	{
 		if ( loaded_ ) *loaded_ = false;
 		// Note: When W_ = 0 and a file is read in
@@ -349,9 +350,12 @@ public:
 		{ _ls.outline_color_sky = outline_color_sky_ ; }
 	const Terrain& terrain() const { return _ls; }
 	unsigned long flags() const { return _flags; }
+	void xoff( int xoff_ ) { _xoff = xoff_; }
+	int xoff() const { return _xoff; }
 private:
 	Terrain _ls;
 	unsigned long _flags;
+	int _xoff;
 };
 
 //--------------------------------------------------------------------------
@@ -399,12 +403,15 @@ public:
 	int xoff() const { return _xoff; }
 	void onLoad();
 	void onSave() { save(); }
+	void onQuit() { _dont_save = true; hide(); }
 	void onSaveAs();
 	bool changed() const { return _changed; }
+	bool dont_save() const { return _dont_save; }
 private:
 	static void load_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onLoad(); }
 	static void save_as_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onSaveAs(); }
 	static void save_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onSave();}
+	static void quit_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onQuit();}
 private:
 	LS *_ls;
 	int _xoff;
@@ -423,6 +430,7 @@ private:
 	bool _changed;
 	Fl_Menu_Bar *_menu;
 	bool _menu_shown;
+	bool _dont_save;
 };
 
 //--------------------------------------------------------------------------
@@ -436,6 +444,9 @@ PreviewWindow::PreviewWindow( int H_, LS *ls_ ) :
 	Inherited( (int)( ls_->size() / Scale ), (int)( H_ / Scale ), "Preview" ),
 	_ls( ls_ )
 {
+	ostringstream os;
+	os << label() << " 1 : " << (int)Scale;
+	copy_label( os.str().c_str() );
 	end();
 	show();
 }
@@ -485,6 +496,12 @@ void PreviewWindow::draw()
 		}
 		fl_line_style( 0 );
 	}
+	// draw visible window hint
+	fl_color( FL_WHITE );
+	fl_line_style( FL_DOT );
+	fl_rect( (double)_ls->xoff() / Scale, 0,
+		(double)(SCREEN_W - 1) / Scale, h() - 1 );
+	fl_line_style( 0 );
 }
 
 int PreviewWindow::handle( int e_ )
@@ -532,7 +549,8 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_curr_y( 0 ),
 	_changed( false ),
 	_menu( 0 ),
-	_menu_shown( true )
+	_menu_shown( true ),
+	_dont_save( false )
 //--------------------------------------------------------------------------
 {
 	int argc( argc_ );
@@ -653,7 +671,8 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	{ "File", 0, 0, 0, FL_SUBMENU },
 		{ "Load level..", 0, load_cb, this, 0 },
 		{ "Save level as..", 0, save_as_cb, this, 0 },
-		{ "Save", 0, save_cb, this, 0 },
+		{ "Save", 0, save_cb, this, FL_MENU_DIVIDER },
+		{ "Exit without saving", 0, quit_cb, this, 0 },
 		{ 0 },
 		{ 0 }
 	};
@@ -1056,6 +1075,7 @@ void LSEditor::placeObject( int obj_, int x_, int y_ )
 void LSEditor::redraw()
 //--------------------------------------------------------------------------
 {
+	_ls->xoff( _xoff );	// for preview
 	Inherited::redraw();
 	if ( _preview )
 		_preview->redraw();
@@ -1281,7 +1301,7 @@ int main( int argc_, const char *argv_[] )
 	LSEditor editor( argc_, argv_ );
 	printf("ready!\n");
 	Fl::run();
-	if ( Fl::event_key() == FL_Escape )
+	if ( editor.dont_save() || Fl::event_key() == FL_Escape )
 		printf( "not saved.\n" );
 	else
 		editor.save();
