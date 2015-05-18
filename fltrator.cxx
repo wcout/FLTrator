@@ -850,7 +850,7 @@ class Bomb : public Object
 typedef Object Inherited;
 public:
 	Bomb( int x_, int y_ ) :
-		Inherited( O_BOMB, x_, y_, 0, 20, 20 ),
+		Inherited( O_BOMB, x_, y_, "bomb.gif" ),
 		_dy( 10 )
 	{
 		update();
@@ -859,7 +859,6 @@ public:
 	void update()
 	{
 		if ( G_paused ) return;
-//		printf( "speed: %u\n", speed() );
 		_y += _dy;
 		if ( _state < 5 )
 			_x += 16;
@@ -871,19 +870,6 @@ public:
 			_dy++;
 		_speed /= 2;
 		Inherited::update();
-	}
-	void draw()
-	{
-//		fl_color( fl_rgb_color(0x38,0xa8,0xa9) );
-		fl_color( fl_rgb_color(0x56,0x56,0x56) );
-		fl_pie( x(), y(), w(), h(), 0, 360);
-		fl_color( FL_BLACK );
-		fl_arc( x(), y(), w(), h(), 0, 360);
-#ifdef DEBUG
-		fl_color(FL_YELLOW);
-		Rect r(rect());
-		fl_rect(r.x(),r.y(),r.w(),r.h());
-#endif
 	}
 	virtual double timeout() const { return started() ? 0.05 : 0.1; }
 private:
