@@ -13,7 +13,7 @@ ARGS=$1
 if [ $local ]
 then
 echo "compiling $module module..."
-gcc -o $module $module.cxx -lX11 -lXrandr -lstdc++
+gcc -o $module $module.c -lX11 -lXrandr
 fi
 
 # switch to 800x600

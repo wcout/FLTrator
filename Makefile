@@ -1,5 +1,7 @@
 # specify path to FLTK 1.3-x
 FLTK_DIR=../fltk-1.3/
+USE_FLTK_RUN=0
+HAVE_SLOW_CPU=0
 
 export ROOT?=$(PWD)
 APPLICATION=fltrator
@@ -24,8 +26,8 @@ LDFLAGS=
 LDLIBS=`$(FLTK_CONFIG) --use-images --ldstaticflags`
 
 FLTKCXXFLAGS = `$(FLTK_CONFIG) --cxxflags`
-#CXXDEFS=-DUSE_FLTK_RUN
-#CXXDEFS=-DHAVE_SLOW_CPU=1
+CXXDEFS+=-DUSE_FLTK_RUN=$(USE_FLTK_RUN)
+CXXDEFS+=-DHAVE_SLOW_CPU=$(HAVE_SLOW_CPU)
 CXXFLAGS+=$(CXXDEFS) -g -Wall --pedantic $(INCLUDE) $(FLTKCXXFLAGS)
 #OPT=
 OPT=-O3
@@ -44,7 +46,7 @@ TARGET2=$(LANDSCAPE)
 
 $(TARGET1): depend $(OBJ1)
 	@echo Linking $@...
-	$(CXX) -o $@ $(LDFLAGS) $(OBJ1) $(LDLIBS) $(OPT)
+	$(CXX) -o $@ $(LDFLAGS) $(OBJ1) $(LDLIBS) -lrt $(OPT)
 
 $(TARGET2): depend $(OBJ2)
 	@echo Linking $@...
