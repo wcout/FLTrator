@@ -33,7 +33,8 @@ int main(int argc, char *argv[])
 	//     LOOP THROUGH ALL POSSIBLE RESOLUTIONS,
 	//     GETTING THE SELECTABLE DISPLAY FREQUENCIES
 	//
-	for (int i = 0; i < num_sizes; i ++)
+	int i;
+	for (i = 0; i < num_sizes; i ++)
 	{
 		short   *rates;
 		int     num_rates;
@@ -42,7 +43,8 @@ int main(int argc, char *argv[])
 
 		rates = XRRRates(dpy, 0, i, &num_rates);
 
-		for(int j = 0; j < num_rates; j ++) {
+		int j;
+		for(j = 0; j < num_rates; j ++) {
 			possible_frequencies[i][j] = rates[j];
 			printf("%4i ", rates[j]);
 		}
@@ -73,7 +75,8 @@ int main(int argc, char *argv[])
 			// yes, search modes
 			int width = atoi( argv[1] );
 			int height = atoi( del + 1 );
-			for ( int i = 0; i < num_sizes; i++ )
+			int i;
+			for ( i = 0; i < num_sizes; i++ )
 			{
 				if ( xrrs[i].width == width && xrrs[i].height == height )
 				{
@@ -115,6 +118,6 @@ int main(int argc, char *argv[])
 	exit( original_size_id );
 }
 //
-//      gcc -o xrandr_change_screen_res xrandr_change_screen_res.cxx -lX11 -lXrandr -lstdc++
+//      gcc -o xrandr_change_screen_res xrandr_change_screen_res.c -lX11 -lXrandr
 //
 #endif

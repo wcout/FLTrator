@@ -125,7 +125,9 @@ shell with:
 
   export HAVE_SLOW_CPU=1
 
-before running make.
+before running
+
+	make -e
 
 
 Creating a Windows executable using mingw on Linux

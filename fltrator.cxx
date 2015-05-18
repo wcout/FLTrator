@@ -56,14 +56,15 @@ static const unsigned SCREEN_W = 800;
 static const unsigned SCREEN_H = 600;
 
 #if HAVE_SLOW_CPU
-#define USE_FLTK_RUN
+#undef USE_FLTK_RUN
+#define USE_FLTK_RUN 1
 #define DEFAULT_FPS 40
 #else
 #define DEFAULT_FPS 200
 #endif
 
 #ifdef WIN32
-#ifdef USE_FLTK_RUN
+#if USE_FLTK_RUN
 static const unsigned FPS = 64;
 #else
 static const unsigned FPS = DEFAULT_FPS;
@@ -1277,7 +1278,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_level = _first_level;
 	_hiscore = _cfg->hiscore();
 	_hiscore_user = _cfg->best().name;
-#ifdef USE_FLTK_RUN
+#if USE_FLTK_RUN
 	Fl::add_timeout( FRAMES, cb_update, this );
 #endif
 	if ( !full_screen )
@@ -2901,7 +2902,7 @@ void FltWin::cb_update( void *d_ )
 {
 	FltWin *f = (FltWin *)d_;
 	f->state() == FltWin::DEMO ? f->onUpdateDemo() : f->onUpdate();
-#ifdef USE_FLTK_RUN
+#if USE_FLTK_RUN
 	Fl::repeat_timeout( FRAMES, cb_update, d_ );
 #endif
 }
@@ -3099,7 +3100,7 @@ void FltWin::bombUnlock()
 int FltWin::run()
 //-------------------------------------------------------------------------------
 {
-#ifdef USE_FLTK_RUN
+#if USE_FLTK_RUN
 //	printf( "Using Fl::run()\n" );
 	return Fl::run();
 #else
@@ -3110,7 +3111,7 @@ int FltWin::run()
 #ifdef _POSIX_MONOTONIC_CLOCK
 //	printf( "Using clock_gettime()\n" );
 	struct timespec ts;
-	clock_gettime( CLOCK_MONOTONIC_RAW, &ts );
+	clock_gettime( CLOCK_MONOTONIC, &ts );
 	startTime = ts.tv_sec * 1000L + ts.tv_nsec / 1000000L;
 #else
 //	printf( "Using gettimeofday()\n" );
@@ -3143,7 +3144,7 @@ int FltWin::run()
 //			Fl::wait( 0.001 );
 
 #ifdef _POSIX_MONOTONIC_CLOCK
-			clock_gettime( CLOCK_MONOTONIC_RAW, &ts );
+			clock_gettime( CLOCK_MONOTONIC, &ts );
 			endTime = ts.tv_sec * 1000L + ts.tv_nsec / 1000000L;
 #else
 			gettimeofday( &tv, NULL );
