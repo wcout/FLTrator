@@ -1071,6 +1071,7 @@ private:
 	void onUpdate();
 	void onUpdateDemo();
 	void setUser();
+	void resetUser();
 	void toggleUser( bool prev_ = false );
 	bool paused() const { return _state == PAUSED; }
 	void bombUnlock();
@@ -2718,6 +2719,20 @@ void FltWin::setUser()
 	_level = _first_level;
 }
 
+void FltWin::resetUser()
+//-------------------------------------------------------------------------------
+{
+	_score = 0;
+	_initial_score = 0;
+	_old_score = 0;
+	_first_level = 1;
+	_level = 1;
+	_cfg->write( _username, _score, _level );
+	_cfg->load();
+	keyClick();
+	onTitleScreen();	// immediate display + reset demo timer
+}
+
 void FltWin::keyClick() const
 //-------------------------------------------------------------------------------
 {
@@ -2797,6 +2812,8 @@ int FltWin::handle( int e_ )
 			toggleUser( true );
 		if ( _state == TITLE && e_ == FL_KEYUP && ( 'a' == c || 'p' == c ) )
 			toggleUser();
+		if ( _state == TITLE && e_ == FL_KEYUP && ( 'r' == c ) )
+			resetUser();
 		if ( e_ == FL_KEYDOWN && c == ' ' )
 		{
 			ignore_space = true;
