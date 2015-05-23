@@ -1897,12 +1897,9 @@ void FltWin::check_rocket_hits()
 		if ( (*r)->lifted() && (*r)->rect().inside( _spaceship->rect() ) )
 		{
 			// rocket hit by spaceship
-//			delete *r;
-//			r = Rockets.erase(r);
 			(*r)->crash();
 		}
-//		else
-			++r;
+		++r;
 	}
 }
 
@@ -2776,10 +2773,14 @@ int FltWin::handle( int e_ )
 
 	if ( e_ == FL_KEYUP && ( _state != SCORE ) && ( 's' == c ) )
 	{
-		keyClick();
+		if ( _state == TITLE )
+			keyClick();
 		Audio::instance()->disable( !Audio::instance()->disabled() );
-		keyClick();
-		onTitleScreen();
+		if ( _state == TITLE )
+		{
+			keyClick();
+			onTitleScreen();	// update display
+		}
 	}
 
 	if ( _state == TITLE || _state == SCORE || _state == DEMO )
