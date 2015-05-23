@@ -658,7 +658,7 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 
 	if ( _mode == PLACE_OBJECTS )
 	{
-		if ( !_rocket || !_drop || !_bady || !_cumulus )
+		if ( !_rocket || !_drop || !_bady || !_cumulus || !_radar )
 		{
 			fprintf( stderr, "Can't load all object images!\n" );
 			exit( -1 );
