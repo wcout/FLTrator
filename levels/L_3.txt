@@ -6403,3 +6403,5 @@
 167 120 0
 167 120 0
 166 120 0
+=== ini section ===
+level_name=The wet cavern

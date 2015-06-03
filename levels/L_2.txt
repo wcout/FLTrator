@@ -7206,3 +7206,5 @@
 74 46 0
 74 46 0
 74 46 0
+=== ini section ===
+level_name=The blue cavern

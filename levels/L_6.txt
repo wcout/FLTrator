@@ -7206,3 +7206,5 @@
 -1 332 0
 -1 332 0
 -1 332 0
+=== ini section ===
+level_name=A Comic is more fun

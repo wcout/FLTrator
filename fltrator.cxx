@@ -1,3 +1,4 @@
+//
 // Copyright 2015 Christian Grabner.
 //
 // This file is part of FLTrator.
@@ -49,7 +50,6 @@
 #define _access access
 
 static const unsigned MAX_LEVEL = 10;
-//static const int MAX_LEVEL = 2;	// for testing end screen :-)
 static const unsigned  MAX_LEVEL_REPEAT = 3;
 
 static const unsigned SCREEN_W = 800;
@@ -142,6 +142,35 @@ static string imgPath( const string& file_ )
 	return mkPath( "images", file_ );
 }
 
+static int rangedValue( int value_, int min_, int max_ )
+//-------------------------------------------------------------------------------
+{
+	int v( value_ );
+	if ( min_ > max_ )
+	{
+		int t = min_;
+		min_ = max_;
+		max_ = t;
+	}
+	if ( v < min_ )
+		v = min_;
+	if ( v > max_ )
+		v = max_;
+	return v;
+}
+
+static int rangedRandom( int min_, int max_ )
+//-------------------------------------------------------------------------------
+{
+	if ( min_ > max_ )
+	{
+		int t = min_;
+		min_ = max_;
+		max_ = t;
+	}
+	return min_ + random() % ( max_ - min_ + 1 );
+}
+
 //-------------------------------------------------------------------------------
 class Rect
 //-------------------------------------------------------------------------------
@@ -209,6 +238,15 @@ public:
 		_users.clear();
 		for ( int i = 0; i < groups(); i++ )
 		{
+			// last playing user
+			char *last_user = 0;
+			get( "last_user", last_user, 0 );
+			_last_user.erase();
+			if ( last_user )
+				_last_user = last_user;
+			free( last_user );
+
+			// collect all users data
 			string name( group( i ) );
 			Fl_Preferences user( this, name.c_str() );
 			User e;
@@ -229,6 +267,21 @@ public:
 			}
 			if ( !inserted )
 				_users.push_back( e );
+
+			// check if last_user is valid
+			bool found = false;
+			for ( size_t j = 0; j < _users.size(); j++ )
+			{
+				if ( _users[j].name == _last_user )
+				{
+					found = true;
+					break;
+				}
+			}
+			if ( !found )
+			{
+				_last_user.erase();
+			}
 		}
 	}
 	void write( const string& user_,
@@ -236,6 +289,7 @@ public:
 		int level_ = -1,
 		bool completed_ = false )
 	{
+		set( "last_user", user_.c_str() );
 		Fl_Preferences user( this, user_.c_str() );
 		if ( score_ >= 0 )
 			user.set( "score", (int)score_ );
@@ -282,8 +336,10 @@ public:
 	}
 	unsigned hiscore() const { return best().score; }
 	const vector<User>& users() const { return _users; }
+	const string& last_user() const { return _last_user; }
 private:
 	vector<User> _users;
+	string _last_user;
 };
 
 //-------------------------------------------------------------------------------
@@ -429,6 +485,10 @@ public:
 	void explode();
 	bool exploding() const { return _exploding; }
 	bool exploded() const { return _exploded; }
+	long data1() const { return _data1; }
+	long data2() const { return _data2; }
+	void data1( long data1_ ) { _data1 = data1_; }
+	void data2( long data2_ ) { _data2 = data2_; }
 private:
 	void _explode( double to_ = 0. );
 	virtual bool onHit() { return false; }
@@ -441,6 +501,8 @@ protected:
 	int _w, _h;
 	unsigned _speed;
 	unsigned _state;
+	long _data1;
+	long _data2;
 private:
 	bool _nostart;
 	bool _exploding;	// state exploding
@@ -464,7 +526,9 @@ Object::Object( ObjectType o_, int x_, int y_,
 	_w( w_ ),
 	_h( h_ ),
 	_speed( 1 ),
-	_state(0),
+	_state( 0 ),
+	_data1( 0 ),
+	_data2( 0 ),
 	_nostart( false ),
 	_exploding( false ),
 	_exploded( false ),
@@ -765,7 +829,7 @@ public:
 	void update()
 	{
 		if ( G_paused ) return;
-		size_t delta = 2;
+		size_t delta = _speed;
 		if ( delta > 12 )
 			delta = 12;
 		_y = _up ? _y - delta : _y + delta;
@@ -793,7 +857,7 @@ public:
 	{
 		if ( G_paused ) return;
 		Inherited::update();
-		size_t delta = 2;
+		size_t delta = _speed;
 		if ( delta > 12 )
 			delta = 12;
 		_y = _up ? _y - delta : _y + delta;
@@ -874,6 +938,83 @@ public:
 	virtual double timeout() const { return started() ? 0.05 : 0.1; }
 private:
 	int _dy;
+};
+
+
+//-------------------------------------------------------------------------------
+class AnimText : public Object
+//-------------------------------------------------------------------------------
+{
+// Note: This is just a quick impl. for showing an amimated level name
+//       and should probably be made more flexible. Also the text drawing
+//       could be combined with the FltWin::drawText().
+typedef Object Inherited;
+public:
+	AnimText( int x_, int y_, int w_, const char *text_, Fl_Color color_ = FL_YELLOW ) :
+		Inherited( (ObjectType)0, x_, y_, 0, w_ ),
+		_text( text_ ),
+		_color( color_ ),
+		_sz( 10 ),
+		_up( true ),
+		_hold( 0 ),
+		_done ( false )
+	{
+		update();
+	}
+	void draw()
+	{
+		if ( _done )
+			return;
+		fl_font( FL_HELVETICA_BOLD_ITALIC, _sz );
+		int W = 0;
+		int H = 0;
+		fl_measure( _text.c_str(), W, H );
+		fl_color( FL_BLACK );
+		fl_draw( _text.c_str(), _text.size(), _x + _w / 2 - W / 2 + 2, _y + 2 );
+		fl_color( _color );
+		fl_draw( _text.c_str(), _text.size(), _x + _w / 2 - W / 2, _y );
+		if ( W > _w - 30 )
+			_hold = 1;
+	}
+	void update()
+	{
+		if ( G_paused ) return;
+		Inherited::update();
+		if ( _up )
+		{
+			if ( !_hold )
+			{
+				_sz++;
+				if ( _sz > 30 )
+					_hold = 1;
+			}
+			else
+			{
+				_hold++;
+				if ( _hold > 15 )
+					_up = false;
+			}
+		}
+		else
+		{
+			_sz--;
+			if ( _sz < 10 )
+			{
+				_done = true;
+				return;
+			}
+		}
+	}
+	bool done() const { return _done; }
+	virtual double timeout() const { return started() ? 0.02 : 0.02; }
+private:
+	string _text;
+	Fl_Color _color;
+	int _sz;
+	unsigned char _g;
+	bool _up;
+	int _hold;
+	bool _done;
 };
 
 //-------------------------------------------------------------------------------
@@ -991,7 +1132,7 @@ private:
 class FltWin : public Fl_Double_Window
 //-------------------------------------------------------------------------------
 {
-#define DEFAULT_USER "FLTR"
+#define DEFAULT_USER "N.N."
 typedef Fl_Double_Window Inherited;
 public:
 	enum State
@@ -1014,6 +1155,7 @@ private:
 	void addScrollinZone();
 	void addScrolloutZone();
 	void create_terrain();
+	void create_level();
 	void draw_objects( bool pre_ );
 	void draw_missiles();
 	void draw_bombs();
@@ -1028,6 +1170,11 @@ private:
 	void check_bomb_hits();
 	void check_rocket_hits();
 	void check_drop_hits();
+	bool iniValue( size_t level_, const string& id_,
+	               int &value_, int min_, int max_, int default_ );
+	bool iniValue( size_t level_, const string& id_,
+	               string& value_, size_t max_, const string& default_ );
+	void init_parameter();
 	bool loadLevel( int level_, const string levelFileName_ = "" );
 	void update_missiles();
 	void update_bombs();
@@ -1048,6 +1195,7 @@ private:
 	int handle( int e_ );
 	void keyClick() const;
 	void onActionKey();
+	void onCollision();
 	void onDemo();
 	void onLostFocus();
 	void onGotFocus();
@@ -1075,6 +1223,27 @@ protected:
 	vector<Drop *> Drops;
 	vector<Bady *> Badies;
 	vector<Cumulus *> Cumuluses;
+
+	int _rocket_start_prob;
+	int _rocket_radar_start_prob;
+	int _rocket_min_start_speed;
+	int _rocket_max_start_speed;
+	int _rocket_max_start_dist;
+	int _rocket_min_start_dist;
+	int _rocket_var_start_dist;
+
+	int _drop_start_prob;
+	int _drop_min_start_speed;
+	int _drop_max_start_speed;
+	int _drop_max_start_dist;
+	int _drop_min_start_dist;
+	int _drop_var_start_dist;
+
+	int _bady_min_start_speed;
+	int _bady_max_start_speed;
+
+	int _cumulus_min_start_speed;
+	int _cumulus_max_start_speed;
 private:
 	State _state;
 	int _xoff;
@@ -1113,13 +1282,17 @@ private:
 	bool _focus_out;
 	bool _no_random;
 	bool _hide_cursor;
+	string _title;
+	string _level_name;
+	vector<string> _ini;	// ini section of level file
+	AnimText *_anim_text;
 };
 
 //-------------------------------------------------------------------------------
 // class FltWin : public Fl_Double_Window
 //-------------------------------------------------------------------------------
 FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
-	Inherited( SCREEN_W, SCREEN_H, "FL-Trator v1.3" ),
+	Inherited( SCREEN_W, SCREEN_H, "FL-Trator v1.4" ),
 	_state( START ),
 	_xoff( 0 ),
 	_left( false), _right( false ), _up( false ), _down( false ),
@@ -1144,7 +1317,9 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_enable_boss_key( false ),
 	_focus_out( true ),
 	_no_random( false ),
-	_hide_cursor( false )
+	_hide_cursor( false ),
+	_title( label() ),
+	_anim_text( 0 )
 {
 	int argc( argc_ );
 	unsigned argi( 1 );
@@ -1248,8 +1423,6 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 
 	if ( !_trainMode )
 		_levelFile.erase();
-	if ( _username.empty() )
-		_username = DEFAULT_USER;
 
 	// set spaceship image as icon
 	Fl_RGB_Image icon( (Fl_Pixmap *)_spaceship->image() );
@@ -1257,7 +1430,15 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 //	if ( full_screen )
 //		resizable( this );
 
-	_cfg = new Cfg( "CG", "fltrator" );
+	string cfgName( "fltrator" );
+	if ( _internal_levels )
+		cfgName += "_internal";	// don't mix internal levels with real levels
+	_cfg = new Cfg( "CG", cfgName.c_str() );
+	if ( _username.empty() )
+		_username = _cfg->last_user();
+
+	if ( _username.empty() )
+		_username = DEFAULT_USER;
 
 	if ( !_trainMode && !reset_user )
 		setUser();
@@ -1496,6 +1677,159 @@ bool FltWin::collision( Object& o_, int w_, int h_ )
 	return collided;
 } // collision
 
+bool FltWin::iniValue( size_t level_, const string& id_,
+                       int &value_, int min_, int max_, int default_ )
+//-------------------------------------------------------------------------------
+{
+	bool fromFile( false );
+	value_ = default_;
+
+	if ( _internal_levels )
+		return fromFile;
+
+	if ( !_ini.size() )
+		return fromFile;
+
+	string line;
+	for ( size_t i = 0; i < _ini.size(); i++ )
+	{
+		line = _ini[ i ];
+		size_t pos;
+		pos = line.find( id_ );
+		if ( pos != string::npos )
+		{
+			pos += id_.size();
+			pos = line.find( "=", pos );
+			if ( pos != string::npos )
+			{
+				int value = atoi( line.substr( pos + 1 ).c_str() );
+				value_ = rangedValue( value, min_, max_ );
+//				printf( "%s = %d\n", id_.c_str(), value_ );
+				fromFile = true;
+				break;
+			}
+		}
+	}
+	return fromFile;
+}
+
+bool FltWin::iniValue( size_t level_, const string& id_,
+                       string& value_, size_t max_, const string& default_ )
+//-------------------------------------------------------------------------------
+{
+	bool fromFile( false );
+	value_ = default_;
+
+	if ( _internal_levels )
+		return fromFile;
+
+	if ( !_ini.size() )
+		return fromFile;
+
+	string line;
+	for ( size_t i = 0; i < _ini.size(); i++ )
+	{
+		line = _ini[ i ];
+		size_t pos;
+		pos = line.find( id_ );
+		if ( pos != string::npos )
+		{
+			pos += id_.size();
+			pos = line.find( "=", pos );
+			if ( pos != string::npos )
+			{
+				value_ = line.substr( pos + 1 );
+				if ( value_.size() > max_ )
+					value_.erase( max_ );
+//				printf( "%s = '%s'\n", id_.c_str(), value_.c_str() );
+				fromFile = true;
+				break;
+			}
+		}
+	}
+	return fromFile;
+}
+
+void FltWin::init_parameter()
+//-------------------------------------------------------------------------------
+{
+	iniValue( _level, "level_name", _level_name, 35, "" );
+	ostringstream os;
+	os << "Level " << _level;
+	if ( _level_name.size() )
+		os << ": " <<_level_name;
+	os << " - " << _title;
+	copy_label( os.str().c_str() );
+
+	iniValue( _level, "rocket_start_prob", _rocket_start_prob, 0, 100,
+		45. + 35. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ); // 45% - 80%
+	iniValue( _level, "rocket_radar_start_prob", _rocket_radar_start_prob, 0, 100,
+		60. + 40. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ); // 60% - 100%
+	if ( iniValue( _level, "rocket_start_speed", _rocket_min_start_speed, 1, 10,
+		4 + _level / 2 ) )
+	{
+		_rocket_max_start_speed = _rocket_min_start_speed;
+	}
+	else
+	{
+		iniValue( _level, "rocket_min_start_speed", _rocket_min_start_speed, 1, 10,
+			4 + _level / 2 - 1 );
+		iniValue( _level, "rocket_max_start_speed", _rocket_max_start_speed, 1, 10,
+			_rocket_min_start_speed + 2 );
+	}
+	iniValue( _level, "rocket_min_start_dist", _rocket_min_start_dist, 0, 50, 50 );
+	iniValue( _level, "rocket_max_start_dist", _rocket_max_start_dist, 50, 400, 400 );
+	iniValue( _level, "rocket_var_start_dist", _rocket_var_start_dist, 0, 200, 200 );
+
+	iniValue( _level, "drop_start_prob", _drop_start_prob, 0, 100,
+		45. + 30. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ); // 45% - 75%
+	if ( iniValue( _level, "drop_start_speed", _drop_min_start_speed, 1, 10,
+		4 + _level / 2) )
+	{
+		_drop_max_start_speed = _drop_min_start_speed;
+	}
+	else
+	{
+		iniValue( _level, "drop_min_start_speed", _drop_min_start_speed, 1, 10,
+			4 + _level / 2 - 1 );
+		iniValue( _level, "drop_max_start_speed", _drop_max_start_speed, 1, 10,
+			_drop_min_start_speed + 1 );
+	}
+	iniValue( _level, "drop_min_start_dist", _drop_min_start_dist, 0, 50, 50 );
+	iniValue( _level, "drop_max_start_dist", _drop_max_start_dist, 50, 400, 400 );
+	iniValue( _level, "drop_var_start_dist", _drop_var_start_dist, 0, 200, 200 );
+
+	if ( iniValue( _level, "bady_start_speed", _bady_min_start_speed, 1, 10,
+		2 ) )
+	{
+		_bady_max_start_speed = _bady_min_start_speed;
+	}
+	else
+	{
+		iniValue( _level, "bady_min_start_speed", _bady_min_start_speed, 1, 10,
+			2 - 1 );
+		iniValue( _level, "bady_max_start_speed", _bady_max_start_speed, 1, 10,
+			2 );
+	}
+//	printf( "_bady_min_start_speed: %d\n", _bady_min_start_speed );
+//	printf( "_bady_max_start_speed: %d\n", _bady_max_start_speed );
+
+	if ( iniValue( _level, "cumulus_start_speed", _cumulus_min_start_speed, 1, 10,
+		2 ) )
+	{
+		_cumulus_max_start_speed = _cumulus_min_start_speed;
+	}
+	else
+	{
+		iniValue( _level, "cumulus_min_start_speed", _cumulus_min_start_speed, 1, 10,
+			2 - 1 );
+		iniValue( _level, "cumulus_max_start_speed", _cumulus_max_start_speed, 1, 10,
+			2 + 1 );
+	}
+//	printf( "_cumulus_min_start_speed: %d\n", _cumulus_min_start_speed );
+//	printf( "_cumulus_max_start_speed: %d\n", _cumulus_max_start_speed );
+}
+
 void FltWin::create_terrain()
 //-------------------------------------------------------------------------------
 {
@@ -1510,6 +1844,7 @@ void FltWin::create_terrain()
 	_cheatMode = getenv( "FLTRATOR_CHEATMODE" );
 	_score = _old_score;
 
+	_ini.clear();
 	T.clear();
 	if ( ( !_internal_levels || _levelFile.size() )
 	       && loadLevel( _level, _levelFile ) )	// try to load level from landscape file
@@ -1519,18 +1854,31 @@ void FltWin::create_terrain()
 			addScrollinZone();
 		if ( !( T.flags & Terrain::NO_SCROLLOUT_ZONE ) )
 			addScrolloutZone();
-		return;
+	}
+	else
+	{
+		// internal level
+		create_level();
 	}
 
+	// initialise the objects parameters (eventuall read from level file)
+	init_parameter();
+}
+
+void FltWin::create_level()
+//-------------------------------------------------------------------------------
+{
 	bool sky = ( _level % 2 || _level >= MAX_LEVEL - 1 ) && _level != 1;
 
-//	printf( "create terrain(): _level: %u _level_repeat: %u, sky = %d\n",
+//	printf( "create level(): _level: %u _level_repeat: %u, sky = %d\n",
 //		_level, _level_repeat, sky );
 	switch ( _level % 4 )
 	{
 		case 0:
-			T.bg_color = FL_YELLOW;
-			T.ground_color = fl_rgb_color(0x61,0x2f,0x04);	// brownish
+			T.bg_color = fl_rgb_color( 97, 47, 4 );	// brownish
+			T.ground_color = fl_rgb_color( 241, 132, 0 ); // orange
+			T.ls_outline_width = 4;
+			T.outline_color_ground = FL_BLACK;
 			break;
 		case 1:
 			T.bg_color = FL_BLUE;
@@ -1575,15 +1923,15 @@ void FltWin::create_terrain()
 		int j;
 		for ( j = 0; j < peak; j++ )
 			T.push_back( TerrainPoint( j + bott ) );
-		int eben = random() % ( w() / 2 );
+		int flat = random() % ( w() / 2 );
 		if ( random() % 3 == 0 )
-			eben = random() % 10;
-		for ( j = 0; j < eben; j++ )
+			flat = random() % 10;
+		for ( j = 0; j < flat; j++ )
 			T.push_back( T.back() );
 		for ( j = peak; j >= 0; j-- )
 			T.push_back( TerrainPoint( j + bott ) );
-		/*int */eben = random() % ( w() / 2 );
-		for ( j = 0; j < eben; j++ )
+		/*int */flat = random() % ( w() / 2 );
+		for ( j = 0; j < flat; j++ )
 			T.push_back( T.back() );
 	}
 
@@ -1610,41 +1958,56 @@ void FltWin::create_terrain()
 	}
 
 	// setup object positions
-	int min_dist = 150 - _level * 5;
-	int max_dist = 300 - _level * 5;
+	int min_dist = 100 - _level * 5;
+	int max_dist = 200 - _level * 5;
 	if ( min_dist < _rocket.w() )
 		min_dist = _rocket.w();
 	if ( max_dist < _rocket.w() * 3 )
 		max_dist = _rocket.w() * 3;
 
-	int last_x = random() % max_dist + ( _level * min_dist * 2 ) / 3;	// first rocket farther away!
+	int last_x = random() % max_dist + ( _level * min_dist * 2 ) / 3;	// first object farther away!
 	while ( last_x < (int)T.size() )
 	{
 		if ( h() - T[last_x].ground_level() > ( 100 - (int)_level * 10 ) /*&& random() % 2*/ )
 		{
+			bool flat( true );
+			for ( int i = -5; i < 5; i++ )
+				if ( T[last_x].ground_level() != T[last_x + i].ground_level() )
+					flat = false;
 			switch ( random() % _level ) // 0-9
 			{
 				case 0:
 				case 1:
+					if ( flat && random()%3 == 0 )
+						T[last_x].object( O_RADAR );
+					else
+						T[last_x].object( O_ROCKET );
+					break;
 				case 2:
 				case 3:
-					T[last_x].object( O_ROCKET );
+					if ( sky && random()%3 ==  0)
+						T[last_x].object( O_DROP );
+					else if ( flat && random()%2 == 0 )
+						T[last_x].object( O_RADAR );
+					else
+						T[last_x].object( O_ROCKET );
 					break;
 				case 4:
 				case 5:
 				case 6:
 					if ( sky )
-						T[last_x].object( random()%2 ? O_DROP : O_BADY );
+						T[last_x].object( random()%2 ? O_DROP : O_ROCKET );
 					else
-						T[last_x].object( O_BADY );
+						T[last_x].object( random()%3 ? O_BADY : O_ROCKET );
 					break;
 				case 7:
 				case 8:
-					T[last_x].object( O_BADY );
 					break;
 				case 9:
 					if ( random() % 4 == 0 )
 						T[last_x].object( O_CUMULUS );
+					else
+						T[last_x].object( O_BADY );
 					break;
 			}
 		}
@@ -1668,6 +2031,8 @@ void FltWin::draw_objects( bool pre_ )
 	else
 	{
 		draw_cumuluses();
+		if ( _anim_text )
+			_anim_text->draw();
 	}
 }
 
@@ -1919,6 +2284,7 @@ void FltWin::check_drop_hits()
 				delete *d;
 				d = Drops.erase(d);
 				_collision = true;
+				onCollision();
 				continue;
 			}
 		}
@@ -1992,6 +2358,13 @@ void FltWin::create_objects()
 		if ( o & O_ROCKET && i - _rocket.w() / 2 < w() )
 		{
 			Rocket *r = new Rocket( i, h() - T[_xoff + i].ground_level() - _rocket.h() / 2 );
+			int start_dist = _rocket_max_start_dist - _level * 20 -
+			                 random() % _rocket_var_start_dist;
+			if ( start_dist < _rocket_min_start_dist )
+			{
+				start_dist = _rocket_min_start_dist;
+			}
+			r->data1( start_dist );
 			Rockets.push_back( r );
 			o &= ~O_ROCKET;
 #ifdef DEBUG
@@ -2010,6 +2383,13 @@ void FltWin::create_objects()
 		if ( o & O_DROP && i - _drop.w() / 2 < w() )
 		{
 			Drop *d = new Drop( i, T[_xoff + i].sky_level() + _drop.h() / 2 );
+			int start_dist = _drop_max_start_dist - _level * 20 -
+			                 random() % _drop_var_start_dist;
+			if ( start_dist < _drop_min_start_dist )
+			{
+				start_dist = _drop_min_start_dist;
+			}
+			d->data1( start_dist );
 			Drops.push_back( d );
 			o &= ~O_DROP;
 #ifdef DEBUG
@@ -2105,8 +2485,8 @@ bool FltWin::loadLevel( int level_, const string levelFileName_/* = ""*/ )
 		f >> s;
 		f >> g;
 		f >> obj;
-		if ( f.good() )
-			T.push_back( TerrainPoint( g, s, obj ) );
+		if ( !f.good() ) break;
+		T.push_back( TerrainPoint( g, s, obj ) );
 		if ( obj & O_COLOR_CHANGE )
 		{
 			// fetch extra data for color change object
@@ -2121,6 +2501,12 @@ bool FltWin::loadLevel( int level_, const string levelFileName_/* = ""*/ )
 				T.back().sky_color = sky_color;
 			}
 		}
+	}
+	f.clear(); 	// reset for reading of ini section
+	string line;
+	while ( getline( f, line ) )
+	{
+		_ini.push_back( line );
 	}
 	return true;
 }
@@ -2163,23 +2549,18 @@ void FltWin::update_drops()
 			// drop fall strategy...
 			if ( Drops[i]->nostart() ) continue;
 			if ( Drops[i]->dropped() ) continue;
-			int start_dist = 400 - _level * 20 - random() % 200;
-			if ( start_dist < 50 )
-			start_dist = 50;
 			int dist = Drops[i]->x() - _spaceship->x(); // center distance S<->R
+			int start_dist = (int)Drops[i]->data1();	// 400 - _level * 20 - random() % 200;
 			if ( dist <= 0 || dist >= start_dist ) continue;
-//			printf( "start drop #%ld, dist=%d \n", i, dist );
+//			printf( "start drop #%ld, start_dist=%d?\n", i, start_dist );
 			// really start drop?
-			int each_n = MAX_LEVEL - _level + 1; // L1: 10 ... L10: 1
-			if ( _level < 5 )
-				each_n /= 3;
-			if ( each_n <= 0 )
-				each_n = 1;
-			int rd = random() % each_n; // L1: 0..9  L10: 0
-//			printf( "each_n = %d, rd = %d\n", each_n, rd );
-			if ( rd == 0 )
+			int drop_prob = _drop_start_prob;
+//			printf( "drop_prob: %d\n", drop_prob );
+			if ( random() % 100 < drop_prob )
 			{
-				Drops[i]->start( 4 +_level / 2 );
+				int speed = rangedValue( rangedRandom( _drop_min_start_speed, _drop_max_start_speed ), 1, 10 );
+//				printf( "   drop with speed %d!\n", speed );
+				Drops[i]->start( speed );
 				assert( Drops[i]->dropped() );
 				continue;
 			}
@@ -2215,7 +2596,9 @@ void FltWin::update_badies()
 			// bady fall strategy: always start!
 			if ( !Badies[i]->started() )
 			{
-				Badies[i]->start( _level );
+				int speed = rangedValue( rangedRandom( _bady_min_start_speed, _bady_max_start_speed ), 1, 10 );
+//				printf( "   start bady with speed %d!\n", speed );
+				Badies[i]->start( speed );
 				assert( Badies[i]->started() );
 			}
 			else
@@ -2257,7 +2640,9 @@ void FltWin::update_cumuluses()
 			// cumulus fall strategy: always start!
 			if ( !Cumuluses[i]->started() )
 			{
-				Cumuluses[i]->start( _level );
+				int speed = rangedValue( rangedRandom( _cumulus_min_start_speed, _cumulus_max_start_speed ), 1, 10 );
+//				printf( "   start cunulus with speed %d!\n", speed );
+				Cumuluses[i]->start( speed );
 				assert( Cumuluses[i]->started() );
 			}
 			else
@@ -2304,19 +2689,13 @@ void FltWin::update_rockets()
 			// rocket fire strategy...
 			if ( Rockets[i]->nostart() ) continue;
 			if ( Rockets[i]->lifted() ) continue;
-			int start_dist = 400 - _level * 20 - random() % 200;
-			if ( start_dist < 50 )
-				start_dist = 50;
 			int dist = Rockets[i]->x() - _spaceship->x(); // center distance S<->R
+			int start_dist = (int)Rockets[i]->data1();	// 400 - _level * 20 - random() % 200;
 			if ( dist <= 0 || dist >= start_dist ) continue;
-			assert( !Rockets[i]->lifted() );
-//			printf( "start rocket #%ld, dist=%d \n", i, dist );
+//			printf( "start rocket #%ld, start_dist=%d?\n", i, start_dist );
 			// really start rocket?
-			int each_n = MAX_LEVEL - _level + 1; // L1: 10 ... L10: 1
-			if ( _level < 5 )
-				each_n /= 3;
-			if ( each_n <= 0 )
-				each_n = 1;
+			int lift_prob = _rocket_start_prob;
+//			printf( "lift prob: %d\n", lift_prob );
 			// if a radar is within start_dist then the
 			// probability gets much higher
 			int x = Rockets[i]->x();
@@ -2326,16 +2705,15 @@ void FltWin::update_rockets()
 				if ( Radars[ra]->x() >= x ) continue;
 				if ( Radars[ra]->x() <= x - start_dist ) continue;
 				// there's a working radar within start_dist
-				each_n /= 5;
-				if ( each_n <= 0 )
-					each_n = 1;
+				lift_prob = _rocket_radar_start_prob;
+//				printf( "raise lift_prob to %f\n", lift_prob );
 				break;
 			}
-			int rd = random() % each_n; // L1: 0..9  L10: 0
-//			printf( "each_n = %d, rd = %d\n", each_n, rd );
-			if ( rd == 0 )
+			if ( random() % 100 < lift_prob )
 			{
-				Rockets[i]->start( 4 +_level / 2 );
+				int speed = rangedValue( rangedRandom( _rocket_min_start_speed, _rocket_max_start_speed ), 1, 10 );
+//				printf( "   lift with speed %d!\n", speed );
+				Rockets[i]->start( speed );
 				assert( Rockets[i]->lifted() );
 				continue;
 			}
@@ -2562,14 +2940,14 @@ void FltWin::draw_title()
 			string name( _cfg->users()[i].name );
 			x = drawText( x, y, "%05u .......... %s", 30,
 				_cfg->users()[i].completed ? FL_YELLOW : FL_WHITE,
-				_cfg->users()[i].score, name.empty() ? "???" : name.c_str() );
+				_cfg->users()[i].score, name.empty() ? DEFAULT_USER : name.c_str() );
 			y += 40;
 		}
 	}
 	else
 	{
 		drawText( -1, 210, "%s (%u)", 30, FL_GREEN,
-			_username == DEFAULT_USER ? "" : _username.c_str(), _first_level );
+			_username.empty() ? "N.N." : _username.c_str(), _first_level );
 		int x = drawText( -1, 260, "q/a .......... up/down", 30, FL_WHITE );
 		drawText( x, 300, "o/p .......... left/right", 30, FL_WHITE );
 		drawText( x, 340, "p ............. fire missile", 30, FL_WHITE );
@@ -2634,19 +3012,13 @@ void FltWin::draw()
 		fl_line_style( 0 );
 	}
 
-	draw_score();
-
 	draw_objects( true );	// objects for collision check
 
 	if ( !paused() && !_done && _state != DEMO )
 		_collision |= collision( *_spaceship, w(), h() );
 
-	if ( _collision && _cheatMode )
-	{
-		if ( _xoff % 20 == 0 )
-			Audio::instance()->play( "boink.wav" );
-		_collision = false;
-	}
+	if ( _collision )
+		onCollision();
 
 	if ( _state != DEMO )
 	{
@@ -2656,8 +3028,21 @@ void FltWin::draw()
 
 	draw_objects( false );	// objects AFTER collision check (=without collision)
 
+	draw_score();
+
 	if ( _collision )
 		_spaceship->draw_collision();
+}
+
+void FltWin::onCollision()
+//-------------------------------------------------------------------------------
+{
+	if ( _cheatMode )
+	{
+		if ( _xoff % 20 == 0 )
+			Audio::instance()->play( "boink.wav" );
+		_collision = false;
+	}
 }
 
 void FltWin::onGotFocus()
@@ -2783,7 +3168,7 @@ int FltWin::handle( int e_ )
 		}
 	}
 
-	if ( _state == TITLE || _state == SCORE || _state == DEMO )
+	if ( _state == TITLE || _state == SCORE || _state == DEMO || _done )
 	{
 		if ( _state == SCORE && e_ == FL_KEYUP && c >= '0' && c < 'z' )
 		{
@@ -2803,6 +3188,7 @@ int FltWin::handle( int e_ )
 			resetUser();
 		if ( e_ == FL_KEYDOWN && c == ' ' )
 		{
+			G_paused = false;
 			ignore_space = true;
 			keyClick();
 			onActionKey();
@@ -2955,6 +3341,8 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 {
 	delete _spaceship;
 	_spaceship = 0;
+	delete _anim_text;
+	_anim_text = 0;
 
 	delete_objects();
 
@@ -3002,6 +3390,9 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 
 	create_terrain();
 	position_spaceship();
+
+	if ( !_level_repeat )
+		(_anim_text = new AnimText( 0, 40, w(), _level_name.c_str() ))->start();
 
 	_done = false;
 	G_paused = false;
