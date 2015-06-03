@@ -7206,3 +7206,18 @@
 116 258 0
 116 258 0
 116 258 0
+=== ini section ===
+level_name=It's a jungle out there
+
+rocket_start_prob=50
+rocket_radar_start_prob=70
+rocket_start_speed=5
+rocket_max_start_dist=300
+rocket_min_start_dist=50
+rocket_var_start_dist=100
+
+drop_start_prob=60
+drop_start_speed=3
+drop_max_start_dist=300
+drop_min_start_dist=50
+drop_var_start_dist=100

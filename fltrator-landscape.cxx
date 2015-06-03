@@ -250,16 +250,16 @@ public:
 				f >> _ls.ground_color;
 				f >> _ls.sky_color;
 
-				while ( f.good() && size() < W )	// access data is ignored!
+				while ( f.good() )
 				{
 					int s, g;
 					int o;
 					f >> s;
 					f >> g;
 					f >> o;
-					if ( f.good() )
+					if ( !f.good() ) break;
+					if ( size() < W ) // access data is ignored!
 						_ls.push_back( LSPoint( g, s, o ) );
-
 					if ( o & O_COLOR_CHANGE )
 					{
 						// fetch extra data for color change object
@@ -267,13 +267,19 @@ public:
 						f >> bg_color;
 						f >> ground_color;
 						f >> sky_color;
-						if ( f.good() )
+						if ( f.good() && size() <= W )
 						{
 							_ls.back().bg_color = bg_color;
 							_ls.back().ground_color = ground_color;
 							_ls.back().sky_color = sky_color;
 						}
 					}
+				}
+				f.clear(); 	// reset for reading of ini section
+				string line;
+				while ( getline( f, line ) )
+				{
+					_ini.push_back( line );
 				}
 			}
 		}
@@ -323,6 +329,13 @@ public:
 				_ls[ x_ ].object = _ls[ x_ ].object & ~id_;
 		}
 	}
+	string iniSection() const
+	{
+		ostringstream os;
+		for ( size_t i = 0; i < _ini.size(); i++ )
+			os << _ini[ i ] << endl;
+		return os.str();
+	}
 	LSPoint& point( int x_ ) { return _ls[ x_ ]; }
 	int ground( int x_ ) const { return _ls[ x_ ].ground; }
 	int sky( int x_ ) const { return _ls[ x_ ].sky; }
@@ -356,6 +369,7 @@ private:
 	Terrain _ls;
 	unsigned long _flags;
 	int _xoff;
+	vector<string> _ini;
 };
 
 //--------------------------------------------------------------------------
@@ -1111,6 +1125,8 @@ void LSEditor::save()
 		}
 	 	f << endl;
 	}
+	// write ini section
+	f << _ls->iniSection();
 	_changed = false;
 	setTitle();
 }

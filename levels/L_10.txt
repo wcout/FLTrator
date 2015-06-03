@@ -6403,3 +6403,16 @@
 67 165 0
 67 164 0
 67 164 0
+=== ini section ===
+level_name=The Final Frontier...
+
+rocket_start_prob=70
+rocket_min_start_speed=1
+rocket_max_start_speed=10
+
+drop_start_prob=50
+drop_min_start_speed=3
+drop_max_start_speed=5
+
+bady_min_start_speed=3
+bady_max_start_speed=7

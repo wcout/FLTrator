@@ -6406,3 +6406,5 @@
 -1 481 0
 -1 481 0
 -1 481 0
+=== ini section ===
+level_name=Flashback from good old Speccy!
