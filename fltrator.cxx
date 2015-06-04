@@ -563,6 +563,7 @@ Object::~Object()
 void Object::animate()
 //-------------------------------------------------------------------------------
 {
+	if ( G_paused ) return;
 	_ox += _w;
 	if ( _ox >= _image->w() )
 		_ox = 0;
@@ -3014,7 +3015,7 @@ void FltWin::draw()
 
 	draw_objects( true );	// objects for collision check
 
-	if ( !paused() && !_done && _state != DEMO )
+	if ( !G_paused && !paused() && !_done && _state != DEMO )
 		_collision |= collision( *_spaceship, w(), h() );
 
 	if ( _collision )
