@@ -941,7 +941,6 @@ private:
 	int _dy;
 };
 
-
 //-------------------------------------------------------------------------------
 class AnimText : public Object
 //-------------------------------------------------------------------------------
@@ -1763,9 +1762,9 @@ void FltWin::init_parameter()
 	copy_label( os.str().c_str() );
 
 	iniValue( _level, "rocket_start_prob", _rocket_start_prob, 0, 100,
-		45. + 35. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ); // 45% - 80%
+		(int)( 45. + 35. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ) ); // 45% - 80%
 	iniValue( _level, "rocket_radar_start_prob", _rocket_radar_start_prob, 0, 100,
-		60. + 40. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ); // 60% - 100%
+		(int)( 60. + 40. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ) ); // 60% - 100%
 	if ( iniValue( _level, "rocket_start_speed", _rocket_min_start_speed, 1, 10,
 		4 + _level / 2 ) )
 	{
@@ -1783,7 +1782,7 @@ void FltWin::init_parameter()
 	iniValue( _level, "rocket_var_start_dist", _rocket_var_start_dist, 0, 200, 200 );
 
 	iniValue( _level, "drop_start_prob", _drop_start_prob, 0, 100,
-		45. + 30. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ); // 45% - 75%
+		(int)( 45. + 30. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ) ); // 45% - 75%
 	if ( iniValue( _level, "drop_start_speed", _drop_min_start_speed, 1, 10,
 		4 + _level / 2) )
 	{

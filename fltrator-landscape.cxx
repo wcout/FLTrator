@@ -513,8 +513,8 @@ void PreviewWindow::draw()
 	// draw visible window hint
 	fl_color( FL_WHITE );
 	fl_line_style( FL_DOT );
-	fl_rect( (double)_ls->xoff() / Scale, 0,
-		(double)(SCREEN_W - 1) / Scale, h() - 1 );
+	fl_rect( (int)( (double)_ls->xoff() / Scale ), 0,
+		(int)( (double)(SCREEN_W - 1) / Scale ), h() - 1 );
 	fl_line_style( 0 );
 }
 
