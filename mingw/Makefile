@@ -1,5 +1,8 @@
 # specify path to FLTK 1.3-x (mingw compiled)
 FLTK_DIR=../../fltk-1.3-mingw32/
+USE_FLTK_RUN=0
+HAVE_SLOW_CPU=0
+
 export ROOT?=$(PWD)/..
 
 HOST=i686-w64-mingw32
@@ -49,7 +52,8 @@ LDLIBS=`$(FLTK_CONFIG) --use-images --ldstaticflags` -static-libgcc -static-libs
 LDLIBSCPP=-static-libgcc -static-libstdc++ -static -lwinmm
 
 FLTKCXXFLAGS = `$(FLTK_CONFIG) --cxxflags`
-#CXXDEFS=-DHAVE_SLOW_CPU=1
+CXXDEFS+=-DUSE_FLTK_RUN=$(USE_FLTK_RUN)
+CXXDEFS+=-DHAVE_SLOW_CPU=$(HAVE_SLOW_CPU)
 CXXFLAGS+=$(CXXDEFS) -g -Wall --pedantic $(INCLUDE) $(FLTKCXXFLAGS)
 #OPT=
 OPT=-O3
