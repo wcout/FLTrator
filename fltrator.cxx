@@ -1425,8 +1425,10 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		_levelFile.erase();
 
 	// set spaceship image as icon
+#if FLTK_ABI_VERSION >= 10303
 	Fl_RGB_Image icon( (Fl_Pixmap *)_spaceship->image() );
 	Fl_Window::default_icon( &icon );
+#endif
 //	if ( full_screen )
 //		resizable( this );
 
@@ -2890,24 +2892,24 @@ void FltWin::draw_title()
 			fl_color( c[ci] );
 			if ( y <= 20 || y >= h() - 20 )
 			{
-				fl_line ( 0, y , w(), y );
-				fl_line ( 0, y+1 , w(), y+1 );
-				fl_line ( 0, y+2 , w(), y+2 );
-				fl_line ( 0, y+3 , w(), y+3 );
+				fl_line( 0, y , w(), y );
+				fl_line( 0, y + 1 , w(), y + 1 );
+				fl_line( 0, y + 2 , w(), y + 2 );
+				fl_line( 0, y + 3 , w(), y + 3 );
 			}
 			else
 			{
-				fl_line ( 0, y, 40, y ); fl_line ( w()-40, y, w(), y );
-				fl_line ( 0, y+1, 40, y+1 ); fl_line ( w()-40, y+1, w(), y+1 );
-				fl_line ( 0, y+2, 40, y+2 ); fl_line ( w()-40, y+2, w(), y+2 );
-				fl_line ( 0, y+3, 40, y+3 ); fl_line ( w()-40, y+3, w(), y+3 );
+				fl_line( 0, y, 40, y ); fl_line ( w() - 40, y, w(), y );
+				fl_line( 0, y + 1, 40, y + 1 ); fl_line ( w() -40, y + 1, w(), y + 1 );
+				fl_line( 0, y + 2, 40, y + 2 ); fl_line ( w() -40, y + 2, w(), y + 2 );
+				fl_line( 0, y + 3, 40, y + 3 ); fl_line ( w() -40, y + 3, w(), y + 3 );
 			}
 			ci++;
 			ci %= 3;
 		}
 	}
 
-	if ( _frame % (unsigned)(1.0/FRAMES) != 1 )	// don't hog the cpu
+	if ( _frame % (unsigned)( 1.0 / FRAMES ) != 1 )	// don't hog the cpu
 		return;
 
 	if ( G_paused )
@@ -2916,10 +2918,14 @@ void FltWin::draw_title()
 		fl_rectf( 40, 20, w() - 80, h() - 40, fl_rgb_color( 32, 32, 32 ) );
 	if ( _spaceship && _spaceship->image() && !bgImage )
 	{
+#if FLTK_ABI_VERSION >= 10303
 		Fl_Image::RGB_scaling( FL_RGB_SCALING_BILINEAR );
 		Fl_RGB_Image *rgb = new Fl_RGB_Image( (Fl_Pixmap *)_spaceship->image() );
 		bgImage = rgb->copy( w() - 120, h() - 80 );
 		delete rgb;
+#else
+		bgImage = _spaceship->image()->copy( w() - 120, h() - 80 );
+#endif
 	}
 	if ( bgImage )
 		bgImage->draw( 60, 40 );

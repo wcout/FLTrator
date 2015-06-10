@@ -5,7 +5,7 @@ I developed this game on Linux (Ubuntu 14.04 64 bit).
 
 It is written with FLTK, and has no other dependencies.
 
-To compile it, you first need FLTK 1.3.3 or above.
+To compile it, you first need FLTK 1.3 (preferably 1.3.3) or above.
 
 
 General
@@ -43,7 +43,7 @@ Building under Linux (this should also work for Mac)
 ====================================================
 
 Either fetch FLTK from www.fltk.org and compile it yourself or install the
-development package of your distribution (if they are 1.3.3 or higher).
+FLTK development package of your distribution (if it is at version 1.3 or higher).
 
 Use FLTK from distribution:
 ---------------------------
@@ -59,11 +59,11 @@ In a terminal change to the fltrator directory and issue:
 Use downloaded FLTK:
 --------------------
 
-Say you downloaded it to ~/fltk-1.3.3/:
+Say you downloaded it to ~/fltk-1.3/:
 
 First configure and compile FKTK.
 
-  cd ~/fltk-1.3.3
+  cd ~/fltk-1.3
 
 Configure and compile it, usually you only need:
 
@@ -71,14 +71,14 @@ Configure and compile it, usually you only need:
 
 If that succeeds go to the fltrator directory and
 
-either edit the Makefile and change FLTK-DIR to ~/fltk-1.3.3 and issue
+either edit the Makefile and change FLTK-DIR to ~/fltk-1.3 and issue
 
   make all
   make install (optional)
 
 or:
 
-  export FLTK_DIR=~/fltk-1.3.3/
+  export FLTK_DIR=~/fltk-1.3/        (Note the '/' at the end!)
 
   make -e all
   make install (optional)
