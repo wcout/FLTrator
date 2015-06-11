@@ -176,11 +176,11 @@ class Rect
 //-------------------------------------------------------------------------------
 {
 public:
-	Rect(int x_, int y_, int w_, int h_) :
-		_x(x_),
-		_y(y_),
-		_w(w_),
-		_h(h_)
+	Rect( int x_, int y_, int w_, int h_ ) :
+		_x( x_ ),
+		_y( y_ ),
+		_w( w_ ),
+		_h( h_ )
 	{
 	}
 	bool intersects( const Rect& r_ ) const
@@ -221,7 +221,7 @@ class Cfg : public Fl_Preferences
 typedef Fl_Preferences Inherited;
 	struct User
 	{
-		User() : score(0), level(0), completed(0) {}
+		User() : score( 0 ), level( 0 ), completed( 0 ) {}
 		string name;
 		int score;
 		int level;
@@ -1429,8 +1429,22 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	Fl_RGB_Image icon( (Fl_Pixmap *)_spaceship->image() );
 	Fl_Window::default_icon( &icon );
 #endif
-//	if ( full_screen )
-//		resizable( this );
+	int X, Y, W, H;
+	Fl::screen_xywh( X, Y, W, H );
+	if ( full_screen )
+	{
+		// NOTE: normally window must not be resizable, but for fullscreen()
+		//       to work it seems necessary sometimes. So we set the resizable
+		//       bit only when resolution matches in order not to end in a
+		//       large screen we cannot cope with.
+		if ( W == (int)SCREEN_W && H == (int)SCREEN_H )
+			resizable( this );
+	}
+	else
+	{
+		// try to center on current screen
+		position( ( W - w() ) / 2, ( H - h() ) / 2 );
+	}
 
 	string cfgName( "fltrator" );
 	if ( _internal_levels )
@@ -1451,13 +1465,6 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 #if USE_FLTK_RUN
 	Fl::add_timeout( FRAMES, cb_update, this );
 #endif
-	if ( !full_screen )
-	{
-		// try to center on current screen
-		int X, Y, W, H;
-		Fl::screen_xywh( X, Y, W, H );
-		position( ( W - w() ) / 2, ( H - h() ) / 2 );
-	}
 
 	changeState();
 	show();
