@@ -1,5 +1,5 @@
-# specify path to FLTK 1.3-x
-FLTK_DIR=../fltk-1.3/
+# specify path to FLTK 1.3-x (if FLTK is not installed)
+#FLTK_DIR=../fltk-1.3/
 USE_FLTK_RUN=0
 HAVE_SLOW_CPU=0
 
