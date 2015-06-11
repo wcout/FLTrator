@@ -1,6 +1,6 @@
 # specify path to FLTK 1.3-x (if FLTK is not installed)
 #FLTK_DIR=../fltk-1.3/
-USE_FLTK_RUN=0
+USE_FLTK_RUN=1
 HAVE_SLOW_CPU=0
 
 export ROOT?=$(PWD)
