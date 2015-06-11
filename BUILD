@@ -12,7 +12,7 @@ General
 =======
 
 As this program consists only of one source file/per executable, you could
-compile it just with fltk-config:
+compile it just with `fltk-config`:
 
    fltk-config --use-images --compile fltrator.cxx
 
@@ -86,11 +86,25 @@ Running fullscreen under Linux
 ------------------------------
 
 I found some instructions how to change resolution using Xrandr and created
-a program 'xrand_change_screen_res' and a shell script 'fltrator-fullscreen'.
-Calling this script will change screen resolution to 800x600 before running
-fltrator and restore to original resolution afterwards. Put these programs
-manually somewhere in your path, they are not installed with 'make install'.
+a program `xrand_change_screen_res` and a shell script `fltrator-fullscreen`.
 
+Calling this script will change screen resolution to 800x600 before running
+fltrator and restore to the original resolution afterwards:
+
+   sh ./fltrator-fullscreen.sh
+
+to run the local version of fltrator in fullsceen.
+
+These programs are not not installed with 'make install'.
+
+Either put them manually somewhere in your path, or call the local
+`fltrator-fullscreen.sh` with --install, which will compile and then
+copy them to ~/bin/.
+
+  ./fltrator-fullscreen.sh --install
+
+Note: To compile `xrand_change_screen_res.c` successfully you must have the
+`libxrandr-dev` package installed.
 
 ---
 
