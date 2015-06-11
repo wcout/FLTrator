@@ -14,9 +14,9 @@ General
 As this program consists only of one source file/per executable, you could
 compile it just with fltk-config:
 
-fltk-config --use-images --compile fltrator.cxx
+   fltk-config --use-images --compile fltrator.cxx
 
-fltk-config --use-images --compile fltrator-landscape.cxx
+   fltk-config --use-images --compile fltrator-landscape.cxx
 
 The excutable can be run from the build folder, no need for an install.
 
@@ -50,9 +50,7 @@ Use FLTK from distribution:
 
 In a terminal change to the fltrator directory and issue:
 
-  export FLTK_DIR=
-
-  make -e all
+  make all
   make install (optional)
 
 
@@ -71,7 +69,7 @@ Configure and compile it, usually you only need:
 
 If that succeeds go to the fltrator directory and
 
-either edit the Makefile and change FLTK-DIR to ~/fltk-1.3 and issue
+either edit the Makefile and change FLTK-DIR to ~/fltk-1.3/ and issue
 
   make all
   make install (optional)
