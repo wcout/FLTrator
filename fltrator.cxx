@@ -1584,7 +1584,7 @@ void FltWin::add_score( unsigned score_ )
 void FltWin::position_spaceship()
 //-------------------------------------------------------------------------------
 {
-	int X = _spaceship->w() + 10;
+	int X = _state == DEMO ? w() / 2 : _spaceship->w() + 10;
 	int ground = T[X].ground_level();
 	int sky = T[X].sky_level();
 	int Y = ground + ( h() - ground - sky ) / 2;
