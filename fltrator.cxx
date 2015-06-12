@@ -1652,9 +1652,9 @@ bool FltWin::collision( Object& o_, int w_, int h_ )
 	int xc = 0;
 	int yc = 0;
 #endif
-	for ( int y = 0; y < H; y++ )
+	for ( int y = 0; y < H; y++ ) // lines
 	{
-		long index = y * W * d; // + (x * d));    // X/Y -> buf index
+		long index = y * W * d; // line start offset
 		for ( int x = 0; x < W; x++ )
 		{
 			r = *(screen + index + 0);
@@ -2360,10 +2360,11 @@ void FltWin::create_objects()
 	// Only consider scrolled part!
 	// Plus 150 pixel (=half width of broadest object) in advance in order to
 	// make appearance of new objects smooth.
-	// (Note: we can safely access + 150 pixel because of addScrolloutZone()).
 	for ( int i = (_xoff == 0 ? 0 : w() - DX); i < w() + 150 ; i++ )
 	{
+		if ( _xoff + i >= (int)T.size() ) break;
 		unsigned int o = T[_xoff + i].object();
+		if ( !o ) continue;
 		if ( o & O_ROCKET && i - _rocket.w() / 2 < w() )
 		{
 			Rocket *r = new Rocket( i, h() - T[_xoff + i].ground_level() - _rocket.h() / 2 );
@@ -3447,7 +3448,7 @@ void FltWin::onUpdateDemo()
 	}
 
 	_xoff += DX;
-	if ( _xoff + /*2 * */w() >= (int)T.size() - 1 )
+	if ( _xoff + w() >= (int)T.size() - 1 )
 		_done = true;
 }
 
@@ -3495,7 +3496,7 @@ void FltWin::onUpdate()
 		changeState( LEVEL_DONE );
 
 	_xoff += DX;
-	if ( _xoff + /*2 * */w() >= (int)T.size() - 1 )
+	if ( _xoff + w() >= (int)T.size() - 1 )
 		_done = true;
 }
 
