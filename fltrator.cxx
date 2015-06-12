@@ -1425,7 +1425,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		_levelFile.erase();
 
 	// set spaceship image as icon
-#if FLTK_ABI_VERSION >= 10303
+#if FLTK_ABI_VERSION >= 10300 && FL_PATCH_VERSION >= 3
 	Fl_RGB_Image icon( (Fl_Pixmap *)_spaceship->image() );
 	Fl_Window::default_icon( &icon );
 #endif
@@ -2926,7 +2926,7 @@ void FltWin::draw_title()
 		fl_rectf( 40, 20, w() - 80, h() - 40, fl_rgb_color( 32, 32, 32 ) );
 	if ( _spaceship && _spaceship->image() && !bgImage )
 	{
-#if FLTK_ABI_VERSION >= 10303
+#if FLTK_ABI_VERSION >= 10300 && FL_PATCH_VERSION >= 3
 		Fl_Image::RGB_scaling( FL_RGB_SCALING_BILINEAR );
 		Fl_RGB_Image *rgb = new Fl_RGB_Image( (Fl_Pixmap *)_spaceship->image() );
 		bgImage = rgb->copy( w() - 120, h() - 80 );
