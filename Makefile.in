@@ -1,7 +1,3 @@
-# specify path to FLTK 1.3-x (if FLTK is not installed)
-#FLTK_DIR=../fltk-1.3/
-USE_FLTK_RUN=1
-HAVE_SLOW_CPU=0
 
 export ROOT?=$(PWD)
 APPLICATION=fltrator
@@ -12,7 +8,7 @@ FLTK_CONFIG=$(FLTK_DIR)fltk-config
 RSC_PATH=$(HOME)/.$(APPLICATION)
 INSTALL_PATH=$(HOME)/bin
 
-SRC=$(ROOT)/.
+SRC=$(ROOT)/src
 
 OBJ1=\
 	$(APPLICATION).o
@@ -84,6 +80,9 @@ clean::
 	$(RM) -f $(ALL) *.o core makedepend depend *~
 	$(RM) -f $(TARGET1)
 	$(RM) -f $(TARGET2)
+
+distclean:: clean
+	$(RM) -f config.log Makefile
 
 depend: $(SRC)/*.cxx
 	@echo Make dependencies..

@@ -11,7 +11,7 @@ ARGS=$1
 
 if [ $local ]; then
 echo "compiling $module module..."
-gcc -o $module $module.c -lX11 -lXrandr
+gcc -o $module src/$module.c -lX11 -lXrandr
 if [ $? = 0 ]; then
 if [ "$ARGS" = "--install" ]; then
 echo Installing ...
