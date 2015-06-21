@@ -35,6 +35,12 @@
 #include <ctime>
 #include <cassert>
 
+// We like to use Fl_Image::RGB_scaling and Fl_Window::default_icon(Fl_RGB_Image *)
+// which are available from FLTK 1.3.3 on.
+#define FLTK_HAS_NEW_FUNCTIONS FL_MAJOR_VERSION > 1 || \
+    (FL_MAJOR_VERSION == 1 && \
+    ((FL_MINOR_VERSION == 3 && FL_PATCH_VERSION >= 3) || FL_MINOR_VERSION > 3))
+
 #ifdef WIN32
 #include <mmsystem.h>
 #define random rand
@@ -1446,7 +1452,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		_levelFile.erase();
 
 	// set spaceship image as icon
-#if FLTK_ABI_VERSION >= 10300 && FL_PATCH_VERSION >= 3
+#if FLTK_HAS_NEW_FUNCTIONS
 	Fl_RGB_Image icon( (Fl_Pixmap *)_spaceship->image() );
 	Fl_Window::default_icon( &icon );
 #endif
@@ -2560,7 +2566,8 @@ void FltWin::update_drops()
 	for ( size_t i = 0; i < Drops.size(); i++ )
 	{
 		if ( !paused() )
-			Drops[i]->x( Drops[i]->x() - DX);
+			Drops[i]->x( Drops[i]->x() - DX );
+
 		int bottom = h() - T[_xoff + Drops[i]->x()].ground_level();
 		if ( 0 == bottom  ) bottom += Drops[i]->h();	// glide out completely if no ground
 		bool gone = Drops[i]->y() + Drops[i]->h() / 2 > bottom || Drops[i]->x() < -Drops[i]->w();
@@ -2606,7 +2613,7 @@ void FltWin::update_badies()
 	for ( size_t i = 0; i < Badies.size(); i++ )
 	{
 		if ( !paused() )
-			Badies[i]->x( Badies[i]->x() - DX);
+			Badies[i]->x( Badies[i]->x() - DX );
 
 		int top = T[_xoff + Badies[i]->x() + Badies[i]->w() / 2].sky_level();
 		int bottom = h() - T[_xoff + Badies[i]->x() + Badies[i]->w() / 2].ground_level();
@@ -2650,7 +2657,7 @@ void FltWin::update_cumuluses()
 	for ( size_t i = 0; i < Cumuluses.size(); i++ )
 	{
 		if ( !paused() )
-			Cumuluses[i]->x( Cumuluses[i]->x() - DX);
+			Cumuluses[i]->x( Cumuluses[i]->x() - DX );
 
 		int top = T[_xoff + Cumuluses[i]->x() + Cumuluses[i]->w() / 2].sky_level();
 		int bottom = h() - T[_xoff + Cumuluses[i]->x() + Cumuluses[i]->w() / 2].ground_level();
@@ -2694,7 +2701,8 @@ void FltWin::update_rockets()
 	for ( size_t i = 0; i < Rockets.size(); i++ )
 	{
 		if ( !paused() )
-			Rockets[i]->x( Rockets[i]->x() - DX);
+			Rockets[i]->x( Rockets[i]->x() - DX );
+
 		int top = T[_xoff + Rockets[i]->x()].sky_level();
 		if ( -1 == top  ) top -= Rockets[i]->h();	// glide out completely if no sky
 		bool gone = Rockets[i]->exploded() || Rockets[i]->x() < -Rockets[i]->w();
@@ -2759,7 +2767,8 @@ void FltWin::update_radars()
 	for ( size_t i = 0; i < Radars.size(); i++ )
 	{
 		if ( !paused() )
-			Radars[i]->x( Radars[i]->x() - DX);
+			Radars[i]->x( Radars[i]->x() - DX );
+
 		bool gone = Radars[i]->exploded() || Radars[i]->x() < -Radars[i]->w();
 		if ( gone )
 		{
@@ -2944,7 +2953,7 @@ void FltWin::draw_title()
 		fl_rectf( 40, 20, w() - 80, h() - 40, fl_rgb_color( 32, 32, 32 ) );
 	if ( _spaceship && _spaceship->image() && !bgImage )
 	{
-#if FLTK_ABI_VERSION >= 10300 && FL_PATCH_VERSION >= 3
+#if FLTK_HAS_NEW_FUNCTIONS
 		Fl_Image::RGB_scaling( FL_RGB_SCALING_BILINEAR );
 		Fl_RGB_Image *rgb = new Fl_RGB_Image( (Fl_Pixmap *)_spaceship->image() );
 		bgImage = rgb->copy( w() - 120, h() - 80 );
