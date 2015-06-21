@@ -643,9 +643,9 @@ void Object::draw()
 	if ( !_exploded )
 		_image->draw( x(), y(), _w, _h, _ox, 0 );
 #ifdef DEBUG
-	fl_color(FL_YELLOW);
-	Rect r(rect());
-	fl_rect(r.x(),r.y(),r.w(),r.h());
+	fl_color( FL_YELLOW );
+	Rect r( rect() );
+	fl_rect( r.x(), r.y(), r.w(), r.h() );
 	fl_point( cx(), cy() );
 #endif
 	 if ( _exploding || _hit )
@@ -950,11 +950,20 @@ class AnimText : public Object
 //       could be combined with the FltWin::drawText().
 typedef Object Inherited;
 public:
-	AnimText( int x_, int y_, int w_, const char *text_, Fl_Color color_ = FL_YELLOW ) :
+	AnimText( int x_, int y_, int w_, const char *text_,
+		Fl_Color color_ = FL_YELLOW,
+		Fl_Color bgColor_ = FL_BLACK,
+		int maxSize_ = 30,
+		int minSize_ = 10,
+		bool once_ = true ) :
 		Inherited( (ObjectType)0, x_, y_, 0, w_ ),
 		_text( text_ ),
 		_color( color_ ),
-		_sz( 10 ),
+		_bgColor( bgColor_ ),
+		_maxSize( maxSize_ ),
+		_minSize( minSize_ ),
+		_once( once_ ),
+		_sz( _minSize ),
 		_up( true ),
 		_hold( 0 ),
 		_done ( false )
@@ -969,7 +978,7 @@ public:
 		int W = 0;
 		int H = 0;
 		fl_measure( _text.c_str(), W, H );
-		fl_color( FL_BLACK );
+		fl_color( _bgColor );
 		fl_draw( _text.c_str(), _text.size(), _x + _w / 2 - W / 2 + 2, _y + 2 );
 		fl_color( _color );
 		fl_draw( _text.c_str(), _text.size(), _x + _w / 2 - W / 2, _y );
@@ -985,7 +994,7 @@ public:
 			if ( !_hold )
 			{
 				_sz++;
-				if ( _sz > 30 )
+				if ( _sz > _maxSize )
 					_hold = 1;
 			}
 			else
@@ -998,9 +1007,15 @@ public:
 		else
 		{
 			_sz--;
-			if ( _sz < 10 )
+			if ( _sz < _minSize )
 			{
-				_done = true;
+				if ( _once )
+					_done = true;
+				else
+				{
+					_hold = false;
+					_up = true;
+				}
 				return;
 			}
 		}
@@ -1010,6 +1025,10 @@ public:
 private:
 	string _text;
 	Fl_Color _color;
+	Fl_Color _bgColor;
+	int _maxSize;
+	int _minSize;
+	bool _once;
 	int _sz;
 	unsigned char _g;
 	bool _up;
@@ -1032,7 +1051,7 @@ public:
 	int sky_level() const { return _sky_level; }
 	void sky_level( int sky_level_ ) { _sky_level = sky_level_; }
 	void object( unsigned int object_ ) { _object = object_; }
-	unsigned int object()  { return _object; }
+	unsigned int object() const { return _object; }
 	bool has_object( int type_ ) const { return _object & type_; }
 	void has_object( int type_, bool has_ )
 	{
@@ -1178,7 +1197,7 @@ private:
 	bool loadLevel( int level_, const string levelFileName_ = "" );
 	void update_missiles();
 	void update_bombs();
-	bool collision( Object& o_, int w_, int h_ );
+	bool collision( const Object& o_, int w_, int h_ );
 	void create_objects();
 	void delete_objects();
 	void update_objects();
@@ -1286,29 +1305,30 @@ private:
 	string _level_name;
 	vector<string> _ini;	// ini section of level file
 	AnimText *_anim_text;
+	AnimText *_title_anim;
 };
 
 //-------------------------------------------------------------------------------
 // class FltWin : public Fl_Double_Window
 //-------------------------------------------------------------------------------
 FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
-	Inherited( SCREEN_W, SCREEN_H, "FL-Trator v1.4" ),
+	Inherited( SCREEN_W, SCREEN_H, "FL-Trator v1.5" ),
 	_state( START ),
 	_xoff( 0 ),
 	_left( false), _right( false ), _up( false ), _down( false ),
 	_spaceship( new Spaceship( w() / 2, 40, w(), h() ) ),
 	_bomb_lock( false),
 	_collision( false ),
-	_done(false),
+	_done( false ),
 	_frame( 0 ),
-	_score(0),
-	_old_score(0),
-	_initial_score(0),
-	_hiscore(0),
-	_first_level(1),
-	_level(0),
+	_score( 0 ),
+	_old_score( 0 ),
+	_initial_score( 0 ),
+	_hiscore( 0 ),
+	_first_level( 1 ),
+	_level( 0 ),
 	_done_level( 0 ),
-	_level_repeat(0),
+	_level_repeat( 0 ),
 	_cheatMode( false ),
 	_trainMode( false ),
 	_cfg( 0 ),
@@ -1319,7 +1339,8 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_no_random( false ),
 	_hide_cursor( false ),
 	_title( label() ),
-	_anim_text( 0 )
+	_anim_text( 0 ),
+	_title_anim( 0 )
 {
 	int argc( argc_ );
 	unsigned argi( 1 );
@@ -1367,20 +1388,20 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 					case 'f':
 						full_screen = true;
 						break;
-					case 'n':
-						reset_user = true;
-						break;
-					case 's':
-						Audio::instance()->disable();
-						break;
 					case 'i':
 						_internal_levels = true;
+						break;
+					case 'n':
+						reset_user = true;
 						break;
 					case 'p':
 						_focus_out = false;
 						break;
 					case 'r':
 						_no_random = true;
+						break;
+					case 's':
+						Audio::instance()->disable();
 						break;
 					default:
 						unknown_option += arg[i];
@@ -1611,7 +1632,7 @@ void FltWin::addScrolloutZone()
 		T.push_back( T.back() );
 }
 
-bool FltWin::collision( Object& o_, int w_, int h_ )
+bool FltWin::collision( const Object& o_, int w_, int h_ )
 //-------------------------------------------------------------------------------
 {
 	int xoff = 0;
@@ -1637,9 +1658,9 @@ bool FltWin::collision( Object& o_, int w_, int h_ )
 	W = X - xoff + W < w_ ? W : w_ - ( X - xoff );
 	H = Y - yoff + H < h_ ? H : h_ - ( Y - yoff );
 
-	uchar *screen = fl_read_image( 0, X, Y, W, H );
+	const uchar *screen = fl_read_image( 0, X, Y, W, H );
 
-	int d = 3;
+	const int d = 3;
 	unsigned char r, g, b;
 	bool collided = false;
 
@@ -2917,9 +2938,6 @@ void FltWin::draw_title()
 		}
 	}
 
-	if ( _frame % (unsigned)( 1.0 / FRAMES ) != 1 )	// don't hog the cpu
-		return;
-
 	if ( G_paused )
 		fl_rectf( 0, 0, w(), h(), fl_rgb_color( 0, 0, 0 ) );
 	else
@@ -2937,10 +2955,11 @@ void FltWin::draw_title()
 	}
 	if ( bgImage )
 		bgImage->draw( 60, 40 );
+	if (!_title_anim)
+		(_title_anim = new AnimText( 0, 130, w(), "FL-TRATOR",
+			FL_RED, FL_WHITE, 90, 80, false ))->start();
 
-	drawText( -1, 120, "FL-TRATOR", 80, FL_RED );
-
-	if ( /*!_xoff &&*/ _cfg->non_zero_scores() && _flip++ % 10 >= 7 )
+	if ( /*!_xoff &&*/ _cfg->non_zero_scores() && _flip++ % (FPS * 8) > ( FPS * 5) )
 	{
 		size_t n = _cfg->non_zero_scores();
 		if ( n > 6 )
@@ -2974,6 +2993,9 @@ void FltWin::draw_title()
 		drawText( -1, h() - 50, "** PAUSED **", 40, FL_YELLOW );
 	else
 		drawText( -1, h() - 50, "** hit space to start **", 40, FL_YELLOW );
+
+	if (_title_anim)
+		_title_anim->draw();
 }
 
 void FltWin::draw()
@@ -3017,7 +3039,7 @@ void FltWin::draw()
 			if ( T[_xoff + i].sky_level() >= 0 )
 			{
 				fl_color( T.outline_color_sky );
-				fl_line ( i - 1, T[_xoff + i - 1].sky_level(), i + 1, T[_xoff + i + 1].sky_level() );
+				fl_line( i - 1, T[_xoff + i - 1].sky_level(), i + 1, T[_xoff + i + 1].sky_level() );
 			}
 			fl_color( T.outline_color_ground );
 			fl_line( i - 1, h() - T[_xoff + i - 1].ground_level(), i + 1,
@@ -3357,6 +3379,8 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 	_spaceship = 0;
 	delete _anim_text;
 	_anim_text = 0;
+	delete _title_anim;
+	_title_anim = 0;
 
 	delete_objects();
 
