@@ -1,0 +1,110 @@
+#!/bin/sh
+
+DEST=Makefile
+LOG=config.log
+
+usage()
+{
+	echo "Usage:"
+	echo "   ./configure [options]"
+	echo "Options:"
+	echo "   --enable-fltk-run (default)"
+	echo "   --disable-fltk-run"
+	echo "   --enable-slow-cpu"
+	echo "   --disable-slow-cpu (default)"
+	echo "   --with-fltk-dir FLTK_DIR (default empty, means use installed version)"
+}
+
+log()
+{
+	echo "$1"
+	echo "$1" >> $LOG
+}
+
+destwrite()
+{
+	log "Write '$1'"
+	echo "$1" >> $DEST
+}
+
+USE_FLTK_RUN=1
+HAVE_SLOW_CPU=0
+FLTK_DIR=""
+
+rm -f $LOG
+
+log "===Arguments==="
+while [ "$1" != "" ]; do
+	PARAM=`echo $1 | awk -F= '{print $1}'`
+	VALUE=`echo $1 | awk -F= '{print $2}'`
+	log "$PARAM $VALUE"
+	case $PARAM in
+		--enable-fltk-run )
+				USE_FLTK_RUN=1
+				;;
+		--enable-slow-cpu )
+				HAVE_SLOW_CPU=1
+				;;
+		--disable-fltk-run )
+				USE_FLTK_RUN=0
+				;;
+		--disable-slow-cpu )
+				HAVE_SLOW_CPU=0
+				;;
+		--with-fltk-dir )
+				FLTK_DIR=$VALUE
+				;;
+		-h | --help )
+				usage
+				exit 1
+				;;
+		*)
+			log "ERROR: unknown parameter \"$PARAM\""
+			usage
+			exit 1
+			;;
+	esac
+	shift
+done
+
+rm -f $DEST
+
+log "===Output==="
+if [ "$FLTK_DIR" != "" ]; then
+fltk_config=$FLTK_DIR/fltk-config
+else
+fltk_config=`which fltk-config`
+fi
+
+log "Using $fltk_config"
+if [ "$fltk_config" = "" ]; then
+echo "FLTK not found!"
+fi
+
+fltk_version=`$fltk_config --version`
+log "FLTK version $fltk_version"
+if [ "$fltk_version" = "" ]; then
+echo "FLTK version not found!"
+exit 1
+fi
+
+if [ "$fltk_version" \< "1.3" ]; then
+log "FLTK 1.3 or above needed"
+exit 1
+fi
+
+destwrite "# $DEST created by $0"
+log "FLTK_DIR=\"$FLTK_DIR\""
+if [ "$FLTK_DIR" != "" ]; then
+destwrite "FLTK_DIR=$FLTK_DIR/"
+else
+destwrite "FLTK_DIR="
+fi
+destwrite "USE_FLTK_RUN=$USE_FLTK_RUN"
+destwrite "HAVE_SLOW_CPU=$HAVE_SLOW_CPU"
+
+cat Makefile.in >>$DEST
+log "$DEST written successfully."
+# force complete rebuild
+make clean
+
