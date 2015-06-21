@@ -960,6 +960,8 @@ int LSEditor::handle( int e_ )
 					_curr_y = y;
 				}
 			}
+			break;
+
 		case FL_DRAG:
 			if ( _mode != EDIT_LANDSCAPE )
 				return 0;
