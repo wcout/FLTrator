@@ -33,7 +33,10 @@ FLTK_DIR=""
 
 rm -f $LOG
 
-log "===Arguments==="
+log "# input parameters"
+if [ "$1" = "" ]; then
+log "(none)"
+fi
 while [ "$1" != "" ]; do
 	PARAM=`echo $1 | awk -F= '{print $1}'`
 	VALUE=`echo $1 | awk -F= '{print $2}'`
@@ -69,22 +72,29 @@ done
 
 rm -f $DEST
 
-log "===Output==="
+# strip a trailing '/' from FLTK_DIR
+lastchr=${FLTK_DIR#${FLTK_DIR%?}}
+if [ "$lastchr" = "/" ]; then
+	FLTK_DIR=${FLTK_DIR%?}
+fi
+
+log "# output"
 if [ "$FLTK_DIR" != "" ]; then
 fltk_config=$FLTK_DIR/fltk-config
 else
 fltk_config=`which fltk-config`
 fi
 
-log "Using $fltk_config"
 if [ "$fltk_config" = "" ]; then
-echo "FLTK not found!"
+log "FLTK not found!"
+exit 1
 fi
 
+log "Using $fltk_config"
 fltk_version=`$fltk_config --version`
 log "FLTK version $fltk_version"
 if [ "$fltk_version" = "" ]; then
-echo "FLTK version not found!"
+log "FLTK version not found!"
 exit 1
 fi
 
@@ -106,5 +116,8 @@ destwrite "HAVE_SLOW_CPU=$HAVE_SLOW_CPU"
 cat Makefile.in >>$DEST
 log "$DEST written successfully."
 # force complete rebuild
-make clean
+log "# postprocessing"
+log "make clean"
+make clean >> $LOG
+log "Success - you can run make now!"
 
