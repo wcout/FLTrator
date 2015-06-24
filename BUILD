@@ -22,6 +22,7 @@ The excutable can be run from the build folder, no need for an install.
 
 Nevertheless there is a `Makefile` in order to be more flexible.
 
+---
 
 Audio
 =====
@@ -38,6 +39,7 @@ It has to be in the path somewhere (or in the same path as fltrator).
 
 It is also possible to specify a play command through command line (see `--help`).
 
+---
 
 Building under Linux (this should also work for Mac)
 ====================================================
@@ -108,29 +110,31 @@ Note: To compile `xrand_change_screen_res.c` successfully you must have the
 
 ---
 
-
 General notes about the Windows version
 =======================================
 
-Prologue: I never program for Windows. When I need something for Windows I build
-it with mingw under Linux. So forgive me if I talk nonsense.
-
-I have noticed in some of my recent projects, that it is neary impossible
-with standard procedures to get reliable hispeed timers that work persistant
-under all flavours of Windows. Either they are not accurate or they eat all CPU.
+*Prologue*: I never program for Windows. When I need something for Windows I build
+it with `mingw` under Linux. So forgive me if I talk nonsense.
 
 FLTrator normally would like to use a 200Hz timer for scrolling the landscape.
 This is just the right speed for a smooth scrolling by 1 pixel/frame. No problem
-under ANY Linux system. But a BIG problem for a Windows system, as far as I
-experience (But maybe it's just my lack of knowledge, how to setup things right).
+under **ANY** Linux system. But a **BIG** problem for a Windows system, as far as I
+experience.
 
-I managed to run FLTrator under Windows 7 on a recent quad core processor with 200Hz.
-But the same executable performs utterly poor on an old Windows XP system with
-a Pentium processor.
+The problem is twofold: FLTK's timer for Windows are restricted to a maximum rate
+of ~65 fps 'by design'. So it was necessary to implement an own timer handling
+using Windows hires timers and integrate these with FLTK's main loop.
 
-I found 40Hz to be the ideal rate in this case. Therefore I have added an option
-`HAVE_SLOW_CPU` to compile with a 40Hz timer. This makes the scrolling a little
-jumpy, but maybe this even adds to the retro feeling..
+The second problem is, that Windows hires timers seem to be not very reliable
+(but maybe it's just my lack of knowledge, how to set up things right).
+With much fiddling it works now somehow - I managed to run FLTrator under Windows 7
+on a recent quad core processor with 200 fps. But likely on slower machines it
+may not work too well.
+
+If it does on your machine - then fine. Otherwise I found 40Hz to be the ideal
+rate in this case. Therefore I have added an option `HAVE_SLOW_CPU` to compile
+with a 40Hz timer. This makes the scrolling a little jumpy, but maybe this
+even adds to the retro feeling...
 
 Should you experience bad performance, you can enable the switch in your compile
 shell with:
@@ -141,6 +145,8 @@ before running
 
      make -e
 
+**Note**: With FLTrator 1.5 there is a runtime switch to change the frame rate.
+      See section `Performance issues` below.
 
 Creating a Windows executable using mingw on Linux
 ==================================================
@@ -157,13 +163,13 @@ Download FLTK into some directory say: `~/fltk-1.3-mingw/`:
     make clean
     ./configure --host=i686-w64-mingw32 --enable-cygwin=yes --enable-localjpeg=yes --enable-localzlib=yes --enable-localpng=yes
 
-*Note*: Use the mingw host you have installed on your machine in the '--host=...' switch
+*Note*: Use the mingw host you have installed on your machine in the `--host=...` switch
         (The above was mine under Ubuntu 14.04).
 
 The compilation may stop (at least it did until recently) somewhere within fluid.
 But this doesn't matter, as the FLTK libraries are built already at this point.
 
-After successful build of FLTK change to 'mingw' subfolder of your fltrator folder.
+After successful build of FLTK change to `mingw` subfolder of your fltrator folder.
 
     cd {your-fltrator-folder}
     cd mingw
@@ -185,3 +191,19 @@ Native builds under Windows
 I didn't try it, but if you have a working development suite, I guess it should be very
 easy to build as you need only single file projects.
 
+---
+
+Performance issues
+==================
+
+On older hardware or on a Windows system FLTrator's default framerate of 200 fps
+may be too high.
+
+With version 1.5 I introduce a run time switch to set the framerate.
+
+    -Rfps  e.g. -R40
+
+Of course lower values will decrease the smoothness of the scrolling.
+
+Experiment with that value, until you get the best mix of performance vs  'jumpyness'.
+Allowed values are 20, 25, 40, 50, 100, 200. I recommend a rate 40+.
