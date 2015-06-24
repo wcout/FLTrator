@@ -14,6 +14,8 @@
 // See the GNU General Public License for more details:
 // http://www.gnu.org/licenses/.
 //
+#define VERSION "v1.5"
+
 #include <FL/Fl.H>
 #include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Shared_Image.H>
@@ -56,31 +58,36 @@
 #define _access access
 
 static const unsigned MAX_LEVEL = 10;
-static const unsigned  MAX_LEVEL_REPEAT = 3;
+static const unsigned MAX_LEVEL_REPEAT = 3;
 
 static const unsigned SCREEN_W = 800;
 static const unsigned SCREEN_H = 600;
 
+#define FAST_FPS 200
+#define SLOW_FPS 40
+
 #if HAVE_SLOW_CPU
 #undef USE_FLTK_RUN
 #define USE_FLTK_RUN 1
-#define DEFAULT_FPS 40
+#define DEFAULT_FPS SLOW_FPS
 #else
-#define DEFAULT_FPS 200
+#define DEFAULT_FPS FAST_FPS
 #endif
+
+static bool _USE_FLTK_RUN = USE_FLTK_RUN;
 
 #ifdef WIN32
 #if USE_FLTK_RUN
-static const unsigned FPS = 64;
+static unsigned FPS = 64;
 #else
-static const unsigned FPS = DEFAULT_FPS;
+static unsigned FPS = DEFAULT_FPS;
 #endif
 #else
-static const unsigned FPS = DEFAULT_FPS;
+static unsigned FPS = DEFAULT_FPS;
 #endif
 
-static const double FRAMES = 1. / FPS;
-static const unsigned DX = 200 / FPS;
+static double FRAMES = 1. / FPS;
+static unsigned DX = 200 / FPS;
 
 static bool G_paused = false;
 
@@ -103,6 +110,46 @@ enum ObjectType
 	O_BOMB = 1<<17,
 	O_SHIP = 1<<18
 };
+
+static void setup( int fps_, bool have_slow_cpu_, bool use_fltk_run_  = true )
+//-------------------------------------------------------------------------------
+{
+	if ( fps_ > 0 )
+	{
+		int fps( fps_ );
+		if ( fps > 200 )
+			fps = 200;
+		if ( fps < 20 )
+			fps = 20;
+		while ( fps >= 20 )
+		{
+			if ( 200 == ( 200 / fps ) * fps )
+			{
+				FPS = fps;
+				break;
+			}
+			fps--;
+		}
+	}
+	else if ( have_slow_cpu_ )
+	{
+		use_fltk_run_ = true;
+		FPS = SLOW_FPS;
+	}
+	else
+	{
+		FPS = FAST_FPS;
+	}
+
+#ifdef WIN32
+	if ( use_fltk_run_ )
+		FPS = 64;
+#endif
+	_USE_FLTK_RUN = use_fltk_run_;
+
+	FRAMES = 1. / FPS;
+	DX = 200 / FPS;
+}
 
 static string homeDir()
 //-------------------------------------------------------------------------------
@@ -1318,7 +1365,7 @@ private:
 // class FltWin : public Fl_Double_Window
 //-------------------------------------------------------------------------------
 FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
-	Inherited( SCREEN_W, SCREEN_H, "FL-Trator v1.5" ),
+	Inherited( SCREEN_W, SCREEN_H, "FL-Trator "VERSION ),
 	_state( START ),
 	_xoff( 0 ),
 	_left( false), _right( false ), _up( false ), _down( false ),
@@ -1379,6 +1426,14 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		{
 			_username = arg.substr( 2, 10 );
 		}
+		else if ( arg.find( "-R" ) == 0 )
+		{
+#ifdef WIN32
+			setup( atoi( arg.substr( 2 ).c_str() ), false, false );
+#else
+			setup( atoi( arg.substr( 2 ).c_str() ), false, true );
+#endif
+		}
 		else if ( arg[0] == '-' )
 		{
 			for ( size_t i = 1; i < arg.size(); i++ )
@@ -1394,6 +1449,9 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 					case 'f':
 						full_screen = true;
 						break;
+					case 'F':
+						setup( -1, false, false );
+						break;
 					case 'i':
 						_internal_levels = true;
 						break;
@@ -1408,6 +1466,9 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 						break;
 					case 's':
 						Audio::instance()->disable();
+						break;
+					case 'S':
+						setup( -1, true );
 						break;
 					default:
 						unknown_option += arg[i];
@@ -1444,12 +1505,22 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		printf("  -s\tstart with sound disabled\n" );
 		printf("  -A\"playcmd\"\tspecify audio play command\n" );
 		printf("   \te.g. -A\"play -q %%f\"\n" );
+		printf("  -F\trun with settings for fast computer\n" );
+		printf("  -Rvalue\tset frame rate to 'value' fps [20,25,40,50,100,200]\n" );
+		printf("  -S\trun with settings for slow computer\n" );
 		printf("  -Uusername\tstart as user 'username'\n" );
 		exit(0);
 	}
 
 	if ( !_trainMode )
 		_levelFile.erase();
+
+#if 0
+	printf( "_USE_FLTK_RUN = %d\n", _USE_FLTK_RUN );
+	printf( "DX = %d\n", DX );
+	printf( "FRAMES = %f\n", FRAMES );
+	printf( "FPS = %d\n", FPS );
+#endif
 
 	// set spaceship image as icon
 #if FLTK_HAS_NEW_FUNCTIONS
@@ -1489,9 +1560,8 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_level = _first_level;
 	_hiscore = _cfg->hiscore();
 	_hiscore_user = _cfg->best().name;
-#if USE_FLTK_RUN
-	Fl::add_timeout( FRAMES, cb_update, this );
-#endif
+	if ( _USE_FLTK_RUN )
+		Fl::add_timeout( FRAMES, cb_update, this );
 
 	changeState();
 	show();
@@ -1688,7 +1758,7 @@ bool FltWin::collision( const Object& o_, int w_, int h_ )
 			g = *(screen + index + 1);
 			b = *(screen + index + 2);
 
-			if ( !o_.isTransparent(x + xoff, y + yoff) && !(r == R && g == G && b == B) )
+			if ( !o_.isTransparent( x + xoff, y + yoff ) && !( r == R && g == G && b == B ) )
 			{
 				collided = true;
 #ifdef DEBUG
@@ -1702,14 +1772,14 @@ bool FltWin::collision( const Object& o_, int w_, int h_ )
 		}
 	}
 	delete[] screen;
+#if DEBUG
 	if ( collided )
 	{
-#ifdef DEBUG
 		printf( "collision at %d + %d / %d + %d !\n", o_.x(), xc, o_.y(), yc  );
 		printf( "object %dx%d xoff=%d yoff=%d\n", o_.w(), o_.h(), xoff, yoff );
 		printf( "X=%d, Y=%d, W=%d, H=%d\n", X, Y, W, H );
-#endif
 	}
+#endif
 	return collided;
 } // collision
 
@@ -2937,10 +3007,10 @@ void FltWin::draw_title()
 			}
 			else
 			{
-				fl_line( 0, y, 40, y ); fl_line ( w() - 40, y, w(), y );
-				fl_line( 0, y + 1, 40, y + 1 ); fl_line ( w() -40, y + 1, w(), y + 1 );
-				fl_line( 0, y + 2, 40, y + 2 ); fl_line ( w() -40, y + 2, w(), y + 2 );
-				fl_line( 0, y + 3, 40, y + 3 ); fl_line ( w() -40, y + 3, w(), y + 3 );
+				fl_line( 0, y, 40, y ); fl_line( w() - 40, y, w(), y );
+				fl_line( 0, y + 1, 40, y + 1 ); fl_line ( w() - 40, y + 1, w(), y + 1 );
+				fl_line( 0, y + 2, 40, y + 2 ); fl_line ( w() - 40, y + 2, w(), y + 2 );
+				fl_line( 0, y + 3, 40, y + 3 ); fl_line ( w() - 40, y + 3, w(), y + 3 );
 			}
 			ci++;
 			ci %= 3;
@@ -3002,6 +3072,8 @@ void FltWin::draw_title()
 		drawText( -1, h() - 50, "** PAUSED **", 40, FL_YELLOW );
 	else
 		drawText( -1, h() - 50, "** hit space to start **", 40, FL_YELLOW );
+	drawText( w() - 90, h() - 26, "fps=%d", 8, FL_CYAN, FPS );
+	drawText( w() - 70, 36, VERSION, 8, FL_CYAN );
 
 	if (_title_anim)
 		_title_anim->draw();
@@ -3337,9 +3409,8 @@ void FltWin::cb_update( void *d_ )
 {
 	FltWin *f = (FltWin *)d_;
 	f->state() == FltWin::DEMO ? f->onUpdateDemo() : f->onUpdate();
-#if USE_FLTK_RUN
-	Fl::repeat_timeout( FRAMES, cb_update, d_ );
-#endif
+	if ( _USE_FLTK_RUN )
+		Fl::repeat_timeout( FRAMES, cb_update, d_ );
 }
 
 void FltWin::onActionKey()
@@ -3542,10 +3613,11 @@ void FltWin::bombUnlock()
 int FltWin::run()
 //-------------------------------------------------------------------------------
 {
-#if USE_FLTK_RUN
-//	printf( "Using Fl::run()\n" );
-	return Fl::run();
-#else
+	if ( _USE_FLTK_RUN )
+	{
+//		printf( "Using Fl::run()\n" );
+		return Fl::run();
+	}
 
 #ifndef WIN32
 	unsigned long startTime;
@@ -3620,7 +3692,6 @@ int FltWin::run()
 		_state == DEMO ? onUpdateDemo() : onUpdate();
 	}
 	return 0;
-#endif
 }
 
 //-------------------------------------------------------------------------------
