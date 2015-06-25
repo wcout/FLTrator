@@ -14,7 +14,7 @@
 // See the GNU General Public License for more details:
 // http://www.gnu.org/licenses/.
 //
-#define VERSION "v1.5"
+#define VERSION "1.5"
 
 #include <FL/Fl.H>
 #include <FL/Fl_Double_Window.H>
@@ -114,21 +114,23 @@ enum ObjectType
 static void setup( int fps_, bool have_slow_cpu_, bool use_fltk_run_  = true )
 //-------------------------------------------------------------------------------
 {
-	if ( fps_ > 0 )
+	if ( fps_ && fps_ != -1 )
 	{
 		int fps( fps_ );
+		bool round_up = fps < 0;
+		fps = abs( fps );
 		if ( fps > 200 )
 			fps = 200;
 		if ( fps < 20 )
 			fps = 20;
-		while ( fps >= 20 )
+		while ( round_up ? fps <= 200 : fps >= 20 )
 		{
 			if ( 200 == ( 200 / fps ) * fps )
 			{
 				FPS = fps;
 				break;
 			}
-			fps--;
+			round_up ? fps++ : fps--;
 		}
 	}
 	else if ( have_slow_cpu_ )
@@ -1365,7 +1367,7 @@ private:
 // class FltWin : public Fl_Double_Window
 //-------------------------------------------------------------------------------
 FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
-	Inherited( SCREEN_W, SCREEN_H, "FL-Trator "VERSION ),
+	Inherited( SCREEN_W, SCREEN_H, "FL-Trator v"VERSION ),
 	_state( START ),
 	_xoff( 0 ),
 	_left( false), _right( false ), _up( false ), _down( false ),
@@ -1411,6 +1413,11 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		{
 			usage = true;
 			break;
+		}
+		if ( "--version" == arg )
+		{
+			printf( "%s\n", VERSION );
+			exit( 0 );
 		}
 		int level = atoi( arg.c_str() );
 		if ( level > 0 && level <= (int)MAX_LEVEL )
@@ -3073,7 +3080,7 @@ void FltWin::draw_title()
 	else
 		drawText( -1, h() - 50, "** hit space to start **", 40, FL_YELLOW );
 	drawText( w() - 90, h() - 26, "fps=%d", 8, FL_CYAN, FPS );
-	drawText( w() - 70, 36, VERSION, 8, FL_CYAN );
+	drawText( w() - 70, 36, "v"VERSION, 8, FL_CYAN );
 
 	if (_title_anim)
 		_title_anim->draw();
@@ -3303,6 +3310,10 @@ int FltWin::handle( int e_ )
 			toggleUser();
 		if ( _state == TITLE && e_ == FL_KEYUP && ( 'r' == c ) )
 			resetUser();
+		if ( _state == TITLE && e_ == FL_KEYUP && ( '-' == c ) )
+			setup( FPS - 1, false );
+		if ( _state == TITLE && e_ == FL_KEYUP && ( '+' == c ) )
+			setup( -FPS - 1, false );
 		if ( e_ == FL_KEYDOWN && c == ' ' )
 		{
 			G_paused = false;

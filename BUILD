@@ -199,11 +199,16 @@ Performance issues
 On older hardware or on a Windows system FLTrator's default framerate of 200 fps
 may be too high.
 
-With version 1.5 I introduce a run time switch to set the framerate.
+With version 1.5 the frame rate can be changed in runtime:
 
-    -Rfps  e.g. -R40
+On the **title screen** you see the current frame rate in the bottom/right corner.
+Pressing '-' or '+' will change to the next value down or up.
+
+Experiment with the values, until you get the best mix of performance vs  'jumpyness'.
+Allowed values are 20, 25, 40, 50, 100, 200. I recommend a rate 40+.
 
 Of course lower values will decrease the smoothness of the scrolling.
 
-Experiment with that value, until you get the best mix of performance vs  'jumpyness'.
-Allowed values are 20, 25, 40, 50, 100, 200. I recommend a rate 40+.
+If you found your best rate, you can put it in the command line:
+
+    -Rfps  e.g. -R40
