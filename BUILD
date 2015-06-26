@@ -11,6 +11,10 @@ To compile it, you first need FLTK 1.3 (preferably 1.3.3) or above.
 General
 =======
 
+One main goal at development was to use NO external libraries whatsoever
+(except FLTK of course) to stay simple and clean. So the code should be
+really easy to compile.
+
 As this program consists only of one source file/per executable, you could
 compile it just with `fltk-config`:
 
@@ -27,24 +31,26 @@ Nevertheless there is a `Makefile` in order to be more flexible.
 Audio
 =====
 
-The program plays `.wav` files by using the builtin play tool of the
-OS. This is `aplay` for Linux and `play` for Apple.
+According to the goal to use no external libraries, the program plays `.wav`
+files by using the builtin play tool of the OS. This is `aplay` for Linux
+and `play` for Apple. Works pretty well...
 
 If you don't hear sound please make sure, that this program is installed
-and plays sounds from the command line.
+on your system and plays sounds from the command line.
 
-Under Windows there is no such tool and one cannot output sound in background
-easy. So I made a little executable `playsound.exe` that is called by fltrator.
+Under Windows there is no such tool and one cannot output multiple sounds in
+background easy. So I made a little executable `playsound.exe` that is called
+by fltrator.
 It has to be in the path somewhere (or in the same path as fltrator).
 
-It is also possible to specify a play command through command line (see `--help`).
+It is also possible to specify a play command with the command line (see `--help`).
 
 ---
 
 Building under Linux (this should also work for Mac)
 ====================================================
 
-Either fetch FLTK from www.fltk.org and compile it yourself or install the
+Either fetch FLTK from [www.fltk.org](http://www.fltk.org/software.php) and compile it yourself or install the
 FLTK development package of your distribution (if it is at version 1.3 or higher).
 
 Use FLTK from distribution:
