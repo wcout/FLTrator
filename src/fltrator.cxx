@@ -14,7 +14,7 @@
 // See the GNU General Public License for more details:
 // http://www.gnu.org/licenses/.
 //
-#define VERSION "1.5"
+#define VERSION "1.5.1"
 
 #include <FL/Fl.H>
 #include <FL/Fl_Double_Window.H>
@@ -1911,6 +1911,14 @@ void FltWin::init_parameter()
 	iniValue( _level, "drop_min_start_dist", _drop_min_start_dist, 0, 50, 50 );
 	iniValue( _level, "drop_max_start_dist", _drop_max_start_dist, 50, 400, 400 );
 	iniValue( _level, "drop_var_start_dist", _drop_var_start_dist, 0, 200, 200 );
+#ifdef DEBUG
+	printf("drop_min_start_speed: %d\n", _drop_min_start_speed);
+	printf("drop_max_start_speed: %d\n", _drop_max_start_speed);
+	printf("drop_start_prob     : %d\n", _drop_start_prob);
+	printf("drop_min_start_dist : %d\n", _drop_min_start_dist);
+	printf("drop_max_start_dist : %d\n", _drop_max_start_dist);
+	printf("drop_var_start_dist : %d\n", _drop_var_start_dist);
+#endif
 
 	if ( iniValue( _level, "bady_start_speed", _bady_min_start_speed, 1, 10,
 		2 ) )
@@ -1924,8 +1932,10 @@ void FltWin::init_parameter()
 		iniValue( _level, "bady_max_start_speed", _bady_max_start_speed, 1, 10,
 			2 );
 	}
-//	printf( "_bady_min_start_speed: %d\n", _bady_min_start_speed );
-//	printf( "_bady_max_start_speed: %d\n", _bady_max_start_speed );
+#ifdef DEBUG
+	printf( "_bady_min_start_speed: %d\n", _bady_min_start_speed );
+	printf( "_bady_max_start_speed: %d\n", _bady_max_start_speed );
+#endif
 
 	if ( iniValue( _level, "cumulus_start_speed", _cumulus_min_start_speed, 1, 10,
 		2 ) )
@@ -1939,8 +1949,10 @@ void FltWin::init_parameter()
 		iniValue( _level, "cumulus_max_start_speed", _cumulus_max_start_speed, 1, 10,
 			2 + 1 );
 	}
-//	printf( "_cumulus_min_start_speed: %d\n", _cumulus_min_start_speed );
-//	printf( "_cumulus_max_start_speed: %d\n", _cumulus_max_start_speed );
+#ifdef DEBUG
+	printf( "_cumulus_min_start_speed: %d\n", _cumulus_min_start_speed );
+	printf( "_cumulus_max_start_speed: %d\n", _cumulus_max_start_speed );
+#endif
 }
 
 void FltWin::create_terrain()
@@ -2997,6 +3009,9 @@ void FltWin::draw_title()
 	static Fl_Image *bgImage = 0;
 	static int _flip = 0;
 
+	if ( _frame <= 1 )
+		_flip = 0;
+
 	if ( !G_paused )
 	{
 		// speccy loading stripes
@@ -3080,7 +3095,7 @@ void FltWin::draw_title()
 	else
 		drawText( -1, h() - 50, "** hit space to start **", 40, FL_YELLOW );
 	drawText( w() - 90, h() - 26, "fps=%d", 8, FL_CYAN, FPS );
-	drawText( w() - 70, 36, "v"VERSION, 8, FL_CYAN );
+	drawText( 45, 34, "v"VERSION, 8, FL_CYAN );
 
 	if (_title_anim)
 		_title_anim->draw();
