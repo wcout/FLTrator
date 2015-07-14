@@ -5,7 +5,7 @@ I developed this game on Linux (Ubuntu 14.04 64 bit).
 
 It is written with **FLTK**, and has **no other dependencies**.
 
-To compile it, you first need FLTK 1.3 (preferably 1.3.3) or above.
+To compile it, you first need FLTK 1.3 (preferably version 1.3.3) or above.
 
 
 General
@@ -70,7 +70,7 @@ Use downloaded FLTK:
 
 Say you downloaded it to `~/fltk-1.3/`:
 
-First configure and compile FKTK.
+First configure and compile FLTK.
 
     cd ~/fltk-1.3
 
