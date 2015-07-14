@@ -6405,3 +6405,6 @@
 166 120 0
 === ini section ===
 level_name=The wet cavern
+drop_min_start_speed=3
+drop_max_start_speed=4
+drop_start_prob=44
