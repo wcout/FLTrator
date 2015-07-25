@@ -7221,3 +7221,5 @@ drop_start_speed=3
 drop_max_start_dist=300
 drop_min_start_dist=50
 drop_var_start_dist=100
+
+bady_min_hits=3
