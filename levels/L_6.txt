@@ -7208,3 +7208,6 @@
 -1 332 0
 === ini section ===
 level_name=A Comic is more fun
+
+bady_min_hits=4
+

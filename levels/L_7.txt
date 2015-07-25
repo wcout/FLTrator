@@ -7208,3 +7208,6 @@
 11 425 0
 === ini section ===
 level_name=Deep under ground...
+
+bady_min_hits=4
+

@@ -14,7 +14,7 @@
 // See the GNU General Public License for more details:
 // http://www.gnu.org/licenses/.
 //
-#define VERSION "1.5.1"
+#define VERSION "1.5.2"
 
 #include <FL/Fl.H>
 #include <FL/Fl_Double_Window.H>
@@ -225,6 +225,18 @@ static int rangedRandom( int min_, int max_ )
 	}
 	return min_ + random() % ( max_ - min_ + 1 );
 }
+
+//-------------------------------------------------------------------------------
+struct Point
+//-------------------------------------------------------------------------------
+{
+	Point( int x_ = 0, int y_ = 0 ) :
+		x( x_ ),
+		y( y_ )
+	{}
+	int x;
+	int y;
+};
 
 //-------------------------------------------------------------------------------
 class Rect
@@ -711,14 +723,17 @@ void Object::draw_collision() const
 //-------------------------------------------------------------------------------
 {
 	int pts = w() * h() / 20;
+	int sz = pts / 30;
+	++sz &= ~1;
 	for ( int i = 0; i < pts; i++ )
 	{
 		int X = random() % w();
 		int Y = random() % h();
 		if ( !isTransparent( X + _ox, Y ) )
 		{
-			fl_rectf( x() + X - 2 , y() + Y - 2 , 4, 4,
-				( random() % 2 ? FL_RED : FL_YELLOW ) );
+			fl_rectf( x() + X - sz / 2, y() + Y - sz / 2, sz, sz,
+				( random() % 2 ? ( random() % 2 ? 0xff660000 : FL_RED ) : FL_YELLOW ) );
+			fl_color( random() % 2 ? FL_RED : FL_YELLOW );
 		}
 	}
 }
@@ -869,18 +884,20 @@ typedef Object Inherited;
 public:
 	Bady( int x_ = 0, int y_ = 0 ) :
 		Inherited( O_BADY, x_, y_, "bady.gif" ),
-		_up( false )	// default zuerst nach unten
+		_up( false ),	// default: go down first
+		_stamina( 5 )
 	{
 	}
 	bool moving() const { return started(); }
 	virtual const char *start_sound() const { return "bady.wav"; }
 	void turn() { _up = !_up; }
 	bool turned() const { return _up; }
+	void stamina( int stamina_ ) { _stamina = stamina_; }
 	virtual bool onHit()
 	{
-		if ( hits() >= 4 )
+		if ( hits() >= _stamina - 1 )
 			image( "bady_hit.gif" );
-		return hits() > 4;
+		return hits() >= _stamina;
 	}
 	void update()
 	{
@@ -893,6 +910,7 @@ public:
 	}
 private:
 	bool _up;
+	int _stamina;
 };
 
 //-------------------------------------------------------------------------------
@@ -1172,10 +1190,12 @@ class Spaceship : public Object
 {
 typedef Object Inherited;
 public:
-	Spaceship( int x_, int y_, int W_, int H_ ) :
-		Inherited( O_SHIP, x_, y_, "spaceship.gif" ),
+	Spaceship( int x_, int y_, int W_, int H_, bool alt_ = false ) :
+		Inherited( O_SHIP, x_, y_, alt_ ? "pene.gif" : "spaceship.gif" ),
 		_W( W_ ),
-		_H( H_ )
+		_H( H_ ),
+		_missilePos( missilePos() ),
+		_bombPos( bombPos() )
 	{
 	}
 	void left()
@@ -1198,8 +1218,49 @@ public:
 		if ( _y < _H )
 			_y += DX;
 	}
+	const Point& missilePoint() const { return _missilePos; }
+	const Point& bombPoint() const { return _bombPos; }
+protected:
+	Point missilePos()
+	{
+		Point p( w(), h() / 2 );
+		// search rightmost row
+		for ( int x = w() - 1; x >= 0; x-- )
+		{
+			int ty = 0;
+			while ( ty < h() && isTransparent( x, ty ) ) ty++;
+			if ( ty >= h() ) continue;
+			// rightmost row found, search for center
+			int by = h() - 1;
+			while ( by >= 0 && isTransparent( x, by ) ) by--;
+			p.x = x;
+			p.y = ty + ( by - ty ) / 2;
+			break;
+		}
+		return p;
+	}
+	Point bombPos()
+	{
+		Point p( w() / 2, h() );
+		// search bottom line
+		for ( int y = h() - 1; y >= 0; y-- )
+		{
+			int lx = 0;
+			while ( lx < w() && isTransparent( lx, y ) ) lx++;
+			if ( lx >= w() ) continue;
+			// bottom line found, search for center
+			int rx = w() - 1;
+			while ( rx >= 0 && isTransparent( rx, y ) ) rx--;
+			p.x = lx + ( rx - lx ) / 2;
+			p.y = y;
+			break;
+		}
+		return p;
+	}
 private:
 	int _W, _H;
+	Point _missilePos;
+	Point _bombPos;
 };
 
 //-------------------------------------------------------------------------------
@@ -1316,6 +1377,9 @@ protected:
 	int _bady_min_start_speed;
 	int _bady_max_start_speed;
 
+	int _bady_min_hits;
+	int _bady_max_hits;
+
 	int _cumulus_min_start_speed;
 	int _cumulus_max_start_speed;
 private:
@@ -1325,6 +1389,7 @@ private:
 	int _ship_voff;
 	int _ship_y;
 	bool _left, _right, _up, _down;
+	bool _alternate_ship;
 	Spaceship *_spaceship;
 	Rocket _rocket;
 	Radar _radar;
@@ -1371,7 +1436,8 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_state( START ),
 	_xoff( 0 ),
 	_left( false), _right( false ), _up( false ), _down( false ),
-	_spaceship( new Spaceship( w() / 2, 40, w(), h() ) ),
+	_alternate_ship( false ),
+	_spaceship( new Spaceship( w() / 2, 40, w(), h(), _alternate_ship ) ),
 	_bomb_lock( false),
 	_collision( false ),
 	_done( false ),
@@ -1447,6 +1513,9 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 			{
 				switch ( arg[i] )
 				{
+					case 'a':
+						_alternate_ship = true;
+						break;
 					case 'c':
 						_hide_cursor = true;
 						break;
@@ -1501,6 +1570,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		printf( "\tlevel      [1, 10] startlevel\n");
 		printf( "\tlevelfile  name of levelfile (for testing a new level)\n");
 		printf("Options:\n");
+		printf("  -a\tuser alternate (penetrator like) ship image\n" );
 		printf("  -c\thide mouse cursor in window\n" );
 		printf("  -e\tenable Esc as boss key\n" );
 		printf("  -f\tenable full screen mode\n" );
@@ -1935,6 +2005,23 @@ void FltWin::init_parameter()
 #ifdef DEBUG
 	printf( "_bady_min_start_speed: %d\n", _bady_min_start_speed );
 	printf( "_bady_max_start_speed: %d\n", _bady_max_start_speed );
+#endif
+
+	if ( iniValue( _level, "bady_hits", _bady_min_hits, 1, 5,
+		5 ) )
+	{
+		_bady_max_hits = _bady_min_hits;
+	}
+	else
+	{
+		iniValue( _level, "bady_min_hits", _bady_min_hits, 1, 5,
+			5 );
+		iniValue( _level, "bady_max_hits", _bady_max_hits, 1, 5,
+			5 );
+	}
+#ifdef DEBUG
+	printf( "_bady_min_hits: %d\n", _bady_min_hits );
+	printf( "_bady_max_hits: %d\n", _bady_max_hits );
 #endif
 
 	if ( iniValue( _level, "cumulus_start_speed", _cumulus_min_start_speed, 1, 10,
@@ -2532,6 +2619,7 @@ void FltWin::create_objects()
 			o &= ~O_BADY;
 			if ( turn )
 				b->turn();
+			b->stamina( rangedRandom( _bady_min_hits, _bady_max_hits ) );
 			Badies.push_back( b );
 #ifdef DEBUG
 			printf( "#badies: %lu\n", (unsigned long)Badies.size() );
@@ -3048,10 +3136,10 @@ void FltWin::draw_title()
 #if FLTK_HAS_NEW_FUNCTIONS
 		Fl_Image::RGB_scaling( FL_RGB_SCALING_BILINEAR );
 		Fl_RGB_Image *rgb = new Fl_RGB_Image( (Fl_Pixmap *)_spaceship->image() );
-		bgImage = rgb->copy( w() - 120, h() - 80 );
+		bgImage = rgb->copy( w() - 120, h() - 150 );
 		delete rgb;
 #else
-		bgImage = _spaceship->image()->copy( w() - 120, h() - 80 );
+		bgImage = _spaceship->image()->copy( w() - 120, h() - 150 );
 #endif
 	}
 	if ( bgImage )
@@ -3366,8 +3454,8 @@ int FltWin::handle( int e_ )
 			_speed_right = 0;
 			if ( repeated_right <= 0 && Missiles.size() < 5 && !paused() )
 			{
-				Missile *m = new Missile( _spaceship->x() + _spaceship->w() + 20,
-					_spaceship->y() + _spaceship->h() / 2 );
+				Missile *m = new Missile( _spaceship->x() + _spaceship->missilePoint().x + 20,
+					_spaceship->y() + _spaceship->missilePoint().y );
 				Missiles.push_back( m );
 				Missiles.back()->start();
 			}
@@ -3384,8 +3472,9 @@ int FltWin::handle( int e_ )
 				return 1;
 			if ( Bombs.size() < 5 )
 			{
-				Bomb *b = new Bomb( _spaceship->x() + _spaceship->w() / 2,
-					_spaceship->y() + _spaceship->h() );
+				Bomb *b = new Bomb( _spaceship->x() + _spaceship->bombPoint().x,
+					_spaceship->y() + _spaceship->bombPoint().y +
+					( _alternate_ship ? 14 : 10 ));	// alternate ship needs more offset!
 				Bombs.push_back( b );
 				Bombs.back()->start( _speed_right );
 				_bomb_lock = true;
@@ -3530,7 +3619,7 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 		}
 	}
 
-	_spaceship = new Spaceship( w() / 2, 40, w(), h() );	// before create_terrain()!
+	_spaceship = new Spaceship( w() / 2, 40, w(), h(), _alternate_ship );	// before create_terrain()!
 
 	create_terrain();
 	position_spaceship();
