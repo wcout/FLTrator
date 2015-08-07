@@ -23,6 +23,7 @@
 #include <FL/Fl_GIF_Image.H>
 #include <FL/Fl_Sys_Menu_Bar.H>
 #include <FL/Fl_File_Chooser.H>
+#include <FL/Fl_Hor_Slider.H>
 #include <FL/filename.H>
 #include <FL/Fl.H>
 #include <FL/fl_draw.H>
@@ -60,9 +61,11 @@ Toggle mode PLACE/EDIT with key 'm'.\n\n \
 In EDIT mode draw the ground by dragging mouse\n \
 with left button or the sky with right button.\n \
 Set 'Scroll Lock' to move the view automatically.\n \
+Use 'Shift' to set single points.\n \
 Use 'Ctrl' to draw horizontal lines.\n\n \
 Double click on landscape to select colors for\n \
 ground/land/sky (with 'Ctrl': outline colors).\n \
+Show/hide a magnifier window with 'z'.\n \
 Use key 'o' to change outline width.\n\n \
 In PLACE mode select object type to place with\n \
 '1'-'9' and place/remove objects with double click.\n\n \
@@ -388,6 +391,67 @@ private:
 };
 
 //--------------------------------------------------------------------------
+class ZoomWindow : public Fl_Double_Window
+//--------------------------------------------------------------------------
+{
+typedef Fl_Double_Window Inherited;
+public:
+	ZoomWindow( size_t sz_ );
+	int handle( int e_ );
+	void setPoint( int x_, int y_, Fl_Color c_ );
+	int sz() const { return _sz; }
+	void close()
+	{
+		_hidden = false;
+		Inherited::hide();
+	}
+	void show()
+	{
+		Inherited::show();
+		_hidden = false;
+	}
+	void hide()
+	{
+		if ( shown() )
+		{
+			_hidden = true;
+			Inherited::hide();
+		}
+	}
+	void draw()
+	{
+		Inherited::draw();
+		fl_rect( 0, 0, w(), h(), FL_BLACK );
+		fl_rect( 1, 1, w() - 2, h() - 2, FL_WHITE );
+	}
+	bool hidden() const { return _hidden; }
+private:
+	int _sz;
+	bool _hidden;
+};
+
+//--------------------------------------------------------------------------
+class Slider : public Fl_Hor_Slider
+//--------------------------------------------------------------------------
+{
+typedef Fl_Hor_Slider Inherited;
+public:
+	Slider( int x_, int y_, int w_, int h_, int P_, int S_ ) :
+		Inherited( x_, y_, w_, h_ )
+	{
+		reset( P_, S_ );
+	}
+	void reset( int P_, int S_ )
+	{
+		bounds( 0, S_ - P_ );
+		step( P_ / 8 );
+//		slider_size( 40. * 8. / (double)( S_ - P_ ) );
+		slider_size( P_ / (double)( S_ - P_ ) );
+		value( 0 );
+	}
+};
+
+//--------------------------------------------------------------------------
 class LSEditor : public Fl_Double_Window
 //--------------------------------------------------------------------------
 {
@@ -419,18 +483,22 @@ public:
 	void onSave() { save(); }
 	void onQuit() { _dont_save = true; hide(); }
 	void onSaveAs();
+	void onXoff();
 	bool changed() const { return _changed; }
 	bool dont_save() const { return _dont_save; }
+	void update_zoom( int x_, int y_ );
 private:
 	static void load_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onLoad(); }
 	static void save_as_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onSaveAs(); }
 	static void save_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onSave();}
 	static void quit_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onQuit();}
+	static void xoff_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onXoff();}
 private:
 	LS *_ls;
 	int _xoff;
 	string _name;
 	PreviewWindow *_preview;
+	ZoomWindow *_zoom;
 	LE_MODE _mode;
 	Fl_Image *_rocket;
 	Fl_Image *_drop;
@@ -443,9 +511,78 @@ private:
 	int _curr_y;
 	bool _changed;
 	Fl_Menu_Bar *_menu;
+	Slider *_slider;
 	bool _menu_shown;
 	bool _dont_save;
 };
+
+
+//--------------------------------------------------------------------------
+class ZoomDot : public Fl_Box
+//--------------------------------------------------------------------------
+{
+typedef Fl_Box Inherited;
+public:
+	ZoomDot( int x_, int y_, int w_, int h_ ) :
+		Inherited( x_, y_, w_, h_ )
+	{
+		box( FL_FLAT_BOX );
+	}
+	virtual void draw()
+	{
+		Inherited::draw();
+		if ( box() == FL_BORDER_BOX )
+		{
+			fl_color( fl_contrast( FL_BLACK, color() ) );
+			fl_rect( x(), y(), w(), h() );
+		}
+	}
+};
+
+//--------------------------------------------------------------------------
+// class ZoomWindow : public Fl_Double_Window
+//--------------------------------------------------------------------------
+ZoomWindow::ZoomWindow( size_t sz_ ) :
+//--------------------------------------------------------------------------
+	Inherited( 20 * sz_ + 4, 20 * sz_ + 4, "Zoom" ),
+	_sz( sz_ ),
+	_hidden( false )
+{
+	int W = w() / sz_;
+	for ( int x = 0; x < _sz; x++ )
+	{
+		for ( int y = 0; y < _sz; y++ )
+		{
+			Fl_Box * b = new ZoomDot( x * W + 2, y * W + 2, W, W );
+			if ( x == _sz / 2 && y == _sz / 2 )
+				b->box( FL_BORDER_BOX );
+		}
+	}
+	end();
+	border( 0 );
+	set_non_modal();
+	set_menu_window();
+//	show();
+}
+
+void ZoomWindow::setPoint( int x_, int y_, Fl_Color c_ )
+//--------------------------------------------------------------------------
+{
+	child( x_ * _sz + y_ )->color( c_ );
+	color( fl_contrast( FL_BLACK, child(0)->color() ) );	// keep border in contrast!
+}
+
+int ZoomWindow::handle( int e_ )
+//--------------------------------------------------------------------------
+{
+	int key = Fl::event_key();
+	if ( e_ == FL_KEYDOWN  && ( key == FL_Escape  || key == 'z' ) )
+	{
+		close();
+		return 1;
+	}
+	return Inherited::handle( e_ );
+}
 
 //--------------------------------------------------------------------------
 // class PreviewWindow : public Fl_Double_Window
@@ -549,9 +686,10 @@ int PreviewWindow::handle( int e_ )
 // class LSEditor : public Fl_Double_Window
 //--------------------------------------------------------------------------
 LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
-	 Inherited( SCREEN_W, SCREEN_H, "LSEditor" ),
+	 Inherited( SCREEN_W, SCREEN_H + 20, "LSEditor" ),
 	_xoff( 0 ),
 	_preview( 0 ),
+	_zoom( 0 ),
 	_mode( EDIT_LANDSCAPE ),
 	_rocket( 0 ),
 	_drop( 0 ),
@@ -563,6 +701,7 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_curr_y( 0 ),
 	_changed( false ),
 	_menu( 0 ),
+	_slider( 0 ),
 	_menu_shown( true ),
 	_dont_save( false )
 //--------------------------------------------------------------------------
@@ -695,10 +834,14 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_menu->menu( items );
 	_menu->tooltip( "Hide/show this menu with F10" );
 
+	_slider = new Slider( 0, SCREEN_H, w(), h() - SCREEN_H, w(), _ls->size() );
+	_slider->callback( xoff_cb, this );
+	_slider->visible_focus( 0 );
 	end();
 	setTitle();
-	_preview = new PreviewWindow( h(), _ls );
+	_preview = new PreviewWindow( SCREEN_H, _ls );
 	show();
+	_zoom = new ZoomWindow( 11 );
 }
 
 void LSEditor::hide()
@@ -706,6 +849,8 @@ void LSEditor::hide()
 {
 	if ( _preview )
 		_preview->hide();
+	if ( _zoom )
+		_zoom->close();
 	Inherited::hide();
 }
 
@@ -713,6 +858,7 @@ void LSEditor::draw()
 //--------------------------------------------------------------------------
 {
 	Inherited::draw();
+	int H = SCREEN_H;
 
 	Fl_Color bg_color( _ls->bg_color() );
 	Fl_Color sky_color( _ls->sky_color() );
@@ -720,20 +866,20 @@ void LSEditor::draw()
 	get_nearest_color_change_marker( _xoff, sky_color, bg_color, ground_color );
 
 	fl_color( bg_color );
-	fl_rectf( 0, 0, w(), h() );
+	fl_rectf( 0, 0, w(), H );
 	fl_color( sky_color );
 
 	for ( int i = _xoff; i < _xoff + w(); i++ )
 	{
-			int S = _ls->sky( i );
-			fl_line( i - _xoff, -1, i - _xoff, S  - 1 );	// TODO: -1 ??
+		int S = _ls->sky( i );
+		fl_line( i - _xoff, -1, i - _xoff, S  - 1 );	// TODO: -1 ??
 	}
 
 	fl_color( ground_color );
 	for ( int i = _xoff; i < _xoff + w(); i++ )
 	{
-			int G = h() -_ls->ground( i );
-			fl_line( i - _xoff, G, i - _xoff, h() );
+		int G = H - _ls->ground( i );
+		fl_line( i - _xoff, G, i - _xoff, H );
 	}
 
 	// draw outline
@@ -744,9 +890,9 @@ void LSEditor::draw()
 		for ( int i = ( _xoff ? _xoff : 1 ); i < _xoff + w() - 1; i++ )
 		{
 			int S0 = _ls->sky( i - 1 );
-			int G0 = h() -_ls->ground( i  - 1 );
+			int G0 = H -_ls->ground( i  - 1 );
 			int S1 = _ls->sky( i + 1 );
-			int G1 = h() -_ls->ground( i  + 1 );
+			int G1 = H -_ls->ground( i  + 1 );
 			fl_color( _ls->outline_color_sky() );
 			fl_line( i - _xoff - 1, S0, i - _xoff + 1, S1 );
 			fl_color( _ls->outline_color_ground() );
@@ -759,7 +905,7 @@ void LSEditor::draw()
 	{
 		if ( _ls->hasRocket( i ) )
 		{
-			int G = h() -_ls->ground( i );
+			int G = H -_ls->ground( i );
 			if ( _rocket )
 				_rocket->draw( i - _xoff - _rocket->w() / 2, G - _rocket->h() );
 		}
@@ -783,7 +929,7 @@ void LSEditor::draw()
 		}
 		if ( _ls->hasRadar( i ) )
 		{
-			int G = h() -_ls->ground( i );
+			int G = H -_ls->ground( i );
 			Object *o = objects.find( O_RADAR );
 			if ( o )
 				o->image()->draw( i - _xoff - o->w() / 2, G - o->h(), o->w(), o->h() );
@@ -792,7 +938,7 @@ void LSEditor::draw()
 		{
 			fl_color( FL_RED );
 			fl_line_style( FL_DOT, 4 ); // set after color (WIN32)!
-			fl_line( i - _xoff, 0, i - _xoff, h() );
+			fl_line( i - _xoff, 0, i - _xoff, H );
 			fl_line_style( 0 );
 		}
 	}
@@ -809,6 +955,52 @@ void LSEditor::draw()
 	Inherited::draw_children();
 }
 
+void LSEditor::update_zoom( int x_, int y_ )
+//--------------------------------------------------------------------------
+{
+//	printf( "%d/%d\n", x_, y_ );
+	if ( !_zoom )
+		return;
+	if ( _zoom->hidden() )
+		_zoom->show();
+	if ( !_zoom->shown() )
+		return;
+
+	const int sz = _zoom->sz();
+	int X(  x_ - sz / 2 );
+	int Y(  y_ - sz / 2 );
+	int H = sz;
+	int W = sz;
+	make_current();
+	const uchar *screen = fl_read_image( 0, X, Y, W, H );
+	if ( !screen )
+		return;
+
+	const int d = 3;
+	unsigned char r, g, b;
+
+	for ( int y = 0; y < H; y++ ) // lines
+	{
+		long index = y * W * d; // line start offset
+		for ( int x = 0; x < W; x++ )
+		{
+			r = *(screen + index + 0);
+			g = *(screen + index + 1);
+			b = *(screen + index + 2);
+
+//			printf( "%02X%02X%02X ", r, g, b );
+			_zoom->setPoint( x, y, fl_rgb_color( r, g, b ) );
+
+			index += d;
+		}
+//		printf( "\n");
+	}
+	_zoom->position( this->x() + x_ + 30, this->y() + y_ + 30 ),
+//	_zoom->show();
+	_zoom->redraw();
+	delete[] screen;
+}
+
 int LSEditor::handle( int e_ )
 //--------------------------------------------------------------------------
 {
@@ -819,12 +1011,15 @@ int LSEditor::handle( int e_ )
 	int y = Fl::event_y();
 	int mode = Fl::event_clicks() > 0;
 
+	if ( y >= SCREEN_H && e_ != FL_LEAVE && e_ != FL_ENTER )
+		return Inherited::handle( e_ );
+
 	switch ( e_ )
 	{
 		case FL_KEYDOWN:
 		{
 			int key = Fl::event_key();
-//			printf( "key: %X\n", key );
+//			printf( "key: %X (%c)\n", key, key );
 			if ( 0xffbe == key ) // F1
 			{
 				fl_alert( "%s", HelpText );
@@ -838,7 +1033,7 @@ int LSEditor::handle( int e_ )
 				_menu_shown = !_menu_shown;
 				redraw();
 			}
-			if (  'm' == key || 'M' == key )
+			if ( 'm' == key )
 			{
 				if ( _mode == EDIT_LANDSCAPE && _rocket && _drop && _bady && _cumulus )
 					_mode = PLACE_OBJECTS;
@@ -847,13 +1042,27 @@ int LSEditor::handle( int e_ )
 				setTitle();
 			}
 
-			if ( 'o' == key || 'O' == key )
+			if ( 'o' == key )
 			{
 				unsigned ow = _ls->outline_width();
 				ow++;
 				ow %= 5;
 				_ls->outline_width( ow );
 				redraw();
+			}
+
+			if ( 'z' == key )
+			{
+				if ( _zoom )
+				{
+					if ( _zoom->shown() )
+						_zoom->close();
+					else
+					{
+						_zoom->show();
+						update_zoom( x, y );
+					}
+				}
 			}
 
 			if ( key == FL_Scroll_Lock )
@@ -917,6 +1126,18 @@ int LSEditor::handle( int e_ )
 			break;
 		}
 
+		case FL_LEAVE:
+			if ( _zoom && _zoom->shown() )
+			{
+				_zoom->hide();
+			}
+			break;
+
+		case FL_ENTER:
+			if ( _zoom && _zoom->hidden() )
+				_zoom->show();
+			break;
+
 		case FL_PUSH:
 			xo = -1;
 			ground = ( Fl::event_button() == FL_LEFT_MOUSE );
@@ -958,12 +1179,25 @@ int LSEditor::handle( int e_ )
 				{
 					_curr_x = x;
 					_curr_y = y;
+					if ( Fl::event_shift() )
+					{
+						// pixel mode for fine adjustments
+						if ( ground )
+							_ls->setGround( _xoff + x, SCREEN_H - y );
+						else
+							_ls->setSky( _xoff + x, y );
+
+						redraw();
+					}
 				}
 			}
 			break;
 
+
+		case FL_MOVE:
 		case FL_DRAG:
-			if ( _mode != EDIT_LANDSCAPE )
+			update_zoom( x, y );
+			if ( e_ == FL_MOVE || _mode != EDIT_LANDSCAPE )
 				return 0;
 			if ( mode )
 			{
@@ -971,7 +1205,7 @@ int LSEditor::handle( int e_ )
 				return 0;
 			}
 //			printf( "%s %d/%d xo=%d mode:%d\n", (e_==FL_PUSH ? "FL_PUSH" : "FL_DRAG" ), x, y, xo, mode );
-//			if ( x >= 0 && x < w() && y >= 0 && y < h() ) // because of drag!
+//			if ( x >= 0 && x < w() && y >= 0 && y < SCREEN_H ) // because of drag!
 			{
 				int x0 = x;
 				int x1 = x;
@@ -986,7 +1220,7 @@ int LSEditor::handle( int e_ )
 				for ( int X = x0; X < x1; X++ )
 				{
 					if ( ground )
-						_ls->setGround( _xoff + X, h() - Y );
+						_ls->setGround( _xoff + X, SCREEN_H - Y );
 					else
 						_ls->setSky( _xoff + X, Y );
 
@@ -1047,8 +1281,10 @@ void LSEditor::onLoad()
 	{
 		delete _ls;
 		_ls = ls;
+		_xoff = 0;
 		delete _preview;
-		_preview = new PreviewWindow( h(), _ls );
+		_preview = new PreviewWindow( SCREEN_H, _ls );
+		_slider->reset( w(), _ls->size() );
 		_name = name;
 		_changed = false;
 		setTitle();
@@ -1066,6 +1302,20 @@ void LSEditor::onSaveAs()
 	save();
 }
 
+void LSEditor::onXoff()
+//--------------------------------------------------------------------------
+{
+	_zoom->hide();
+	int xoff = _slider->value();
+//	printf( "onXoff xoff = %d _xoff = %d\n", xoff, _xoff );
+	if ( xoff < 0 )
+		xoff = 0;
+	if ( xoff + w() > (int)_ls->size() )
+		xoff = _ls->size() - w();
+	_xoff = xoff;
+	redraw();
+	setTitle();
+}
 
 void LSEditor::placeObject( int obj_, int x_, int y_ )
 //--------------------------------------------------------------------------
@@ -1092,9 +1342,12 @@ void LSEditor::redraw()
 //--------------------------------------------------------------------------
 {
 	_ls->xoff( _xoff );	// for preview
+	_slider->value( _xoff );
 	Inherited::redraw();
 	if ( _preview )
 		_preview->redraw();
+	if ( _zoom && !_zoom->hidden() )
+		update_zoom( Fl::event_x(), Fl::event_y() );
 }
 
 void LSEditor::save()
@@ -1226,7 +1479,7 @@ void LSEditor::selectColor( int x_, int y_ )
 		m = alt ? SKY_OUTLINE : SKY;
 		prompt += alt ? "sky outline color" : marker ? "sky color marker" : "sky color";
 	}
-	else if ( y_ > h() - G )
+	else if ( y_ > SCREEN_H - G )
 	{
 		c = alt ? _ls->outline_color_ground() : ground_color;
 		m = alt ? GROUND_OUTLINE : GROUND;
