@@ -1289,6 +1289,7 @@ private:
 	void position_spaceship();
 	void addScrollinZone();
 	void addScrolloutZone();
+	void create_spaceship();
 	void create_terrain();
 	void create_level();
 	void draw_objects( bool pre_ );
@@ -1341,6 +1342,7 @@ private:
 	void onUpdateDemo();
 	void setUser();
 	void resetUser();
+	void toggleShip( bool prev_ = false );
 	void toggleUser( bool prev_ = false );
 	bool paused() const { return _state == PAUSED; }
 	void bombUnlock();
@@ -1437,7 +1439,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_xoff( 0 ),
 	_left( false), _right( false ), _up( false ), _down( false ),
 	_alternate_ship( false ),
-	_spaceship( new Spaceship( w() / 2, 40, w(), h(), _alternate_ship ) ),
+	_spaceship( 0 ),
 	_bomb_lock( false),
 	_collision( false ),
 	_done( false ),
@@ -1599,6 +1601,8 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	printf( "FPS = %d\n", FPS );
 #endif
 
+	create_spaceship();
+
 	// set spaceship image as icon
 #if FLTK_HAS_NEW_FUNCTIONS
 	Fl_RGB_Image icon( (Fl_Pixmap *)_spaceship->image() );
@@ -1637,6 +1641,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_level = _first_level;
 	_hiscore = _cfg->hiscore();
 	_hiscore_user = _cfg->best().name;
+
 	if ( _USE_FLTK_RUN )
 		Fl::add_timeout( FRAMES, cb_update, this );
 
@@ -2040,6 +2045,13 @@ void FltWin::init_parameter()
 	printf( "_cumulus_min_start_speed: %d\n", _cumulus_min_start_speed );
 	printf( "_cumulus_max_start_speed: %d\n", _cumulus_max_start_speed );
 #endif
+}
+
+void FltWin::create_spaceship()
+//-------------------------------------------------------------------------------
+{
+	delete _spaceship;
+	_spaceship = new Spaceship( w() / 2, 40, w(), h(), _alternate_ship );	// before create_terrain()!
 }
 
 void FltWin::create_terrain()
@@ -3098,7 +3110,11 @@ void FltWin::draw_title()
 	static int _flip = 0;
 
 	if ( _frame <= 1 )
+	{
 		_flip = 0;
+		delete bgImage;
+		bgImage = 0;
+	}
 
 	if ( !G_paused )
 	{
@@ -3181,8 +3197,11 @@ void FltWin::draw_title()
 	if ( G_paused )
 		drawText( -1, h() - 50, "** PAUSED **", 40, FL_YELLOW );
 	else
+	{
 		drawText( -1, h() - 50, "** hit space to start **", 40, FL_YELLOW );
-	drawText( w() - 90, h() - 26, "fps=%d", 8, FL_CYAN, FPS );
+		drawText( -1, h() - 26, "o/p toggle user     q/a toggle ship", 10, FL_GRAY );
+		drawText( w() - 90, h() - 26, "fps=%d", 8, FL_CYAN, FPS );
+	}
 	drawText( 45, 34, "v"VERSION, 8, FL_CYAN );
 
 	if (_title_anim)
@@ -3334,6 +3353,15 @@ void FltWin::keyClick() const
 	Audio::instance()->play( "drop.wav" );
 }
 
+void FltWin::toggleShip( bool prev_/* = false */ )
+//-------------------------------------------------------------------------------
+{
+	_alternate_ship = !_alternate_ship;
+	keyClick();
+	create_spaceship();
+	onTitleScreen();	// immediate display + reset demo timer
+}
+
 void FltWin::toggleUser( bool prev_/* = false */ )
 //-------------------------------------------------------------------------------
 {
@@ -3383,7 +3411,7 @@ int FltWin::handle( int e_ )
 		// get rid of escape key closing window (except in boss mode and title screen)
 		return ( _enable_boss_key || _state == TITLE ) ? Inherited::handle( e_ ) : 1;
 
-	if ( e_ == FL_KEYUP && ( _state != SCORE ) && ( 's' == c ) )
+	if ( e_ == FL_KEYUP && _state != SCORE && 's' == c )
 	{
 		if ( _state == TITLE )
 			keyClick();
@@ -3407,17 +3435,21 @@ int FltWin::handle( int e_ )
 			keyClick();
 			_input.erase( _input.size() - 1 );
 		}
-		if ( _state == TITLE && e_ == FL_KEYUP && ( 'q' == c || 'o' == c ) )
+		if ( _state == TITLE && e_ == FL_KEYUP && 'o' == c )
 			toggleUser( true );
-		if ( _state == TITLE && e_ == FL_KEYUP && ( 'a' == c || 'p' == c ) )
+		if ( _state == TITLE && e_ == FL_KEYUP && 'p' == c )
 			toggleUser();
-		if ( _state == TITLE && e_ == FL_KEYUP && ( 'r' == c ) )
+		if ( _state == TITLE && e_ == FL_KEYUP && 'q' == c )
+			toggleShip( true );
+		if ( _state == TITLE && e_ == FL_KEYUP && 'a' == c )
+			toggleShip();
+		if ( _state == TITLE && e_ == FL_KEYUP && 'r' == c )
 			resetUser();
-		if ( _state == TITLE && e_ == FL_KEYUP && ( '-' == c ) )
+		if ( _state == TITLE && e_ == FL_KEYUP && '-' == c )
 			setup( FPS - 1, false );
-		if ( _state == TITLE && e_ == FL_KEYUP && ( '+' == c ) )
+		if ( _state == TITLE && e_ == FL_KEYUP && '+' == c )
 			setup( -FPS - 1, false );
-		if ( e_ == FL_KEYDOWN && c == ' ' )
+		if ( e_ == FL_KEYDOWN && ' ' == c )
 		{
 			G_paused = false;
 			ignore_space = true;
@@ -3619,7 +3651,7 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 		}
 	}
 
-	_spaceship = new Spaceship( w() / 2, 40, w(), h(), _alternate_ship );	// before create_terrain()!
+	create_spaceship();
 
 	create_terrain();
 	position_spaceship();
