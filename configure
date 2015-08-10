@@ -12,7 +12,7 @@ usage()
 	echo "   --disable-fltk-run"
 	echo "   --enable-slow-cpu"
 	echo "   --disable-slow-cpu (default)"
-	echo "   --with-fltk-dir FLTK_DIR (default empty, means use installed version)"
+	echo "   --with-fltk-dir=FLTK_DIR (default empty, means use installed version)"
 }
 
 log()
