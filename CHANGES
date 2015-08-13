@@ -1,0 +1,74 @@
+Changes in V1.6
+===============
+
+- Add a new (penetrator like) ship type, selectable on title screen
+- Finetuning of some details (explosion drawing, level graphics/parameters)
+- Level editor additions (zoom window, scrollbar)
+
+---
+
+Changes in V1.5
+===============
+
+- Lower requirement for FLTK from 1.3.3 to 1.3.x
+	- Works now with the FLTK packaged with more current distributions (e.g. Ubuntu 14.04)
+- Tune the build system
+	- Moved sources to subfolder
+	- Homebrew `configure` script for Linux
+	- Default to use installed FLTK version
+	- Updated docs
+- Runtime option (command line switch) to set framerate
+- Make fullscreen (Linux) work more reliable
+- Add a text animation on title screen
+- Show version and framerate on title screen
+- Fix an array access bug, that could crash the program
+
+---
+
+Changes in V1.4
+===============
+
+- Add Radar object
+- Level fine tuning
+	- improved object start intelligence
+	- add level names
+	- add level parameters
+- Some improvements in level editor
+- Many fixes
+
+---
+
+Changes in V1.3
+===============
+
+- `HAVE_SLOW_CPU` compile option for WIN32 and/or older hardware
+- Fullscreen support under Linux
+- Bugfixes
+
+---
+
+Changes in V1.2
+===============
+
+- Multiple User/Hiscore Concept
+	- Current score and level are stored for multiple users
+	- Each user always starts after last completed level
+	- Easy switching between users
+- Improved some levels
+	- tuned difficulty, playability, added finished sound
+- Bugfixes
+
+---
+
+Changes in V1.1
+===============
+
+- Improved performance under Windows
+	- using hires timer (1 ms) instead FLTK timer (which is restricted to 15.6 ms).
+- Improved some levels
+	- outline, color change
+- Improved landscape editor
+	- added menu
+	- added color change object
+	- added landscape outline
+- Bugfixes
