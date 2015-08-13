@@ -45,12 +45,12 @@ static const int SCREEN_H = 600;
 
 enum ObjectType
 {
-	O_ROCKET = 1,
-	O_DROP = 2,
-	O_BADY = 4,
-	O_CUMULUS = 8,
-	O_RADAR = 16,
-	O_COLOR_CHANGE = 64
+   O_ROCKET = 1,
+   O_DROP = 2,
+   O_BADY = 4,
+   O_CUMULUS = 8,
+   O_RADAR = 16,
+   O_COLOR_CHANGE = 64
 };
 
 static const char *HelpText = \
@@ -181,12 +181,12 @@ public:
 		sky(-1),
 		ground(0),
 		object(0)
-		{}
-	LSPoint( int ground_, int sky_ = -1, int object_= 0 ) :
+	{}
+	LSPoint( int ground_, int sky_ = -1, int object_ = 0 ) :
 		sky(sky_),
 		ground(ground_),
 		object(object_)
-		{}
+	{}
 	int sky;
 	int ground;
 	int object;
@@ -199,7 +199,7 @@ public:
 class Terrain : public vector<LSPoint>
 //-------------------------------------------------------------------------------
 {
-typedef vector<LSPoint> Inherited;
+	typedef vector<LSPoint> Inherited;
 public:
 	Terrain() :
 		Inherited(),
@@ -361,9 +361,9 @@ public:
 	Fl_Color outline_color_ground() const { return _ls.outline_color_ground; }
 	Fl_Color outline_color_sky() const { return _ls.outline_color_sky; }
 	void outline_color_ground( Fl_Color outline_color_ground_ )
-		{ _ls.outline_color_ground = outline_color_ground_ ; }
+	{ _ls.outline_color_ground = outline_color_ground_ ; }
 	void outline_color_sky( Fl_Color outline_color_sky_ )
-		{ _ls.outline_color_sky = outline_color_sky_ ; }
+	{ _ls.outline_color_sky = outline_color_sky_ ; }
 	const Terrain& terrain() const { return _ls; }
 	unsigned long flags() const { return _flags; }
 	void xoff( int xoff_ ) { _xoff = xoff_; }
@@ -379,7 +379,7 @@ private:
 class PreviewWindow : public Fl_Double_Window
 //--------------------------------------------------------------------------
 {
-typedef Fl_Double_Window Inherited;
+	typedef Fl_Double_Window Inherited;
 public:
 	static const double Scale;
 	PreviewWindow( int H_, LS *ls_ );
@@ -394,7 +394,7 @@ private:
 class ZoomWindow : public Fl_Double_Window
 //--------------------------------------------------------------------------
 {
-typedef Fl_Double_Window Inherited;
+	typedef Fl_Double_Window Inherited;
 public:
 	ZoomWindow( size_t sz_ );
 	int handle( int e_ );
@@ -434,7 +434,7 @@ private:
 class Slider : public Fl_Hor_Slider
 //--------------------------------------------------------------------------
 {
-typedef Fl_Hor_Slider Inherited;
+	typedef Fl_Hor_Slider Inherited;
 public:
 	Slider( int x_, int y_, int w_, int h_, int P_, int S_ ) :
 		Inherited( x_, y_, w_, h_ )
@@ -455,12 +455,12 @@ public:
 class LSEditor : public Fl_Double_Window
 //--------------------------------------------------------------------------
 {
-typedef Fl_Double_Window Inherited;
+	typedef Fl_Double_Window Inherited;
 public:
 	enum LE_MODE
 	{
-		EDIT_LANDSCAPE = 1,
-		PLACE_OBJECTS = 2
+	   EDIT_LANDSCAPE = 1,
+	   PLACE_OBJECTS = 2
 	};
 	LSEditor( int argc_ = 0, const char *argv_[] = 0 );
 	void hide();
@@ -521,7 +521,7 @@ private:
 class ZoomDot : public Fl_Box
 //--------------------------------------------------------------------------
 {
-typedef Fl_Box Inherited;
+	typedef Fl_Box Inherited;
 public:
 	ZoomDot( int x_, int y_, int w_, int h_ ) :
 		Inherited( x_, y_, w_, h_ )
@@ -613,14 +613,14 @@ void PreviewWindow::draw()
 	for ( int i = 0; i < (int)_ls->size(); i++ )
 	{
 		int S = _ls->sky( i );
-		fl_line( (int)((double)i/Scale), -1, (int)((double)i/Scale), (int((double)S/Scale)) - 1 );	// TODO: -1 ??
+		fl_line( (int)((double)i / Scale), -1, (int)((double)i / Scale), (int((double)S / Scale)) - 1 );	// TODO: -1 ??
 	}
 
 	fl_color( _ls->ground_color() );
 	for ( int i = 0; i < (int)_ls->size(); i++ )
 	{
 		int G = _ls->ground( i );
-		fl_line( (int)((double)i/Scale), h() - int((double)G/Scale), (int)((double)i/Scale), h() );
+		fl_line( (int)((double)i / Scale), h() - int((double)G / Scale), (int)((double)i / Scale), h() );
 	}
 
 	// draw outline
@@ -635,15 +635,15 @@ void PreviewWindow::draw()
 			int G0 = _ls->ground( i - 1 );
 			int G1 = _ls->ground( i + 1 );
 			fl_color( _ls->outline_color_sky() );
-			fl_line( (int)((double)(i - 1)/Scale),
-			         (int((double)S0/Scale)),
-			         (int)((double)(i + 1)/Scale),
-			         (int((double)S1/Scale)) );
+			fl_line( (int)((double)(i - 1) / Scale),
+			         (int((double)S0 / Scale)),
+			         (int)((double)(i + 1) / Scale),
+			         (int((double)S1 / Scale)) );
 			fl_color( _ls->outline_color_ground() );
-			fl_line( (int)((double)(i - 1)/Scale),
-			         h() - (int((double)G0/Scale)),
-			         (int)((double)(i + 1)/Scale),
-			         h() - (int((double)G1/Scale)) );
+			fl_line( (int)((double)(i - 1) / Scale),
+			         h() - (int((double)G0 / Scale)),
+			         (int)((double)(i + 1) / Scale),
+			         h() - (int((double)G1 / Scale)) );
 		}
 		fl_line_style( 0 );
 	}
@@ -651,7 +651,7 @@ void PreviewWindow::draw()
 	fl_color( FL_WHITE );
 	fl_line_style( FL_DOT );
 	fl_rect( (int)( (double)_ls->xoff() / Scale ), 0,
-		(int)( (double)(SCREEN_W - 1) / Scale ), h() - 1 );
+	         (int)( (double)(SCREEN_W - 1) / Scale ), h() - 1 );
 	fl_line_style( 0 );
 }
 
@@ -686,7 +686,7 @@ int PreviewWindow::handle( int e_ )
 // class LSEditor : public Fl_Double_Window
 //--------------------------------------------------------------------------
 LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
-	 Inherited( SCREEN_W, SCREEN_H + 20, "LSEditor" ),
+	Inherited( SCREEN_W, SCREEN_H + 20, "LSEditor" ),
 	_xoff( 0 ),
 	_preview( 0 ),
 	_zoom( 0 ),
@@ -820,13 +820,14 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 
 	color( FL_BLUE );
 
-	static Fl_Menu_Item items[] = {
-	{ "File", 0, 0, 0, FL_SUBMENU },
-		{ "Load level..", 0, load_cb, this, 0 },
-		{ "Save level as..", 0, save_as_cb, this, 0 },
-		{ "Save", 0, save_cb, this, FL_MENU_DIVIDER },
-		{ "Exit without saving", 0, quit_cb, this, 0 },
-		{ 0 },
+	static Fl_Menu_Item items[] =
+	{
+		{ "File", 0, 0, 0, FL_SUBMENU },
+			{ "Load level..", 0, load_cb, this, 0 },
+			{ "Save level as..", 0, save_as_cb, this, 0 },
+			{ "Save", 0, save_cb, this, FL_MENU_DIVIDER },
+			{ "Exit without saving", 0, quit_cb, this, 0 },
+			{ 0 },
 		{ 0 }
 	};
 	_menu = new Fl_Sys_Menu_Bar( 0, 0, 45, 20, "&File" );
@@ -890,13 +891,13 @@ void LSEditor::draw()
 		for ( int i = ( _xoff ? _xoff : 1 ); i < _xoff + w() - 1; i++ )
 		{
 			int S0 = _ls->sky( i - 1 );
-			int G0 = H -_ls->ground( i  - 1 );
+			int G0 = H - _ls->ground( i  - 1 );
 			int S1 = _ls->sky( i + 1 );
-			int G1 = H -_ls->ground( i  + 1 );
+			int G1 = H - _ls->ground( i  + 1 );
 			fl_color( _ls->outline_color_sky() );
 			fl_line( i - _xoff - 1, S0, i - _xoff + 1, S1 );
 			fl_color( _ls->outline_color_ground() );
-			fl_line( i - _xoff - 1, G0, i -_xoff + 1, G1 );
+			fl_line( i - _xoff - 1, G0, i - _xoff + 1, G1 );
 		}
 		fl_line_style( 0 );
 	}
@@ -905,7 +906,7 @@ void LSEditor::draw()
 	{
 		if ( _ls->hasRocket( i ) )
 		{
-			int G = H -_ls->ground( i );
+			int G = H - _ls->ground( i );
 			if ( _rocket )
 				_rocket->draw( i - _xoff - _rocket->w() / 2, G - _rocket->h() );
 		}
@@ -929,7 +930,7 @@ void LSEditor::draw()
 		}
 		if ( _ls->hasRadar( i ) )
 		{
-			int G = H -_ls->ground( i );
+			int G = H - _ls->ground( i );
 			Object *o = objects.find( O_RADAR );
 			if ( o )
 				o->image()->draw( i - _xoff - o->w() / 2, G - o->h(), o->w(), o->h() );
@@ -997,7 +998,7 @@ void LSEditor::update_zoom( int x_, int y_ )
 	}
 	_zoom->position( this->x() + x_ + 30, this->y() + y_ + 30 ),
 //	_zoom->show();
-	_zoom->redraw();
+	      _zoom->redraw();
 	delete[] screen;
 }
 
@@ -1090,7 +1091,7 @@ int LSEditor::handle( int e_ )
 			{
 				_xoff += w() / 8;
 				if ( _xoff + w() > (int)_ls->size() )
-						_xoff = _ls->size() -w();
+					_xoff = _ls->size() - w();
 				redraw();
 			}
 
@@ -1106,7 +1107,7 @@ int LSEditor::handle( int e_ )
 			{
 				_xoff += w();
 				if ( _xoff + w() > (int)_ls->size() )
-					_xoff = _ls->size() -w();
+					_xoff = _ls->size() - w();
 				redraw();
 			}
 
@@ -1118,7 +1119,7 @@ int LSEditor::handle( int e_ )
 
 			if ( FL_End == key )
 			{
-				_xoff = _ls->size() -w();
+				_xoff = _ls->size() - w();
 				redraw();
 			}
 
@@ -1264,7 +1265,7 @@ void LSEditor::gotoXPos( size_t xpos_ )
 	if ( _xoff < 0 )
 		_xoff = 0;
 	if ( _xoff + w() > (int)_ls->size() )
-		_xoff = _ls->size() -w();
+		_xoff = _ls->size() - w();
 	setTitle();
 	redraw();
 }
@@ -1368,7 +1369,7 @@ void LSEditor::save()
 	f << _ls->bg_color() << endl;
 	f << _ls->ground_color() << endl;
 	f << _ls->sky_color() << endl;
-	for ( size_t i = 0; i <_ls->size(); i++ )
+	for ( size_t i = 0; i < _ls->size(); i++ )
 	{
 		f << _ls->sky( i ) << " " << _ls->ground( i ) << " " << _ls->object( i );
 		if ( _ls->object( i ) & O_COLOR_CHANGE )
@@ -1378,7 +1379,7 @@ void LSEditor::save()
 			f << " " << _ls->point(i).ground_color;
 			f << " " << _ls->point(i).sky_color;
 		}
-	 	f << endl;
+		f << endl;
 	}
 	// write ini section
 	f << _ls->iniSection();
@@ -1393,7 +1394,7 @@ int LSEditor::searchObject( int obj_, int x_, int y_ )
 	assert( o );
 	int X = _xoff + x_;
 	int W = o->w();
-		int x = X - W / 2;
+	int x = X - W / 2;
 	if ( x < 0 )
 	{
 		W += x;
@@ -1411,7 +1412,7 @@ int LSEditor::searchObject( int obj_, int x_, int y_ )
 }
 
 bool LSEditor::get_nearest_color_change_marker( int x_,
-		Fl_Color& sky_color_, Fl_Color& bg_color_, Fl_Color& ground_color_ )
+      Fl_Color& sky_color_, Fl_Color& bg_color_, Fl_Color& ground_color_ )
 //--------------------------------------------------------------------------
 {
 	int X( x_ );
@@ -1431,7 +1432,7 @@ bool LSEditor::get_nearest_color_change_marker( int x_,
 }
 
 bool LSEditor::set_nearest_color_change_marker( int x_,
-		Fl_Color& sky_color_, Fl_Color& bg_color_, Fl_Color& ground_color_ )
+      Fl_Color& sky_color_, Fl_Color& bg_color_, Fl_Color& ground_color_ )
 //--------------------------------------------------------------------------
 {
 	int X( x_ );
@@ -1459,11 +1460,11 @@ void LSEditor::selectColor( int x_, int y_ )
 	Fl_Color c;
 	enum Mode
 	{
-		SKY,
-		GROUND,
-		LS,
-		SKY_OUTLINE,
-		GROUND_OUTLINE
+	   SKY,
+	   GROUND,
+	   LS,
+	   SKY_OUTLINE,
+	   GROUND_OUTLINE
 	};
 	Mode m;
 	string prompt( "Select ");
@@ -1522,7 +1523,7 @@ void LSEditor::setTitle()
 	string t( label() ? label() : "" );
 	size_t pos = t.find( " - " );
 	if ( pos != string::npos )
-			t.erase( pos );
+		t.erase( pos );
 	ostringstream os;
 	string placeInfo;
 	int obj;
