@@ -14,7 +14,7 @@
 // See the GNU General Public License for more details:
 // http://www.gnu.org/licenses/.
 //
-#define VERSION "1.5.2"
+#define VERSION "1.6"
 
 #include <FL/Fl.H>
 #include <FL/Fl_Double_Window.H>
@@ -106,9 +106,9 @@ enum ObjectType
 	O_COLOR_CHANGE = 64,
 
 	// internal
-	O_MISSILE = 1<<16,
-	O_BOMB = 1<<17,
-	O_SHIP = 1<<18
+	O_MISSILE = 1 << 16,
+	O_BOMB = 1 << 17,
+	O_SHIP = 1 << 18
 };
 
 static void setup( int fps_, bool have_slow_cpu_, bool use_fltk_run_  = true )
@@ -153,30 +153,36 @@ static void setup( int fps_, bool have_slow_cpu_, bool use_fltk_run_  = true )
 	DX = 200 / FPS;
 }
 
-static string homeDir()
+static const string& homeDir()
 //-------------------------------------------------------------------------------
 {
-	char home_path[ FL_PATH_MAX ];
+	static string home;
+	if ( home.empty() )
+	{
+		char home_path[ FL_PATH_MAX ];
 #ifdef WIN32
-	fl_filename_expand( home_path, "$APPDATA/" );
+		fl_filename_expand( home_path, "$APPDATA/" );
 #else
-	fl_filename_expand( home_path, "$HOME/." );
+		fl_filename_expand( home_path, "$HOME/." );
 #endif
-	return (string)home_path + "fltrator/";
+		home = home_path;
+		home += "fltrator/";
+	}
+	return home;
 }
 
 static string mkPath( const string& dir_, const string& file_ )
 //-------------------------------------------------------------------------------
 {
+	if ( access( file_.c_str(), R_OK ) == 0 )
+		return file_;
 	string dir( dir_ );
 	if ( dir.size() && dir[ dir.size() - 1 ] != '/' )
 		dir.push_back( '/' );
-	if ( access( file_.c_str(), R_OK ) == 0 )
-		return file_;
 	string localPath( dir + file_ );
 	if ( access( localPath.c_str(), R_OK ) == 0 )
 		return localPath;
-	return homeDir() + dir + file_;
+	return homeDir() + localPath;
 }
 
 static string levelPath( const string& file_ )
@@ -262,7 +268,7 @@ public:
 	bool inside( const Rect& r_ ) const
 	{
 		return within( _x, _y, r_ ) &&
-		       within( _x +_w - 1, _y + _h - 1, r_ );
+		       within( _x + _w - 1, _y + _h - 1, r_ );
 	}
 	int x() const { return _x; }
 	int y() const { return _y; }
@@ -285,7 +291,7 @@ private:
 class Cfg : public Fl_Preferences
 //-------------------------------------------------------------------------------
 {
-typedef Fl_Preferences Inherited;
+	typedef Fl_Preferences Inherited;
 	struct User
 	{
 		User() : score( 0 ), level( 0 ), completed( 0 ) {}
@@ -352,9 +358,9 @@ public:
 		}
 	}
 	void write( const string& user_,
-		int score_ = -1,
-		int level_ = -1,
-		bool completed_ = false )
+	            int score_ = -1,
+	            int level_ = -1,
+	            bool completed_ = false )
 	{
 		set( "last_user", user_.c_str() );
 		Fl_Preferences user( this, user_.c_str() );
@@ -482,12 +488,12 @@ bool Audio::play( const char *file_ )
 		si.wShowWindow = SW_HIDE;
 		PROCESS_INFORMATION pi;
 		ret = !CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE,
-		CREATE_NO_WINDOW|CREATE_NEW_PROCESS_GROUP, NULL, NULL, &si, &pi);
+		                     CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP, NULL, NULL, &si, &pi);
 		CloseHandle(pi.hProcess);
 		CloseHandle(pi.hThread);
 #elif __APPLE__
 		if ( cmd.empty() )
-			 cmd = "play -q " + wavPath( file_ ) + " &";
+			cmd = "play -q " + wavPath( file_ ) + " &";
 //		printf( "cmd: %s\n", cmd.c_str() );
 		ret = system( cmd.c_str() );
 #else
@@ -586,7 +592,7 @@ private:
 // class Object
 //-------------------------------------------------------------------------------
 Object::Object( ObjectType o_, int x_, int y_,
-	const char *image_/* = 0*/, int w_/* = 0*/, int h_/* = 0*/ ) :
+                const char *image_/* = 0*/, int w_/* = 0*/, int h_/* = 0*/ ) :
 	_o( o_ ),
 	_x( x_ ),
 	_y( y_ ),
@@ -715,7 +721,7 @@ void Object::draw()
 	fl_rect( r.x(), r.y(), r.w(), r.h() );
 	fl_point( cx(), cy() );
 #endif
-	 if ( _exploding || _hit )
+	if ( _exploding || _hit )
 		draw_collision();
 }
 
@@ -732,7 +738,7 @@ void Object::draw_collision() const
 		if ( !isTransparent( X + _ox, Y ) )
 		{
 			fl_rectf( x() + X - sz / 2, y() + Y - sz / 2, sz, sz,
-				( random() % 2 ? ( random() % 2 ? 0xff660000 : FL_RED ) : FL_YELLOW ) );
+			          ( random() % 2 ? ( random() % 2 ? 0xff660000 : FL_RED ) : FL_YELLOW ) );
 			fl_color( random() % 2 ? FL_RED : FL_YELLOW );
 		}
 	}
@@ -806,9 +812,9 @@ void Object::_explode( double to_ )
 class Rocket : public Object
 //-------------------------------------------------------------------------------
 {
-typedef Object Inherited;
+	typedef Object Inherited;
 public:
-	Rocket( int x_= 0, int y_ = 0 ) :
+	Rocket( int x_ = 0, int y_ = 0 ) :
 		Inherited( O_ROCKET, x_, y_, "rocket.gif" )
 	{
 	}
@@ -833,7 +839,7 @@ public:
 class Radar : public Object
 //-------------------------------------------------------------------------------
 {
-typedef Object Inherited;
+	typedef Object Inherited;
 public:
 	Radar( int x_ = 0, int y_ = 0) :
 		Inherited( O_RADAR, x_, y_, "radar_00014_0200.gif" )
@@ -852,7 +858,7 @@ public:
 class Drop : public Object
 //-------------------------------------------------------------------------------
 {
-typedef Object Inherited;
+	typedef Object Inherited;
 public:
 	Drop( int x_ = 0, int y_ = 0) :
 		Inherited( O_DROP, x_, y_, "drop.gif" )
@@ -880,7 +886,7 @@ public:
 class Bady : public Object
 //-------------------------------------------------------------------------------
 {
-typedef Object Inherited;
+	typedef Object Inherited;
 public:
 	Bady( int x_ = 0, int y_ = 0 ) :
 		Inherited( O_BADY, x_, y_, "bady.gif" ),
@@ -917,7 +923,7 @@ private:
 class Cumulus : public Object
 //-------------------------------------------------------------------------------
 {
-typedef Object Inherited;
+	typedef Object Inherited;
 public:
 	Cumulus( int x_ = 0, int y_ = 0 ) :
 		Inherited( O_CUMULUS, x_, y_, "cumulus.gif" ),
@@ -944,7 +950,7 @@ private:
 class Missile : public Object
 //-------------------------------------------------------------------------------
 {
-typedef Object Inherited;
+	typedef Object Inherited;
 public:
 	Missile( int x_, int y_ ) :
 		Object( O_MISSILE, x_, y_, 0, 20, 3 ),
@@ -973,7 +979,7 @@ public:
 #ifdef DEBUG
 		fl_color(FL_YELLOW);
 		Rect r(rect());
-		fl_rect(r.x(),r.y(),r.w(),r.h());
+		fl_rect(r.x(), r.y(), r.w(), r.h());
 #endif
 	}
 private:
@@ -985,7 +991,7 @@ private:
 class Bomb : public Object
 //-------------------------------------------------------------------------------
 {
-typedef Object Inherited;
+	typedef Object Inherited;
 public:
 	Bomb( int x_, int y_ ) :
 		Inherited( O_BOMB, x_, y_, "bomb.gif" ),
@@ -1021,14 +1027,14 @@ class AnimText : public Object
 // Note: This is just a quick impl. for showing an amimated level name
 //       and should probably be made more flexible. Also the text drawing
 //       could be combined with the FltWin::drawText().
-typedef Object Inherited;
+	typedef Object Inherited;
 public:
 	AnimText( int x_, int y_, int w_, const char *text_,
-		Fl_Color color_ = FL_YELLOW,
-		Fl_Color bgColor_ = FL_BLACK,
-		int maxSize_ = 30,
-		int minSize_ = 10,
-		bool once_ = true ) :
+	          Fl_Color color_ = FL_YELLOW,
+	          Fl_Color bgColor_ = FL_BLACK,
+	          int maxSize_ = 30,
+	          int minSize_ = 10,
+	          bool once_ = true ) :
 		Inherited( (ObjectType)0, x_, y_, 0, w_ ),
 		_text( text_ ),
 		_color( color_ ),
@@ -1147,12 +1153,12 @@ private:
 class Terrain : public vector<TerrainPoint>
 //-------------------------------------------------------------------------------
 {
-typedef vector<TerrainPoint> Inherited;
+	typedef vector<TerrainPoint> Inherited;
 public:
 	enum Flags
 	{
-		NO_SCROLLIN_ZONE = 1,
-		NO_SCROLLOUT_ZONE = 2
+	   NO_SCROLLIN_ZONE = 1,
+	   NO_SCROLLOUT_ZONE = 2
 	};
 	Terrain() :
 		Inherited()
@@ -1188,7 +1194,7 @@ public:
 class Spaceship : public Object
 //-------------------------------------------------------------------------------
 {
-typedef Object Inherited;
+	typedef Object Inherited;
 public:
 	Spaceship( int x_, int y_, int W_, int H_, bool alt_ = false ) :
 		Inherited( O_SHIP, x_, y_, alt_ ? "pene.gif" : "spaceship.gif" ),
@@ -1268,19 +1274,19 @@ class FltWin : public Fl_Double_Window
 //-------------------------------------------------------------------------------
 {
 #define DEFAULT_USER "N.N."
-typedef Fl_Double_Window Inherited;
+	typedef Fl_Double_Window Inherited;
 public:
 	enum State
 	{
-		NEXT_STATE = -1,
-		START = 0,
-		TITLE,
-		DEMO,
-		LEVEL,
-		LEVEL_DONE,
-		LEVEL_FAIL,
-		PAUSED,
-		SCORE
+	   NEXT_STATE = -1,
+	   START = 0,
+	   TITLE,
+	   DEMO,
+	   LEVEL,
+	   LEVEL_DONE,
+	   LEVEL_FAIL,
+	   PAUSED,
+	   SCORE
 	};
 	FltWin( int argc_ = 0, const char *argv_[] = 0 );
 	int run();
@@ -1945,43 +1951,43 @@ void FltWin::init_parameter()
 	ostringstream os;
 	os << "Level " << _level;
 	if ( _level_name.size() )
-		os << ": " <<_level_name;
+		os << ": " << _level_name;
 	os << " - " << _title;
 	copy_label( os.str().c_str() );
 
 	iniValue( _level, "rocket_start_prob", _rocket_start_prob, 0, 100,
-		(int)( 45. + 35. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ) ); // 45% - 80%
+	          (int)( 45. + 35. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ) ); // 45% - 80%
 	iniValue( _level, "rocket_radar_start_prob", _rocket_radar_start_prob, 0, 100,
-		(int)( 60. + 40. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ) ); // 60% - 100%
+	          (int)( 60. + 40. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ) ); // 60% - 100%
 	if ( iniValue( _level, "rocket_start_speed", _rocket_min_start_speed, 1, 10,
-		4 + _level / 2 ) )
+	               4 + _level / 2 ) )
 	{
 		_rocket_max_start_speed = _rocket_min_start_speed;
 	}
 	else
 	{
 		iniValue( _level, "rocket_min_start_speed", _rocket_min_start_speed, 1, 10,
-			4 + _level / 2 - 1 );
+		          4 + _level / 2 - 1 );
 		iniValue( _level, "rocket_max_start_speed", _rocket_max_start_speed, 1, 10,
-			_rocket_min_start_speed + 2 );
+		          _rocket_min_start_speed + 2 );
 	}
 	iniValue( _level, "rocket_min_start_dist", _rocket_min_start_dist, 0, 50, 50 );
 	iniValue( _level, "rocket_max_start_dist", _rocket_max_start_dist, 50, 400, 400 );
 	iniValue( _level, "rocket_var_start_dist", _rocket_var_start_dist, 0, 200, 200 );
 
 	iniValue( _level, "drop_start_prob", _drop_start_prob, 0, 100,
-		(int)( 45. + 30. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ) ); // 45% - 75%
+	          (int)( 45. + 30. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ) ); // 45% - 75%
 	if ( iniValue( _level, "drop_start_speed", _drop_min_start_speed, 1, 10,
-		4 + _level / 2) )
+	               4 + _level / 2) )
 	{
 		_drop_max_start_speed = _drop_min_start_speed;
 	}
 	else
 	{
 		iniValue( _level, "drop_min_start_speed", _drop_min_start_speed, 1, 10,
-			4 + _level / 2 - 1 );
+		          4 + _level / 2 - 1 );
 		iniValue( _level, "drop_max_start_speed", _drop_max_start_speed, 1, 10,
-			_drop_min_start_speed + 1 );
+		          _drop_min_start_speed + 1 );
 	}
 	iniValue( _level, "drop_min_start_dist", _drop_min_start_dist, 0, 50, 50 );
 	iniValue( _level, "drop_max_start_dist", _drop_max_start_dist, 50, 400, 400 );
@@ -1996,16 +2002,16 @@ void FltWin::init_parameter()
 #endif
 
 	if ( iniValue( _level, "bady_start_speed", _bady_min_start_speed, 1, 10,
-		2 ) )
+	               2 ) )
 	{
 		_bady_max_start_speed = _bady_min_start_speed;
 	}
 	else
 	{
 		iniValue( _level, "bady_min_start_speed", _bady_min_start_speed, 1, 10,
-			2 - 1 );
+		          2 - 1 );
 		iniValue( _level, "bady_max_start_speed", _bady_max_start_speed, 1, 10,
-			2 );
+		          2 );
 	}
 #ifdef DEBUG
 	printf( "_bady_min_start_speed: %d\n", _bady_min_start_speed );
@@ -2013,16 +2019,16 @@ void FltWin::init_parameter()
 #endif
 
 	if ( iniValue( _level, "bady_hits", _bady_min_hits, 1, 5,
-		5 ) )
+	               5 ) )
 	{
 		_bady_max_hits = _bady_min_hits;
 	}
 	else
 	{
 		iniValue( _level, "bady_min_hits", _bady_min_hits, 1, 5,
-			5 );
+		          5 );
 		iniValue( _level, "bady_max_hits", _bady_max_hits, 1, 5,
-			5 );
+		          5 );
 	}
 #ifdef DEBUG
 	printf( "_bady_min_hits: %d\n", _bady_min_hits );
@@ -2030,16 +2036,16 @@ void FltWin::init_parameter()
 #endif
 
 	if ( iniValue( _level, "cumulus_start_speed", _cumulus_min_start_speed, 1, 10,
-		2 ) )
+	               2 ) )
 	{
 		_cumulus_max_start_speed = _cumulus_min_start_speed;
 	}
 	else
 	{
 		iniValue( _level, "cumulus_min_start_speed", _cumulus_min_start_speed, 1, 10,
-			2 - 1 );
+		          2 - 1 );
 		iniValue( _level, "cumulus_max_start_speed", _cumulus_max_start_speed, 1, 10,
-			2 + 1 );
+		          2 + 1 );
 	}
 #ifdef DEBUG
 	printf( "_cumulus_min_start_speed: %d\n", _cumulus_min_start_speed );
@@ -2071,7 +2077,7 @@ void FltWin::create_terrain()
 	_ini.clear();
 	T.clear();
 	if ( ( !_internal_levels || _levelFile.size() )
-	       && loadLevel( _level, _levelFile ) )	// try to load level from landscape file
+	      && loadLevel( _level, _levelFile ) )	// try to load level from landscape file
 	{
 		assert( (int)T.size() >= w() );
 		if ( !( T.flags & Terrain::NO_SCROLLIN_ZONE ) )
@@ -2202,16 +2208,16 @@ void FltWin::create_level()
 			{
 				case 0:
 				case 1:
-					if ( flat && random()%3 == 0 )
+					if ( flat && random() % 3 == 0 )
 						T[last_x].object( O_RADAR );
 					else
 						T[last_x].object( O_ROCKET );
 					break;
 				case 2:
 				case 3:
-					if ( sky && random()%3 ==  0)
+					if ( sky && random() % 3 ==  0)
 						T[last_x].object( O_DROP );
-					else if ( flat && random()%2 == 0 )
+					else if ( flat && random() % 2 == 0 )
 						T[last_x].object( O_RADAR );
 					else
 						T[last_x].object( O_ROCKET );
@@ -2220,9 +2226,9 @@ void FltWin::create_level()
 				case 5:
 				case 6:
 					if ( sky )
-						T[last_x].object( random()%2 ? O_DROP : O_ROCKET );
+						T[last_x].object( random() % 2 ? O_DROP : O_ROCKET );
 					else
-						T[last_x].object( random()%3 ? O_BADY : O_ROCKET );
+						T[last_x].object( random() % 3 ? O_BADY : O_ROCKET );
 					break;
 				case 7:
 				case 8:
@@ -2342,8 +2348,8 @@ void FltWin::check_missile_hits()
 		for ( ; r != Rockets.end(); )
 		{
 			if ( !((*r)->exploding()) &&
-			     ((*m)->rect().intersects( (*r)->rect() ) ||
-			     (*m)->rect().inside( (*r)->rect())) )
+			      ((*m)->rect().intersects( (*r)->rect() ) ||
+			       (*m)->rect().inside( (*r)->rect())) )
 			{
 				// rocket hit by missile
 				Audio::instance()->play( "missile_hit.wav" );
@@ -2363,8 +2369,8 @@ void FltWin::check_missile_hits()
 		for ( ; ra != Radars.end(); )
 		{
 			if ( !((*ra)->exploding()) &&
-			     ((*m)->rect().intersects( (*ra)->rect() ) ||
-			     (*m)->rect().inside( (*ra)->rect())) )
+			      ((*m)->rect().intersects( (*ra)->rect() ) ||
+			       (*m)->rect().inside( (*ra)->rect())) )
 			{
 				// radar hit by missile
 				if ( (*ra)->hit() )	// takes 2 missile hits to succeed!
@@ -2435,8 +2441,8 @@ void FltWin::check_bomb_hits()
 		for ( ; r != Rockets.end(); )
 		{
 			if ( !((*r)->exploding()) &&
-			     ((*b)->rect().intersects( (*r)->rect() ) ||
-			     (*b)->rect().inside( (*r)->rect())) )
+			      ((*b)->rect().intersects( (*r)->rect() ) ||
+			       (*b)->rect().inside( (*r)->rect())) )
 			{
 				// rocket hit by bomb
 				Audio::instance()->play( "bomb_x.wav" );
@@ -2456,8 +2462,8 @@ void FltWin::check_bomb_hits()
 		for ( ; ra != Radars.end(); )
 		{
 			if ( !((*ra)->exploding()) &&
-			     ((*b)->rect().intersects( (*ra)->rect() ) ||
-			     (*b)->rect().inside( (*ra)->rect())) )
+			      ((*b)->rect().intersects( (*ra)->rect() ) ||
+			       (*b)->rect().inside( (*ra)->rect())) )
 			{
 				// radar hit by bomb
 				Audio::instance()->play( "bomb_x.wav" );
@@ -2541,7 +2547,7 @@ void FltWin::update_missiles()
 		            Missiles[i]->y() > h() - T[_xoff + Missiles[i]->x() + Missiles[i]->w()].ground_level() ||
 		            Missiles[i]->y() < T[_xoff + Missiles[i]->x() + Missiles[i]->w()].sky_level();
 		if ( gone )
-			{
+		{
 //			printf( " gone one missile from #%d\n", Missiles.size() );
 			Missile *m = Missiles[i];
 			Missiles.erase( Missiles.begin() + i );
@@ -2625,8 +2631,8 @@ void FltWin::create_objects()
 		{
 			bool turn( random() % 3 == 0 );
 			int X = turn ?
-			      h() - T[_xoff + i].ground_level() - _bady.h() / 2 :
-			      T[_xoff + i].sky_level() + _bady.h() / 2;
+			        h() - T[_xoff + i].ground_level() - _bady.h() / 2 :
+			        T[_xoff + i].sky_level() + _bady.h() / 2;
 			Bady *b = new Bady( i, X );
 			o &= ~O_BADY;
 			if ( turn )
@@ -2641,8 +2647,8 @@ void FltWin::create_objects()
 		{
 			bool turn( random() % 3 == 0 );
 			int X = turn ?
-			      h() - T[_xoff + i].ground_level() - _cumulus.h() / 2 :
-			      T[_xoff + i].sky_level() + _cumulus.h() / 2;
+			        h() - T[_xoff + i].ground_level() - _cumulus.h() / 2 :
+			        T[_xoff + i].sky_level() + _cumulus.h() / 2;
 			Cumulus *c = new Cumulus( i, X );
 			o &= ~O_CUMULUS;
 			if ( turn )
@@ -2831,9 +2837,9 @@ void FltWin::update_badies()
 			else
 			{
 				if ( ( Badies[i]->y() + Badies[i]->h() >= bottom &&
-				     !Badies[i]->turned() ) ||
-			        ( Badies[i]->y() <= top  &&
-			        Badies[i]->turned() ) )
+				       !Badies[i]->turned() ) ||
+				      ( Badies[i]->y() <= top  &&
+				        Badies[i]->turned() ) )
 					Badies[i]->turn();
 			}
 		}
@@ -2875,9 +2881,9 @@ void FltWin::update_cumuluses()
 			else
 			{
 				if ( ( Cumuluses[i]->y() + Cumuluses[i]->h() >= bottom &&
-				     !Cumuluses[i]->turned() ) ||
-			        ( Cumuluses[i]->y() <= top  &&
-			        Cumuluses[i]->turned() ) )
+				       !Cumuluses[i]->turned() ) ||
+				      ( Cumuluses[i]->y() <= top  &&
+				        Cumuluses[i]->turned() ) )
 					Cumuluses[i]->turn();
 			}
 		}
@@ -3017,12 +3023,12 @@ void FltWin::draw_score()
 
 	char buf[50];
 	int n = snprintf( buf, sizeof(buf), "L %u/%u Score: %06u", _level,
-		MAX_LEVEL_REPEAT - _level_repeat, _score );
+	                  MAX_LEVEL_REPEAT - _level_repeat, _score );
 	fl_draw( buf, n, 20, h() - 30 );
 	n = snprintf( buf, sizeof(buf), "Hiscore: %06u", _hiscore );
 	fl_draw( buf, n, w() - 280, h() - 30 );
 	n = snprintf( buf, sizeof(buf), "%d %%",
-			(int)( (float)_xoff / (float)( T.size() - w() ) * 100. ) );
+	              (int)( (float)_xoff / (float)( T.size() - w() ) * 100. ) );
 	fl_draw( buf, n, w() / 2 - 20 , h() - 30 );
 
 	if ( G_paused )
@@ -3078,7 +3084,7 @@ void FltWin::draw_scores()
 	{
 		string bestname( _hiscore_user );
 		drawText( x, Y, "held by ................ %s", 30, FL_WHITE,
-			bestname.empty() ?  "???" : bestname.c_str() );
+		          bestname.empty() ?  "???" : bestname.c_str() );
 		Y += 40;
 	}
 	drawText( x, Y, "new hiscore ......... %06u", 30, FL_WHITE, _score );
@@ -3107,6 +3113,7 @@ void FltWin::draw_title()
 //-------------------------------------------------------------------------------
 {
 	static Fl_Image *bgImage = 0;
+	static Fl_Image *bgImage2 = 0;
 	static int _flip = 0;
 
 	if ( _frame <= 1 )
@@ -3114,6 +3121,8 @@ void FltWin::draw_title()
 		_flip = 0;
 		delete bgImage;
 		bgImage = 0;
+		delete bgImage2;
+		bgImage2 = 0;
 	}
 
 	if ( !G_paused )
@@ -3154,18 +3163,22 @@ void FltWin::draw_title()
 		Fl_RGB_Image *rgb = new Fl_RGB_Image( (Fl_Pixmap *)_spaceship->image() );
 		bgImage = rgb->copy( w() - 120, h() - 150 );
 		delete rgb;
+		rgb = new Fl_RGB_Image( (Fl_Pixmap *)_rocket.image() );
+		bgImage2 = rgb->copy( w() / 3, h() - 150 );
+		delete rgb;
 #else
 		bgImage = _spaceship->image()->copy( w() - 120, h() - 150 );
+		bgImage2 = _rocket.image()->copy( w() / 3, h() - 150 );
 #endif
 	}
-	if ( bgImage )
-		bgImage->draw( 60, 40 );
 	if (!_title_anim)
 		(_title_anim = new AnimText( 0, 130, w(), "FL-TRATOR",
-			FL_RED, FL_WHITE, 90, 80, false ))->start();
+		                             FL_RED, FL_WHITE, 90, 80, false ))->start();
 
-	if ( /*!_xoff &&*/ _cfg->non_zero_scores() && _flip++ % (FPS * 8) > ( FPS * 5) )
+	if ( !G_paused && _cfg->non_zero_scores() && _flip++ % (FPS * 8) > ( FPS * 5) )
 	{
+		if ( bgImage2 )
+			bgImage2->draw( 60, 120 );
 		size_t n = _cfg->non_zero_scores();
 		if ( n > 6 )
 			n = 6;
@@ -3177,22 +3190,24 @@ void FltWin::draw_title()
 		{
 			string name( _cfg->users()[i].name );
 			x = drawText( x, y, "%05u .......... %s", 30,
-				_cfg->users()[i].completed ? FL_YELLOW : FL_WHITE,
-				_cfg->users()[i].score, name.empty() ? DEFAULT_USER : name.c_str() );
+			              _cfg->users()[i].completed ? FL_YELLOW : FL_WHITE,
+			              _cfg->users()[i].score, name.empty() ? DEFAULT_USER : name.c_str() );
 			y += 40;
 		}
 	}
 	else
 	{
+		if ( bgImage )
+			bgImage->draw( 60, 40 );
 		drawText( -1, 210, "%s (%u)", 30, FL_GREEN,
-			_username.empty() ? "N.N." : _username.c_str(), _first_level );
+		          _username.empty() ? "N.N." : _username.c_str(), _first_level );
 		int x = drawText( -1, 260, "q/a .......... up/down", 30, FL_WHITE );
 		drawText( x, 300, "o/p .......... left/right", 30, FL_WHITE );
 		drawText( x, 340, "p ............. fire missile", 30, FL_WHITE );
 		drawText( x, 380, "space ...... drop bomb", 30, FL_WHITE );
 		drawText( x, 420, "7-9 .......... hold game", 30, FL_WHITE );
 		drawText( x, 460, "s ............. %s sound", 30, FL_WHITE,
-			Audio::instance()->enabled() ? "disable" : "enable"  );
+		          Audio::instance()->enabled() ? "disable" : "enable"  );
 	}
 	if ( G_paused )
 		drawText( -1, h() - 50, "** PAUSED **", 40, FL_YELLOW );
@@ -3253,7 +3268,7 @@ void FltWin::draw()
 			}
 			fl_color( T.outline_color_ground );
 			fl_line( i - 1, h() - T[_xoff + i - 1].ground_level(), i + 1,
-				h() - T[_xoff + i + 1].ground_level() );
+			         h() - T[_xoff + i + 1].ground_level() );
 		}
 		fl_line_style( 0 );
 	}
@@ -3487,7 +3502,7 @@ int FltWin::handle( int e_ )
 			if ( repeated_right <= 0 && Missiles.size() < 5 && !paused() )
 			{
 				Missile *m = new Missile( _spaceship->x() + _spaceship->missilePoint().x + 20,
-					_spaceship->y() + _spaceship->missilePoint().y );
+				                          _spaceship->y() + _spaceship->missilePoint().y );
 				Missiles.push_back( m );
 				Missiles.back()->start();
 			}
@@ -3505,8 +3520,8 @@ int FltWin::handle( int e_ )
 			if ( Bombs.size() < 5 )
 			{
 				Bomb *b = new Bomb( _spaceship->x() + _spaceship->bombPoint().x,
-					_spaceship->y() + _spaceship->bombPoint().y +
-					( _alternate_ship ? 14 : 10 ));	// alternate ship needs more offset!
+				                    _spaceship->y() + _spaceship->bombPoint().y +
+				                    ( _alternate_ship ? 14 : 10 ));	// alternate ship needs more offset!
 				Bombs.push_back( b );
 				Bombs.back()->start( _speed_right );
 				_bomb_lock = true;
