@@ -258,7 +258,24 @@ public:
 	}
 	bool intersects( const Rect& r_ ) const
 	{
-		return within( _x, _y, r_ ) || within( r_.x(), r_.y(), *this );
+		return ! ( _x + _w - 1 < r_.x()      ||
+		           _y + _h - 1 < r_.y()      ||
+	              _x > r_.x() + r_.w() - 1  ||
+		           _y > r_.y() + r_.h() - 1 );
+	}
+	Rect intersection_rect( const Rect& r_ ) const
+	{
+		int x = max( _x, r_.x() );
+		int y = max( _y, r_.y() );
+		int xr = min( _x + _w, r_.x() + r_.w() );
+		int yr = min( _y + _h, r_.y() + r_.h() );
+		if ( xr > x && yr > y )
+			return Rect( x, y, xr - x, yr - y );
+		return Rect( 0, 0, 0, 0 );
+	}
+	Rect relative_rect( const Rect& r_ ) const
+	{
+		return Rect( r_.x() - _x, r_.y() - _y, r_.w(), r_.h() );
 	}
 	bool contains( const Rect& r_ ) const
 	{
@@ -274,6 +291,9 @@ public:
 	int y() const { return _y; }
 	int w() const { return _w; }
 	int h() const { return _h; }
+#ifdef DEBUG_COLLISION
+	virtual std::ostream &printOn( std::ostream &os_ ) const;
+#endif
 private:
 	bool within( int x_, int y_, const Rect& r_ ) const
 	{
@@ -286,6 +306,19 @@ private:
 	int _w;
 	int _h;
 };
+
+#ifdef DEBUG_COLLISION
+inline std::ostream &operator<<( std::ostream &os_, const Rect &r_ )
+{ return r_.printOn( os_ ); }
+
+/*virtual*/
+ostream &Rect::printOn( ostream &os_ ) const
+//--------------------------------------------------------------------------
+{
+	os_ << "Rect(" << x() << "/" << y() <<  "-" << w() << "x" << h() << ")";
+	return os_;
+} // printOn
+#endif
 
 //-------------------------------------------------------------------------------
 class Cfg : public Fl_Preferences
@@ -515,6 +548,7 @@ public:
 	Object( ObjectType o_, int x_, int y_, const char *image_ = 0, int w_ = 0, int h_ = 0 );
 	virtual ~Object();
 	void animate();
+	bool collision( const Object& o_ ) const;
 	void stop_animate() { Fl::remove_timeout( cb_animate, this ); }
 	bool hit();
 	int hits() const { return _hits; }
@@ -555,7 +589,7 @@ public:
 	void onExplosionEnd();
 	static void cb_explosion_end( void *d_ );
 	void crash();
-	void explode();
+	void explode( double to_ = 0.05 );
 	bool exploding() const { return _exploding; }
 	bool exploded() const { return _exploded; }
 	long data1() const { return _data1; }
@@ -642,6 +676,51 @@ void Object::animate()
 		_ox = 0;
 }
 
+bool Object::collision( const Object& o_ ) const
+//-------------------------------------------------------------------------------
+{
+	if ( rect().intersects( o_.rect() ) )
+	{
+		const Rect ir( rect().intersection_rect( o_.rect() ) );
+		const Rect r_this( rect().relative_rect( ir ) );
+		const Rect r_that( o_.rect().relative_rect( ir ) );
+#ifdef DEBUG_COLLISION
+		cout << rect() << "/" << o_.rect() << ": ir (" << ir << " : r_this " << r_this << " r_that " << r_that << endl;
+		fl_color( FL_GREEN );
+		fl_rect( ir.x(), ir.y(), ir.w(), ir.h() );
+#endif
+		for ( int y = 0; y < r_this.h(); y++ )
+		{
+			for ( int x = 0; x < r_this.w(); x++ )
+			{
+#ifndef DEBUG_COLLISION
+				if ( !isTransparent( r_this.x() + x, r_this.y() + y ) &&
+				     !o_.isTransparent( r_that.x() + x, r_that.y() + y ) )
+					return true;
+			}
+		}
+#else
+				bool p_this = isTransparent( r_this.x() + x, r_this.y() + y );
+				bool p_that = o_.isTransparent( r_that.x() + x, r_that.y() + y );
+				if ( p_this && p_that )
+					printf( "%c", '.' );
+				else if ( !p_this && !p_that )
+					printf( "%c", 'X');
+				else if ( !p_this )
+					printf( "%c", 'R' );
+				else if ( !p_that )
+					printf( "%c", 'S' );
+				else
+					printf( "%c", '?' );
+			}
+			printf( "\n" );
+		}
+		printf( "\n" );
+#endif
+	}
+	return false;
+}
+
 bool Object::hit()
 //-------------------------------------------------------------------------------
 {
@@ -715,7 +794,7 @@ void Object::draw()
 {
 	if ( !_exploded )
 		_image->draw( x(), y(), _w, _h, _ox, 0 );
-#ifdef DEBUG
+#ifdef DEBUG_COLLISION
 	fl_color( FL_YELLOW );
 	Rect r( rect() );
 	fl_rect( r.x(), r.y(), r.w(), r.h() );
@@ -784,10 +863,10 @@ void Object::crash()
 	_explode( 0.2 );
 }
 
-void Object::explode()
+void Object::explode( double to_/* = 0.05*/ )
 //-------------------------------------------------------------------------------
 {
-	_explode( 0.05 );
+	_explode( to_ );
 }
 
 void Object::_explode( double to_ )
@@ -976,7 +1055,7 @@ public:
 		if ( dx() > 350 )
 			c = fl_darker( c );
 		fl_rectf( x(), y(), w(), h(), c );
-#ifdef DEBUG
+#ifdef DEBUG_COLLISION
 		fl_color(FL_YELLOW);
 		Rect r(rect());
 		fl_rect(r.x(), r.y(), r.w(), r.h());
@@ -1825,7 +1904,6 @@ bool FltWin::collision( const Object& o_, int w_, int h_ )
 	const uchar *screen = fl_read_image( 0, X, Y, W, H );
 
 	const int d = 3;
-	unsigned char r, g, b;
 	bool collided = false;
 
 	// background color r/g/b
@@ -1833,7 +1911,7 @@ bool FltWin::collision( const Object& o_, int w_, int h_ )
 	Fl::get_color( T.bg_color, R, G, B );
 //	printf( "check for BG-Color %X/%X/%X\n", R, G, B );
 
-#ifdef DEBUG
+#ifdef DEBUG_COLLISION
 	int xc = 0;
 	int yc = 0;
 #endif
@@ -1842,25 +1920,25 @@ bool FltWin::collision( const Object& o_, int w_, int h_ )
 		long index = y * W * d; // line start offset
 		for ( int x = 0; x < W; x++ )
 		{
-			r = *(screen + index + 0);
-			g = *(screen + index + 1);
-			b = *(screen + index + 2);
+			unsigned char r = *(screen + index++);
+			unsigned char g = *(screen + index++);
+			unsigned char b = *(screen + index++);
 
-			if ( !o_.isTransparent( x + xoff, y + yoff ) && !( r == R && g == G && b == B ) )
+			if ( !o_.isTransparent( x + xoff, y + yoff ) &&
+			     !( r == R && g == G && b == B ) )
 			{
 				collided = true;
-#ifdef DEBUG
+#ifdef DEBUG_COLLISION
 				xc = x;
 				yc = y;
 #endif
 				break;
 			}
-			if ( collided ) break;
-			index += d;
 		}
+		if ( collided ) break;
 	}
 	delete[] screen;
-#if DEBUG
+#if DEBUG_COLLISION
 	if ( collided )
 	{
 		printf( "collision at %d + %d / %d + %d !\n", o_.x(), xc, o_.y(), yc  );
@@ -2347,9 +2425,8 @@ void FltWin::check_missile_hits()
 		vector<Rocket *>::iterator r = Rockets.begin();
 		for ( ; r != Rockets.end(); )
 		{
-			if ( !((*r)->exploding()) &&
-			      ((*m)->rect().intersects( (*r)->rect() ) ||
-			       (*m)->rect().inside( (*r)->rect())) )
+			if ( !(*r)->exploding() &&
+			     (*m)->rect().intersects( (*r)->rect() ) )
 			{
 				// rocket hit by missile
 				Audio::instance()->play( "missile_hit.wav" );
@@ -2368,9 +2445,8 @@ void FltWin::check_missile_hits()
 		vector<Radar *>::iterator ra = Radars.begin();
 		for ( ; ra != Radars.end(); )
 		{
-			if ( !((*ra)->exploding()) &&
-			      ((*m)->rect().intersects( (*ra)->rect() ) ||
-			       (*m)->rect().inside( (*ra)->rect())) )
+			if ( !(*ra)->exploding() &&
+			     (*m)->rect().intersects( (*ra)->rect() ) )
 			{
 				// radar hit by missile
 				if ( (*ra)->hit() )	// takes 2 missile hits to succeed!
@@ -2440,9 +2516,8 @@ void FltWin::check_bomb_hits()
 		vector<Rocket *>::iterator r = Rockets.begin();
 		for ( ; r != Rockets.end(); )
 		{
-			if ( !((*r)->exploding()) &&
-			      ((*b)->rect().intersects( (*r)->rect() ) ||
-			       (*b)->rect().inside( (*r)->rect())) )
+			if ( !(*r)->exploding() &&
+			     (*b)->rect().intersects( (*r)->rect() ) )
 			{
 				// rocket hit by bomb
 				Audio::instance()->play( "bomb_x.wav" );
@@ -2461,9 +2536,8 @@ void FltWin::check_bomb_hits()
 		vector<Radar *>::iterator ra = Radars.begin();
 		for ( ; ra != Radars.end(); )
 		{
-			if ( !((*ra)->exploding()) &&
-			      ((*b)->rect().intersects( (*ra)->rect() ) ||
-			       (*b)->rect().inside( (*ra)->rect())) )
+			if ( !(*ra)->exploding() &&
+			     (*b)->rect().intersects( (*ra)->rect() ) )
 			{
 				// radar hit by bomb
 				Audio::instance()->play( "bomb_x.wav" );
@@ -2489,10 +2563,16 @@ void FltWin::check_rocket_hits()
 	vector<Rocket *>::iterator r = Rockets.begin();
 	for ( ; r != Rockets.end(); )
 	{
-		if ( (*r)->lifted() && (*r)->rect().inside( _spaceship->rect() ) )
+		if ( !(*r)->exploding() &&
+		  	(*r)->lifted() && (*r)->rect().intersects( _spaceship->rect() ) )
 		{
-			// rocket hit by spaceship
-			(*r)->crash();
+			if ( (*r)->collision( *_spaceship ) )
+			{
+				// rocket hit by spaceship
+				(*r)->explode( 0.5 );
+				_collision = true;
+				onCollision();
+			}
 		}
 		++r;
 	}
@@ -2504,32 +2584,27 @@ void FltWin::check_drop_hits()
 	vector<Drop *>::iterator d = Drops.begin();
 	for ( ; d != Drops.end(); )
 	{
-		if ( (*d)->dropped() && (*d)->rect().inside( _spaceship->rect() ) )
+		if ( !(*d)->dropped() ||
+		     !(*d)->rect().intersects( _spaceship->rect() ) )
 		{
-			// drop maybe hit spaceship - is within it's bounding box
-//			printf( "drop inside spaceship rectangle\n" );
-			if ( collision( *(*d), w(), h() ) )
+			++d;
+			continue;
+		}
+		if ( (*d)->collision( *_spaceship ) )
+		{
+			if ( (*d)->x() > _spaceship->cx() + _spaceship->w() / 4 )	// front of ship
 			{
-//				printf( "drop fully hit spaceship\n" );
-				delete *d;
-				d = Drops.erase(d);
-				_collision = true;
-				onCollision();
+//				printf( "drop deflected\n" );
+				(*d)->x( (*d)->x() + 10 );
+				++d;
 				continue;
 			}
-		}
-		else if ( (*d)->dropped() && (*d)->rect().intersects( _spaceship->rect() ) )
-		{
-			// drop touches spaceship
-//			printf( "drop only partially hit spaceship\n" );
-			if ( (*d)->x() > _spaceship->x() )	// front of ship
-				(*d)->x( (*d)->x() + 10 );
-#if 0
-// removed deflection on rear of ship (looks awkward!)
-			else // rear of ship
-				(*d)->x( (*d)->x() - 10 );
-#endif
-			++d;
+//			printf( "drop fully hit spaceship\n" );
+			delete *d;
+			d = Drops.erase(d);
+			_collision = true;
+			onCollision();
+			continue;
 		}
 		else
 			++d;
