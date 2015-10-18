@@ -73,15 +73,15 @@ TARGET3=playsound.exe
 
 $(TARGET1): depend $(OBJ1)
 	@echo Linking $@...
-	$(CXX) -o $@ $(LDFLAGS) $(OBJ1) $(LDLIBS) $(OPT)
+	$(CXX) -o $@ $(LDFLAGS) $(OBJ1) $(LDLIBS)
 
 $(TARGET2): depend $(OBJ2)
 	@echo Linking $@...
-	$(CXX) -o $@ $(LDFLAGS) $(OBJ2) $(LDLIBS) $(OPT)
+	$(CXX) -o $@ $(LDFLAGS) $(OBJ2) $(LDLIBS)
 
 $(TARGET3): depend $(OBJ3)
 	@echo Linking $@...
-	$(CXX) -o $@ $(LDFLAGS) $(OBJ3) $(LDLIBSCPP) -mwindows $(OPT)
+	$(CXX) -o $@ $(LDFLAGS) $(OBJ3) $(LDLIBSCPP) -mwindows
 
 
 .PHONY: clean all
@@ -90,7 +90,7 @@ all:: $(TARGET1) $(TARGET2) $(TARGET3)
 
 %.o: $(SRC)/%.cxx
 	@echo Compiling $@...
-	$(CXX) -c -o $@ $< $(CXXFLAGS)
+	$(CXX) -c -o $@ $< $(OPT) $(CXXFLAGS)
 
 install: all
 	@echo installing..
