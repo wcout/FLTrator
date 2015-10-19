@@ -3870,7 +3870,7 @@ int FltWin::run()
 	gettimeofday( &tv, NULL );
 	startTime = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 #endif
-
+	endTime = startTime;	// -gcc warning with -O3
 #else // ifndef WIN32
 
 	LARGE_INTEGER startTime, endTime, elapsedMicroSeconds;
