@@ -74,7 +74,13 @@ static const unsigned SCREEN_H = 600;
 #define DEFAULT_FPS FAST_FPS
 #endif
 
-static bool _USE_FLTK_RUN = USE_FLTK_RUN;
+static bool _USE_FLTK_RUN =
+#ifdef USE_FLTK_RUN
+	USE_FLTK_RUN
+#else
+	0
+#endif
+;
 
 #ifdef WIN32
 #if USE_FLTK_RUN
