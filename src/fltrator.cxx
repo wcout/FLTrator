@@ -3356,11 +3356,12 @@ void FltWin::draw()
 
 	draw_objects( true );	// objects for collision check
 
-	if ( !G_paused && !paused() && !_done && _state != DEMO )
+	if ( !G_paused && !paused() && !_done && _state != DEMO && !_collision )
 		_collision |= collision( *_spaceship, w(), h() );
-
-	if ( _collision )
-		onCollision();
+	{
+		if ( _collision )
+			onCollision();
+	}
 
 	if ( _state != DEMO )
 	{
