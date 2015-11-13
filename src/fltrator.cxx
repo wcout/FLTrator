@@ -3075,7 +3075,7 @@ int FltWin::drawText( int x_, int y_, const char *text_, size_t sz_, Fl_Color c_
 	if ( x_ < 0 )
 	{
 		// centered
-		int dx, dy, W, H = 0;
+		int dx = 0, dy = 0, W = 0, H = 0;
 		fl_text_extents( buf, dx, dy, W, H );
 		X = ( w() - W ) / 2;
 	}
