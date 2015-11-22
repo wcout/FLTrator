@@ -1682,8 +1682,11 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		exit(0);
 	}
 
-	if ( !_trainMode )
+	if ( _trainMode )
+		_enable_boss_key = true;	// otherwise no exit!
+	else
 		_levelFile.erase();
+
 
 #if 0
 	printf( "_USE_FLTK_RUN = %d\n", _USE_FLTK_RUN );
