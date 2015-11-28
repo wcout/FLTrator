@@ -1,0 +1,123 @@
+
+export ROOT?=$(PWD)
+APPLICATION=fltrator
+LANDSCAPE=fltrator-landscape
+
+FLTK_CONFIG=$(FLTK_DIR)fltk-config
+
+RSC_PATH=$(HOME)/.$(APPLICATION)
+INSTALL_PATH=$(HOME)/bin
+
+SRC=$(ROOT)/src
+
+OBJ1=\
+	$(APPLICATION).o
+
+OBJ2=\
+	$(LANDSCAPE).o
+
+INCLUDE=-I$(ROOT)/include -I.
+
+LDFLAGS=`$(FLTK_CONFIG) --use-images --ldstaticflags`
+ifdef HAVE_XRANDR
+LDLIBS+=-lXrandr
+endif
+
+FLTKCXXFLAGS = `$(FLTK_CONFIG) --cxxflags`
+CXXDEFS+=-DUSE_FLTK_RUN=$(USE_FLTK_RUN)
+CXXDEFS+=-DHAVE_SLOW_CPU=$(HAVE_SLOW_CPU)
+
+ifdef HAVE_XRANDR
+CXXDEFS+=-DHAVE_XRANDR
+endif
+
+CXXFLAGS+=$(CXXDEFS) -g -Wall -pipe --pedantic $(INCLUDE) $(FLTKCXXFLAGS)
+#OPT=
+OPT=-O3 -DNDEBUG
+
+CXX=g++
+CP=cp
+MV=mv
+RM=rm
+MKDIR=mkdir
+PATCH=patch
+TAR=tar
+
+TARGET1=$(APPLICATION)
+
+TARGET2=$(LANDSCAPE)
+
+$(TARGET1): depend $(OBJ1)
+	@echo Linking $@...
+	$(CXX) -o $@  $(OBJ1) $(LDFLAGS) $(LDLIBS) -lrt
+
+$(TARGET2): depend $(OBJ2)
+	@echo Linking $@...
+	$(CXX) -o $@  $(OBJ2) $(LDFLAGS) $(LDLIBS)
+
+
+.PHONY: clean all
+
+all:: $(TARGET1) $(TARGET2)
+
+%.o: $(SRC)/%.cxx
+	@echo Compiling $@...
+	$(CXX) -c -o $@ $< $(OPT) $(CXXFLAGS)
+
+install: all
+	@echo installing..
+	mkdir -p $(INSTALL_PATH)
+	mkdir -p $(RSC_PATH)/images
+	mkdir -p $(RSC_PATH)/wav
+	mkdir -p $(RSC_PATH)/levels
+	mkdir -p $(RSC_PATH)/bgsound
+	$(CP) -f $(ROOT)/$(TARGET1) $(INSTALL_PATH)
+	$(CP) -f $(ROOT)/$(TARGET2) $(INSTALL_PATH)
+	find images -name "*.gif" | while read file; do \
+	dest=$(RSC_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	find wav -name "*.wav" | while read file; do \
+	dest=$(RSC_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	find bgsound -name "*.wav" | while read file; do \
+	dest=$(RSC_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	find demo -name "*.txt" | while read file; do \
+	dest=$(RSC_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	$(CP) -a $(ROOT)/ATTRIBUTION $(RSC_PATH)/.
+	$(CP) -a $(ROOT)/levels/L_*.txt $(RSC_PATH)/levels/.
+
+uninstall:
+	@echo uninstalling..
+	rm $(INSTALL_PATH)/$(TARGET1)
+	rm $(INSTALL_PATH)/$(TARGET2)
+	rm -rf $(RSC_PATH)
+
+clean::
+	$(RM) -f $(ALL) *.o core makedepend depend *~
+	$(RM) -f $(TARGET1)
+	$(RM) -f $(TARGET2)
+
+distclean:: clean
+	$(RM) -f config.log Makefile
+
+depend: $(SRC)/*.cxx
+	@echo Make dependencies..
+	$(CXX) $(CXXFLAGS) -M $(SRC)/*.cxx >makedepend
+	# only a dummy
+	touch depend
+
+-include makedepend
