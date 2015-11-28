@@ -19,11 +19,12 @@ CXX=$(shell sh -c 'which $(HOST)-g++')
 endif
 
 ifeq ($(CXX),)
-all clean install:
+all clean install res:
 	@tput setaf 1
 	@echo "cross compiler for $(HOST) not installed."
 	@tput sgr0
 else
+WINDRES=$(shell sh -c 'which $(HOST)-windres')
 
 APPLICATION=fltrator
 LANDSCAPE=fltrator-landscape
@@ -56,7 +57,7 @@ CXXDEFS+=-DUSE_FLTK_RUN=$(USE_FLTK_RUN)
 CXXDEFS+=-DHAVE_SLOW_CPU=$(HAVE_SLOW_CPU)
 CXXFLAGS+=$(CXXDEFS) -g -Wall --pedantic $(INCLUDE) $(FLTKCXXFLAGS)
 #OPT=
-OPT=-O3
+OPT=-O3 -DNDEBUG
 
 CP=cp
 MV=mv
@@ -71,9 +72,9 @@ TARGET2=$(LANDSCAPE).exe
 
 TARGET3=playsound.exe
 
-$(TARGET1): depend $(OBJ1)
+$(TARGET1): depend $(OBJ1) $(APPLICATION).res
 	@echo Linking $@...
-	$(CXX) -o $@ $(LDFLAGS) $(OBJ1) $(LDLIBS)
+	$(CXX) -o $@ $(LDFLAGS) $(OBJ1) fltrator.res $(LDLIBS)
 
 $(TARGET2): depend $(OBJ2)
 	@echo Linking $@...
@@ -92,17 +93,42 @@ all:: $(TARGET1) $(TARGET2) $(TARGET3)
 	@echo Compiling $@...
 	$(CXX) -c -o $@ $< $(OPT) $(CXXFLAGS)
 
+%.res: %.rc
+	@echo Compiling $@...
+	@echo Make resource $@..
+	$(WINDRES) $< -O coff -o $@
+
 install: all
 	@echo installing..
 	mkdir -p $(INSTALL_PATH)
 	mkdir -p $(RSC_PATH)/images
 	mkdir -p $(RSC_PATH)/wav
 	mkdir -p $(RSC_PATH)/levels
+	mkdir -p $(RSC_PATH)/bgsound
+	mkdir -p $(RSC_PATH)/demo
 	$(CP) -f $(TARGET1) $(INSTALL_PATH)
 	$(CP) -f $(TARGET2) $(INSTALL_PATH)
 	$(CP) -f $(TARGET3) $(INSTALL_PATH)
-	$(CP) -a ../images/*.gif $(RSC_PATH)/images/.
-	$(CP) -a ../wav/*.wav $(RSC_PATH)/wav/.
+	cd ..; find images -name "*.gif" | while read file; do \
+	dest=$(RSC_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	cd ..; find wav -name "*.wav" | while read file; do \
+	dest=$(RSC_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	cd ..; find bgsound -name "*.wav" | while read file; do \
+	dest=$(RSC_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	$(CP) -a ../bgsound/README $(RSC_PATH)/bgsound/.
+	$(CP) -a ../demo/*.txt $(RSC_PATH)/demo/.
 	$(CP) -a ../ATTRIBUTION $(RSC_PATH)/.
 	$(CP) -a ../README $(RSC_PATH)/.
 	$(CP) -a ../levels/L_*.txt $(RSC_PATH)/levels/.
@@ -112,6 +138,10 @@ clean::
 	$(RM) -f $(TARGET1)
 	$(RM) -f $(TARGET2)
 	$(RM) -f $(TARGET3)
+
+res: *.rc
+	@echo Make resources..
+	$(WINDRES) $(APPLICATION).rc -O coff -o $(APPLICATION).res
 
 depend: $(SRC)/*.cxx
 	@echo Make dependencies..

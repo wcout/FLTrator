@@ -50,6 +50,7 @@ enum ObjectType
    O_BADY = 4,
    O_CUMULUS = 8,
    O_RADAR = 16,
+	O_PHASER = 32,
    O_COLOR_CHANGE = 64
 };
 
@@ -348,6 +349,7 @@ public:
 	bool hasBady( int x_ ) const { return _ls[ x_ ].object & O_BADY; }
 	bool hasCumulus( int x_ ) const { return _ls[ x_ ].object & O_CUMULUS; }
 	bool hasRadar( int x_ ) const { return _ls[ x_ ].object & O_RADAR; }
+	bool hasPhaser( int x_ ) const { return _ls[ x_ ].object & O_PHASER; }
 	int object( int x_ ) const { return _ls[ x_ ].object; }
 	size_t size() const { return _ls.size(); }
 	Fl_Color bg_color() const { return _ls.bg_color; }
@@ -505,6 +507,7 @@ private:
 	Fl_Image *_bady;
 	Fl_Image *_cumulus;
 	Fl_Image *_radar;
+	Fl_Image *_phaser;
 	int _objType;
 	bool _scrollLock;
 	int _curr_x;
@@ -800,6 +803,7 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	objects.push_back( Object( O_BADY, "bady.gif", "Badguy" ) );
 	objects.push_back( Object( O_CUMULUS, "cumulus.gif", "Good Cloud" ) );
 	objects.push_back( Object( O_RADAR, "radar_00014_0200.gif", "Radar" ) );
+	objects.push_back( Object( O_PHASER, "phaser.gif", "Phaser" ) );
 	objects.push_back( Object( O_COLOR_CHANGE, 0, "Color Change Marker" ) );
 	objects.back().w( 3 );
 	objects.back().h( h() );
@@ -808,10 +812,11 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_bady = (Fl_Image *)objects.find( O_BADY )->image();
 	_cumulus = (Fl_Image *)objects.find( O_CUMULUS )->image();
 	_radar = (Fl_Image *)objects.find( O_RADAR )->image();
+	_phaser = (Fl_Image *)objects.find( O_PHASER )->image();
 
 	if ( _mode == PLACE_OBJECTS )
 	{
-		if ( !_rocket || !_drop || !_bady || !_cumulus || !_radar )
+		if ( !_rocket || !_drop || !_bady || !_cumulus || !_radar || !_phaser )
 		{
 			fprintf( stderr, "Can't load all object images!\n" );
 			exit( -1 );
@@ -932,6 +937,13 @@ void LSEditor::draw()
 		{
 			int G = H - _ls->ground( i );
 			Object *o = objects.find( O_RADAR );
+			if ( o )
+				o->image()->draw( i - _xoff - o->w() / 2, G - o->h(), o->w(), o->h() );
+		}
+		if ( _ls->hasPhaser( i ) )
+		{
+			int G = H - _ls->ground( i );
+			Object *o = objects.find( O_PHASER );
 			if ( o )
 				o->image()->draw( i - _xoff - o->w() / 2, G - o->h(), o->w(), o->h() );
 		}
@@ -1164,6 +1176,9 @@ int LSEditor::handle( int e_ )
 						case 5:
 							placeObject( O_RADAR, x, y );
 							break;
+						case 6:
+							placeObject( O_PHASER, x, y );
+							break;
 						case 9:
 							placeObject( O_COLOR_CHANGE, x, y );
 							break;
@@ -1321,10 +1336,6 @@ void LSEditor::onXoff()
 void LSEditor::placeObject( int obj_, int x_, int y_ )
 //--------------------------------------------------------------------------
 {
-	Object* obj = objects.find( obj_ );
-	assert( obj );
-//	placeObject( obj->image(), x_, y_ );
-
 	int X = _xoff + x_;
 	int x = searchObject( obj_, x_, y_ );
 	if ( x )
@@ -1540,6 +1551,9 @@ void LSEditor::setTitle()
 			break;
 		case 5:
 			obj = O_RADAR;
+			break;
+		case 6:
+			obj = O_PHASER;
 			break;
 		case 9:
 			obj = O_COLOR_CHANGE;
