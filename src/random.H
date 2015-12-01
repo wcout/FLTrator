@@ -1,8 +1,10 @@
+#include <stdint.h>
+
 namespace Random
 {
 
-static unsigned long v = 1;
-static unsigned long u = 2;
+static uint32_t v = 1;
+static uint32_t u = 2;
 
 static void Srand( unsigned seed_ )
 {
@@ -10,17 +12,17 @@ static void Srand( unsigned seed_ )
 	u = seed_ + 1;
 }
 
-static unsigned long Rand()
+static uint32_t Rand()
 {
 	v = 36969 * ( v & 65535 ) + ( v >> 16 );
 	u = 18793 * ( u & 65535 ) + ( u >> 16 );
 	return ( v << 16 ) + u;
 }
 
-static unsigned long pRand( int v_ = 0, int u_ = 0 )
+static uint32_t pRand( uint32_t v_ = 0, uint32_t u_ = 0 )
 {
-	static unsigned long v = 1;
-	static unsigned long u = 2;
+	static uint32_t v = 1;
+	static uint32_t u = 2;
 	if ( v_ && u_ )
 	{
 		v = v_;
