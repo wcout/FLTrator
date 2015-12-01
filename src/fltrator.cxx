@@ -51,6 +51,7 @@
 
 #ifdef WIN32
 #include <mmsystem.h>
+#include <io.h>	// _access
 #define random rand
 #define srandom srand
 #else
@@ -988,7 +989,9 @@ void Object::image( const char *image_ )
 			_image->release();
 		_image = image;
 		delete _imageForDrawing;
+#if FLTK_HAS_NEW_FUNCTIONS
 		_imageForDrawing = new Fl_RGB_Image( (Fl_Pixmap *)_image );
+#endif
 		_animate_timeout = 0.;
 		const char *p = strstr( image_, "_" );
 		if ( p && isdigit( p[1] ) )
@@ -1043,7 +1046,11 @@ void Object::draw()
 //-------------------------------------------------------------------------------
 {
 	if ( !_exploded )
+#if FLTK_HAS_NEW_FUNCTIONS
 		_imageForDrawing->draw( x(), y(), _w, _h, _ox, 0 );
+#else
+		_image->draw( x(), y(), _w, _h, _ox, 0 );
+#endif
 #ifdef DEBUG_COLLISION
 	fl_color( FL_YELLOW );
 	Rect r( rect() );
@@ -4872,6 +4879,11 @@ void FltWin::onActionKey()
 //	printf( "onActionKey\n" );
 	Fl::remove_timeout( cb_demo, this );
 	Fl::remove_timeout( cb_paused, this );
+	if ( _state == DEMO )
+	{
+		_done = true;	// ensure ship gets reloaded in onNextScreen()
+		return;
+	}
 	if ( _state == SCORE )
 	{
 		if ( _input.empty() )
@@ -4891,7 +4903,7 @@ void FltWin::onActionKey()
 		_first_level = _done_level + 1;
 		if ( _first_level > MAX_LEVEL )
 			_first_level = 1;
-		printf( "score saved.\n" );
+//		printf( "score saved.\n" );
 	}
 
 	changeState();
