@@ -116,6 +116,7 @@ fi
 log "xrandr will be used for switching to fullscreen."
 fi
 
+
 destwrite "# $DEST created by $0"
 log "FLTK_DIR=\"$FLTK_DIR\""
 if [ "$FLTK_DIR" != "" ]; then
@@ -127,6 +128,11 @@ destwrite "USE_FLTK_RUN=$USE_FLTK_RUN"
 destwrite "HAVE_SLOW_CPU=$HAVE_SLOW_CPU"
 if [ "$HAVE_XRANDR" = "1" ]; then
 destwrite "HAVE_XRANDR=1"
+fi
+
+APLAY_HAVE_PIDFILE=`man aplay | grep "process-id-file"`
+if [ "$APLAY_HAVE_PIDFILE" != "" ]; then
+destwrite "APLAY_HAVE_PIDFILE=1"
 fi
 
 cat Makefile.in >>$DEST

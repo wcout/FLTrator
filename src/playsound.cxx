@@ -17,29 +17,35 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstdarg>
-#include <unistd.h>
 #include <cassert>
+#include <cstring>
 
 #ifdef WIN32
 #include <windows.h>
 #include <mmsystem.h>
+#else
+#include <sys/types.h>
+#include <unistd.h>
+#include <sys/wait.h>
 #endif
 
 static const char *pidFileName = 0;
 
 void cleanup()
 {
+#ifndef APLAY_HAVE_PIDFILE
 	if ( pidFileName )
 	{
 		remove( pidFileName );
 	}
+#endif
 }
 
 void playSound( const char *file_, const char *pidFileName_ )
 {
-#ifdef WIN32
-	pidFileName = pidFileName_;
 	atexit( cleanup );
+	pidFileName = pidFileName_;
+#ifdef WIN32
 	if ( getenv( "PLAYSOUND_SET_PRIORITY" ) )	// do not fiddle with priority unless requested
 	{
 		if ( !SetPriorityClass( GetCurrentProcess(), HIGH_PRIORITY_CLASS ) )
@@ -59,12 +65,38 @@ void playSound( const char *file_, const char *pidFileName_ )
 	}
 	PlaySound( file_, NULL, SND_FILENAME | SND_SYNC | SND_NOSTOP );
 #else
-	char cmd[ 1024 ];
-	if ( !pidFileName_ )
-		sprintf( cmd, "aplay -q -N %s  &", file_ );
-	else
-		sprintf( cmd, "aplay -q -N --process-id-file %s %s  &", pidFileName_, file_ );
-	system( cmd );
+	unsigned long pid = fork();
+	if ( pid < 0 )
+	{
+		perror( "fork" );
+	}
+	else if ( pid == 0 )
+	{
+#ifdef APLAY_HAVE_PIDFILE
+		if ( pidFileName )
+			execlp( "aplay", "aplay", "-q", file_,	"--process-id-file", pidFileName, (const char *) NULL );
+		else
+			execlp( "aplay", "aplay", "-q", file_, (const char*) NULL );
+#else
+		execlp( "aplay", "aplay", "-q", file_, (const char*) NULL );
+#endif
+		exit( EXIT_FAILURE );
+	}
+#ifndef APLAY_HAVE_PIDFILE
+	if ( pidFileName_ )
+	{
+		FILE *f = fopen( pidFileName_, "wb" );
+		if ( f )
+		{
+			char buf[100];
+			snprintf( buf, sizeof(buf), "%lu", pid );
+			fwrite( buf, strlen(buf), 1, f );
+			fclose( f );
+		}
+	}
+#endif
+	if ( pid > 0 )
+		waitpid( pid, 0, 0 );
 #endif
 }
 
