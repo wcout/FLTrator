@@ -2,6 +2,7 @@
 export ROOT?=$(PWD)
 APPLICATION=fltrator
 LANDSCAPE=fltrator-landscape
+PLAYSOUND=playsound
 
 FLTK_CONFIG=$(FLTK_DIR)fltk-config
 
@@ -16,6 +17,9 @@ OBJ1=\
 OBJ2=\
 	$(LANDSCAPE).o
 
+OBJ3=\
+	$(PLAYSOUND).o
+
 INCLUDE=-I$(ROOT)/include -I.
 
 LDFLAGS=`$(FLTK_CONFIG) --use-images --ldstaticflags`
@@ -29,6 +33,10 @@ CXXDEFS+=-DHAVE_SLOW_CPU=$(HAVE_SLOW_CPU)
 
 ifdef HAVE_XRANDR
 CXXDEFS+=-DHAVE_XRANDR
+endif
+
+ifdef APLAY_HAVE_PIDFILE
+CXXDEFS+=-DAPLAY_HAVE_PIDFILE
 endif
 
 CXXFLAGS+=$(CXXDEFS) -g -Wall -pipe --pedantic $(INCLUDE) $(FLTKCXXFLAGS)
@@ -47,6 +55,8 @@ TARGET1=$(APPLICATION)
 
 TARGET2=$(LANDSCAPE)
 
+TARGET3=$(PLAYSOUND)
+
 $(TARGET1): depend $(OBJ1)
 	@echo Linking $@...
 	$(CXX) -o $@  $(OBJ1) $(LDFLAGS) $(LDLIBS) -lrt
@@ -55,10 +65,13 @@ $(TARGET2): depend $(OBJ2)
 	@echo Linking $@...
 	$(CXX) -o $@  $(OBJ2) $(LDFLAGS) $(LDLIBS)
 
+$(TARGET3): depend $(OBJ3)
+	@echo Linking $@...
+	$(CXX) -o $@  $(OBJ3) $(LDFLAGS)
 
 .PHONY: clean all
 
-all:: $(TARGET1) $(TARGET2)
+all:: $(TARGET1) $(TARGET2) $(TARGET3)
 
 %.o: $(SRC)/%.cxx
 	@echo Compiling $@...
