@@ -20,7 +20,6 @@ BOOL SetScreenResolution(INT nWidth, INT nHeight)
 	bPrevSet             = TRUE;
 	devMode.dmPelsWidth  = nWidth;
 	devMode.dmPelsHeight = nHeight;
-
 	return (ChangeDisplaySettingsEx(NULL, &devMode, NULL, 0, NULL) == DISP_CHANGE_SUCCESSFUL);
 }
 
@@ -29,6 +28,7 @@ BOOL RestoreScreenResolution(VOID)
 	if(bPrevSet)
 	{
 		DBG(( "RestoreScreenResolution" ));
+		bPrevSet = FALSE;
 		return (ChangeDisplaySettingsEx(NULL, &devPrevMode, NULL, 0, NULL) == DISP_CHANGE_SUCCESSFUL);
 	}
 	return FALSE;
@@ -78,7 +78,8 @@ static bool xrandr_set_screen( int mode_, int W_ = 0 , int H_ = 0 )
 
 	Rotation original_rotation;
 	SizeID original_size_id = XRRConfigCurrentConfiguration( conf, &original_rotation );
-	prevMode = (int)original_size_id;
+	if (prevMode < 0 )
+		prevMode = (int)original_size_id;
 
 	// CHANGE RESOLUTION
 	int mode( mode_ );
@@ -122,7 +123,10 @@ static bool restoreScreenResolution()
 	return RestoreScreenResolution();
 #elif HAVE_XRANDR
 	if ( prevMode != -1 )
+	{
 		return xrandr_set_screen( prevMode );
+		prevMode = -1;
+	}
 	return false;
 #else
 	return false;
