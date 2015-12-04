@@ -262,16 +262,23 @@ public:
 			return file_;
 		if ( _level )
 		{
-			string p = mkPath( _baseDir, asString( _level ), file_ );
+			string p = mkPath( _baseDir, asString( _level ), file_ + _ext );
 			if ( access( p.c_str(), R_OK ) == 0 )
 				return p;
 		}
-		return mkPath( _baseDir, "", file_ );
+		return mkPath( _baseDir, "", file_ + _ext );
 	}
 	void level( size_t level_ ) { _level = level_; }
+	void ext( const string ext_ )
+	{
+		_ext = ext_;
+		if ( _ext.size() )
+			_ext.insert( 0, "." );
+	}
 private:
 	string _baseDir;
 	size_t _level;
+	string _ext;
 };
 
 static string levelPath( const string& file_ )
@@ -558,23 +565,23 @@ public:
 	void disable( bool disable_ = true ) { _disabled = disable_; }
 	void enable() { disable( false ); }
 	void bg_disable( bool disable_ = true ) { _bg_disabled = disable_; }
-	void cmd( const string& cmd_ ) { _cmd = cmd_; }
+	void cmd( const string& cmd_ );
+	string cmd( bool bg_ = false ) const { return bg_ ? _bgPlayCmd : _playCmd; }
+	string ext() const { return _ext; }
 	void stop_bg();
 	void check();
 private:
-	Audio() :
-		_disabled( false ), _bg_disabled( false), _id( 0 ) {}
-	~Audio()
-	{
-		stop_bg();
-	}
+	Audio();
+	~Audio();
 	void stop( const string& pidfile_ );
 	bool kill_sound( const string& pidfile_ );
 	bool terminate_player( pid_t pid_, const string& pidfile_ );
 private:
+	string _playCmd;
+	string _bgPlayCmd;
+	string _ext;
 	bool _disabled;
 	bool _bg_disabled;
-	string _cmd;
 	int _id;
 	string _bgpidfile;
 	string _retry_bgpidfile;
@@ -603,6 +610,120 @@ BOOL TerminateProcess(DWORD dwProcessId, UINT uExitCode)
 }
 #endif
 
+Audio::Audio() :
+	_disabled( false ),
+	_bg_disabled( false),
+	_id( 0 )
+//-------------------------------------------------------------------------------
+{
+	cmd( string() );
+}
+
+Audio::~Audio()
+//-------------------------------------------------------------------------------
+{
+	stop_bg();
+}
+
+static void trim( string& s_ )
+//-------------------------------------------------------------------------------
+{
+	while ( s_.size() && isspace( s_[0] ) )
+		s_.erase( 0, 1 );
+	while ( s_.size() && isspace( s_[s_.size() - 1] ) )
+		s_.erase( s_.size() - 1 );
+}
+
+static string quote( string s_ )
+//-------------------------------------------------------------------------------
+{
+	s_.insert( 0, "\"" );
+	s_.append( "\"" );
+	return s_;
+}
+
+static void parseAudioCmd( const string &cmd_,
+                           string& playCmd_, string& bgPlayCmd_, string& ext_ )
+//-------------------------------------------------------------------------------
+{
+	string cmd( cmd_ );
+	trim( cmd );
+	if ( cmd.empty() )
+		return;
+	string type;
+	string arg;
+	size_t pos = cmd.find( '=' );
+	if ( pos != string::npos )
+	{
+		type = cmd.substr( 0, pos );
+		if ( cmd.size() > pos )
+			arg = cmd.substr( pos + 1 );
+	}
+	else
+	{
+		arg = cmd;
+	}
+	trim( type );
+	trim( arg );
+	if ( arg.empty() )
+		return;
+//	printf( "type: '%s' arg: '%s'\n", type.c_str(), arg.c_str() );
+	if ( type.empty() || "cmd" == type )
+		playCmd_ = arg;
+	else if ( "bgcmd" == type)
+		bgPlayCmd_ = arg;
+	else if ( "ext" == type )
+		ext_ = arg;
+	else
+		fprintf( stderr, "Invalid audio command: '%s'\n", arg.c_str() );
+}
+
+static void parseAudioCmdLine( const string &cmd_,
+                               string& playCmd_, string& bgPlayCmd_, string& ext_ )
+//-------------------------------------------------------------------------------
+{
+	string cmd( cmd_ );
+	size_t pos;
+	while ( ( pos = cmd.find( ';' )) != string::npos )
+	{
+		parseAudioCmd( cmd.substr( 0, pos ), playCmd_, bgPlayCmd_, ext_ );
+		cmd.erase( 0, pos + 1 );
+	}
+	parseAudioCmd( cmd, playCmd_, bgPlayCmd_, ext_ );
+}
+
+void Audio::cmd( const string& cmd_ )
+//-------------------------------------------------------------------------------
+{
+	string playCmd;
+	string bgPlayCmd;
+	string ext;
+	parseAudioCmdLine( cmd_, playCmd, bgPlayCmd, ext );
+	static const string DefaultCmd =
+#ifdef WIN32
+	"playsound %f"
+#elif __APPLE__
+	"play %f"
+#else
+	// linux
+	"aplay -q -N %f"
+#endif
+	;
+	static const string DefaultBgCmd =
+#ifdef WIN32
+	"playsound %f %p"
+#elif __APPLE__
+	"play %f"
+#else
+	// linux
+	"aplay -q -N --process-id-file %p %f"
+#endif
+	;
+	_playCmd = playCmd.empty() ? DefaultCmd : playCmd;
+	_bgPlayCmd = bgPlayCmd.empty() ? DefaultBgCmd : bgPlayCmd;
+	_ext = ext.empty() ? "wav" : ext;
+}
+
 /*static*/
 Audio *Audio::instance()
 //-------------------------------------------------------------------------------
@@ -620,45 +741,54 @@ bool Audio::play( const char *file_, bool bg_/* = false*/ )
 	bool disabled( ( bg_ && _bg_disabled ) || ( !bg_ && _disabled ) );
 	if ( !disabled && file_ )
 	{
-		string cmd( _cmd );
-		if ( cmd.size() )
+		string file( file_ );
+		string cmd( bg_ ? _bgPlayCmd : _playCmd );
+		bool runInBg( false );
+
+		if ( bg_ )
 		{
-			bool bg( true );
-			size_t pos = cmd.find( "%f" );
+			stop_bg();
+			_id++;
+			ostringstream os;
+#ifdef WIN32
+			os << "playsound_pid_" << _id;
+#else
+			os << "/tmp/aplay_pid_" << _id;
+#endif
+			_bgpidfile = os.str();
+			_bgsound = file;
+		}
+
+		size_t pos = cmd.find( "%f" );
+		if ( pos != string::npos )
+			runInBg = true;
+		else
+			pos = cmd.find( "%F" );
+		if ( pos == string::npos )
+			cmd += ( ' ' + quote( wavPath.get( file ) ) );
+		else
+		{
+			cmd.erase( pos, 2 );
+			cmd.insert( pos, quote( wavPath.get( file ) ) );
+		}
+		if ( bg_ )
+		{
+			size_t pos = cmd.find( "%p" );
 			if ( pos == string::npos )
-			{
-				pos = cmd.find( "%F" );
-				if ( pos != string::npos )
-					bg = false;
-			}
+				pos = cmd.find( "%P" );
 			if ( pos == string::npos )
-				cmd += ( ' ' + wavPath.get( file_ ) );
+				cmd += ( ' ' + _bgpidfile );
 			else
 			{
 				cmd.erase( pos, 2 );
-				cmd.insert( pos, wavPath.get( file_ ) );
-				if ( bg )
-					cmd += " &";
+				cmd.insert( pos, _bgpidfile );
 			}
 		}
+		if ( runInBg )
+			cmd += " &";
+
 //		printf( "cmd: %s\n", cmd.c_str() );
 #ifdef WIN32
-//		::PlaySound( wavPath.get( file_ ).c_str(), NULL, SND_FILENAME | SND_ASYNC | SND_NOSTOP );
-		if ( cmd.empty() )
-		{
-			cmd = "playsound \"" + wavPath.get( file_ ) + "\"";
-			if ( bg_ )
-			{
-				stop_bg();
-				_id++;
-				ostringstream os;
-				os << "play_pid_" << _id;
-				_bgpidfile = os.str();
-				_bgsound = file_;
-				cmd += " " + _bgpidfile;
-				DBG(( "cmd: '%s'", cmd.c_str() ));
-			}
-		}
 		STARTUPINFO si = { 0 };
 		si.cb = sizeof(si);
 		si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
@@ -672,30 +802,9 @@ bool Audio::play( const char *file_, bool bg_/* = false*/ )
 		CloseHandle(pi.hProcess);
 		CloseHandle(pi.hThread);
 #elif __APPLE__
-		if ( cmd.empty() )
-			cmd = "play -q \"" + wavPath.get( file_ ) + "\" &";
-//		printf( "cmd: %s\n", cmd.c_str() );
 		ret = system( cmd.c_str() );
 #else
 		// linux
-		if ( cmd.empty() )
-		{
-			if ( bg_ )
-			{
-				stop_bg();
-				_id++;
-				ostringstream os;
-				os << "/tmp/aplay_pid_" << _id;
-				_bgpidfile = os.str();
-				_bgsound = file_;
-//				printf( "play bgsound with pidfile '%s'\n", _bgpidfile.c_str() );
-			}
-			cmd = "aplay -q -N ";
-			if ( bg_ && _bgpidfile.size() )
-				cmd += "--process-id-file " + _bgpidfile + " ";
-			cmd += "\"" + wavPath.get( file_ ) + "\" &";
-		}
-//		printf( "cmd: %s\n", cmd.c_str() );
 		ret = system( cmd.c_str() );
 #endif
 	}
@@ -706,22 +815,13 @@ bool Audio::terminate_player( pid_t pid_, const string& pidfile_ )
 //-------------------------------------------------------------------------------
 {
 //	printf( "%s: kill player %d\n", pidfile_.c_str(), pid );
-	bool success( false );
+	bool success( true );
 #ifndef WIN32
-	if ( -1 == kill( pid_, SIGTERM ) && errno != ENOENT )
+	if ( -1 == kill( pid_, SIGTERM ) && errno != ESRCH )
 	{
-		if ( EAGAIN == errno )
-		{
-			if ( -1 == kill( pid_, SIGKILL ) && errno != ENOENT )
-				perror( "kill SIGKILL" );
-			else
-				success = true;
-		}
-		else
-			perror( "kill SIGTERM" );
+		perror( "kill SIGTERM" );
+		success = false;
 	}
-	else
-		success = true;
 #else
 	success = TerminateProcess( pid_, 0 );
 	// WIN32: terminated process can't close pidfile, so we must do this
@@ -1041,16 +1141,61 @@ void Object::update()
 	_state++;
 }
 
+#if !defined(FLTK_USES_XRENDER) && !defined(WIN32)
+static void clipImage( int& x_, int& y_, int& w_, int &h_, int& ox_, int& oy_,
+                       int W_, int H_ )
+//-------------------------------------------------------------------------------
+{
+	ox_ = 0;
+	oy_ = 0;
+	if ( x_ <  0 )
+	{
+		ox_ = -x_;
+		x_ = 0;
+		w_ -= ox_;
+	}
+	if ( y_ <  0 )
+	{
+		oy_ = -y_;
+		y_ = 0;
+		h_ -= oy_;
+	}
+	if ( x_ + w_ >= W_ )
+	{
+		w_ -= ( ( x_ + w_ ) - W_ );
+	}
+	if ( y_ + h_ >= H_ )
+	{
+		h_ -= ( ( y_ + h_ ) - H_ );
+	}
+}
+#endif
+
 /*virtual*/
 void Object::draw()
 //-------------------------------------------------------------------------------
 {
 	if ( !_exploded )
+	{
 #if FLTK_HAS_NEW_FUNCTIONS
+#if !defined(WIN32) && !defined(FLTK_USES_XRENDER)
+		int X = x();
+		int Y = y();
+		int W = _w;
+		int H = _h;
+		int ox;
+		int oy;
+		// RGB image must be clipped to screen otherwise drawing artefacts!
+#pragma message( "No Xrender support - fix clipping of RGB image with alpha" )
+		clipImage( X, Y, W, H, ox, oy, SCREEN_W, SCREEN_H );
+		_imageForDrawing->draw( X, Y, W, H, _ox + ox, oy );
+#else	// !defined(WIN32) && !defined(FLTK_USES_XRENDER)
 		_imageForDrawing->draw( x(), y(), _w, _h, _ox, 0 );
-#else
-		_image->draw( x(), y(), _w, _h, _ox, 0 );
 #endif
+#else // FLTK_HAS_NEW_FUNCTIONS
+		_image->draw( x(), y(), _w, _h, _ox, 0 );
+#endif // FLTK_HAS_NEW_FUNCTIONS
+	}
 #ifdef DEBUG_COLLISION
 	fl_color( FL_YELLOW );
 	Rect r( rect() );
@@ -1155,7 +1300,7 @@ public:
 	{
 	}
 	bool lifted() const { return started(); }
-	virtual const char *start_sound() const { return "launch.wav"; }
+	virtual const char *start_sound() const { return "launch"; }
 	virtual const char* image_started() const { return "rocket_launched.gif"; }
 	void update()
 	{
@@ -1201,7 +1346,7 @@ public:
 	{
 	}
 	bool dropped() const { return started(); }
-	virtual const char *start_sound() const { return "drop.wav"; }
+	virtual const char *start_sound() const { return "drop"; }
 	virtual bool onHit()
 	{
 		// TODO: other image?
@@ -1231,7 +1376,7 @@ public:
 	{
 	}
 	bool moving() const { return started(); }
-	virtual const char *start_sound() const { return "bady.wav"; }
+	virtual const char *start_sound() const { return "bady"; }
 	void turn() { _up = !_up; }
 	bool turned() const { return _up; }
 	void stamina( int stamina_ ) { _stamina = stamina_; }
@@ -1295,7 +1440,7 @@ public:
 	{
 		update();
 	}
-	virtual const char *start_sound() const { return "missile.wav"; }
+	virtual const char *start_sound() const { return "missile"; }
 	void update()
 	{
 		if ( G_paused ) return;
@@ -1335,7 +1480,7 @@ public:
 	{
 		update();
 	}
-	virtual const char *start_sound() const { return "bomb_f.wav"; }
+	virtual const char *start_sound() const { return "bomb_f"; }
 	void update()
 	{
 		if ( G_paused ) return;
@@ -1400,7 +1545,7 @@ public:
 		if ( state >= 36 )
 		{
 			if ( state == 36 )
-				Audio::instance()->play( "phaser.wav" );
+				Audio::instance()->play( "phaser" );
 			fl_color( fl_contrast( FL_BLUE, _bg_color ) );
 			fl_line_style( FL_SOLID, 3 );
 			fl_line( cx(), y(), cx(), _max_height );
@@ -1893,6 +2038,7 @@ private:
 	void onUpdateDemo();
 	void setUser();
 	void resetUser();
+	void toggleFullscreen();
 	void toggleShip( bool prev_ = false );
 	void toggleUser( bool prev_ = false );
 	void startBgSound() const
@@ -1968,7 +2114,7 @@ private:
 		_bgsound.erase();
 		if ( Audio::hasBgSound() )
 		{
-			string bgfile = wavPath.get( "bgsound.wav" );
+			string bgfile = wavPath.get( "bgsound" );
 			if ( access( bgfile.c_str(), R_OK ) == 0 )
 			{
 				_bgsound = bgfile;
@@ -1983,14 +2129,17 @@ private:
 				vector<string> bgSoundList;
 				for ( int i = 0; i < num_files; i++ )
 				{
-					if ( fl_filename_match( ls[i]->d_name, "*.wav" ) )
+					string pattern = "*." + Audio::instance()->ext();
+					if ( fl_filename_match( ls[i]->d_name, pattern.c_str() ) )
 					{
 						bgSoundList.push_back( bgdir + ls[i]->d_name );
 					}
 				}
 				fl_filename_free_list( &ls, num_files );
 				if ( bgSoundList.size() )
+				{
 					_bgsound = bgSoundList[Random::pRand() % bgSoundList.size()] ;
+				}
 			}
 		}
 	}
@@ -2264,7 +2413,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		printf("  -s\tstart with sound disabled\n" );
 		printf("  -x\tdisable gimmick effects\n" );
 		printf("  -A\"playcmd\"\tspecify audio play command\n" );
-		printf("   \te.g. -A\"play -q %%f\"\n" );
+		printf("   \te.g. -A\"cmd=playsound -q %%f; bgcmd=playsound -q %%f %%p; ext=wav\"\n" );
 		printf("  -F\trun with settings for fast computer\n" );
 		printf("  -Rvalue\tset frame rate to 'value' fps [20,25,40,50,100,200]\n" );
 		printf("  -S\trun with settings for slow computer\n" );
@@ -2326,6 +2475,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_level = _first_level;
 	_hiscore = _cfg->hiscore();
 	_hiscore_user = _cfg->best().name;
+	wavPath.ext( Audio::instance()->ext() );
 
 	Fl::visual( FL_DOUBLE | FL_RGB );
 	show();
@@ -2353,7 +2503,7 @@ void FltWin::onStateChange( State from_state_ )
 	{
 		case TITLE:
 			if ( !G_paused && _gimmicks )
-				Audio::instance()->play( "menu.wav" );
+				Audio::instance()->play( "menu" );
 			Audio::instance()->stop_bg();
 			onTitleScreen();
 			break;
@@ -2368,13 +2518,13 @@ void FltWin::onStateChange( State from_state_ )
 			onDemo();
 			break;
 		case LEVEL_FAIL:
-			Audio::instance()->play( "ship_x.wav" );
+			Audio::instance()->play( "ship_x" );
 			Audio::instance()->stop_bg();
 		case LEVEL_DONE:
 		{
 			if ( _state == LEVEL_DONE )
 			{
-				Audio::instance()->play ( "done.wav" );
+				Audio::instance()->play ( "done" );
 				Audio::instance()->stop_bg();
 				if ( _score > _old_score )
 					_old_score = _score;
@@ -3311,7 +3461,7 @@ void FltWin::check_missile_hits()
 			     (*m)->rect().intersects( (*r)->rect() ) )
 			{
 				// rocket hit by missile
-				Audio::instance()->play( "missile_hit.wav" );
+				Audio::instance()->play( "missile_hit" );
 				(*r)->explode();
 				add_score( 20 );
 
@@ -3331,7 +3481,7 @@ void FltWin::check_missile_hits()
 			     (*m)->rect().intersects( (*pa)->rect() ) )
 			{
 				// phaser hit by missile
-				Audio::instance()->play( "bomb_x.wav" );
+				Audio::instance()->play( "bomb_x" );
 				(*pa)->explode();
 				add_score( 40 );
 
@@ -3353,7 +3503,7 @@ void FltWin::check_missile_hits()
 				// radar hit by missile
 				if ( (*ra)->hit() )	// takes 2 missile hits to succeed!
 				{
-					Audio::instance()->play( "missile_hit.wav" );
+					Audio::instance()->play( "missile_hit" );
 					(*ra)->explode();
 					add_score( 40 );
 				}
@@ -3374,7 +3524,7 @@ void FltWin::check_missile_hits()
 				// bady hit by missile
 				if ( (*b)->hit() )
 				{
-					Audio::instance()->play( "bady_hit.wav" );
+					Audio::instance()->play( "bady_hit" );
 					delete *b;
 					b = Badies.erase(b);
 					add_score( 100 );
@@ -3395,7 +3545,7 @@ void FltWin::check_missile_hits()
 			{
 				// drop hit by missile
 				(*d)->hit();
-				Audio::instance()->play( "drop_hit.wav" );
+				Audio::instance()->play( "drop_hit" );
 				delete *d;
 				d = Drops.erase(d);
 				add_score( 5 );
@@ -3422,7 +3572,7 @@ void FltWin::check_bomb_hits()
 			     (*b)->rect().intersects( (*r)->rect() ) )
 			{
 				// rocket hit by bomb
-				Audio::instance()->play( "bomb_x.wav" );
+				Audio::instance()->play( "bomb_x" );
 				(*r)->explode();
 				add_score( 50 );
 
@@ -3442,7 +3592,7 @@ void FltWin::check_bomb_hits()
 			     (*b)->rect().intersects( (*pa)->rect() ) )
 			{
 				// phaser hit by bomb
-				Audio::instance()->play( "bomb_x.wav" );
+				Audio::instance()->play( "bomb_x" );
 				(*pa)->explode();
 				add_score( 50 );
 
@@ -3462,7 +3612,7 @@ void FltWin::check_bomb_hits()
 			     (*b)->rect().intersects( (*ra)->rect() ) )
 			{
 				// radar hit by bomb
-				Audio::instance()->play( "bomb_x.wav" );
+				Audio::instance()->play( "bomb_x" );
 				(*ra)->explode();
 				add_score( 50 );
 
@@ -4137,7 +4287,7 @@ void FltWin::draw_score()
 				Audio::instance()->enable();	// turn sound on
 				free( _terrain );	// switch to direct drawing for grayout!
 				_terrain = 0;
-				Audio::instance()->play( "win.wav" );
+				Audio::instance()->play( "win" );
 				(_anim_text = new AnimText( 0, 10, w(), "** MISSION COMPLETE! **",
 					FL_WHITE, FL_RED, 50, 40, false ))->start();
 			}
@@ -4452,7 +4602,7 @@ void FltWin::onCollision()
 	if ( _cheatMode )
 	{
 		if ( _xoff % 20 == 0 )
-			Audio::instance()->play( "boink.wav" );
+			Audio::instance()->play( "boink" );
 		_collision = false;
 	}
 }
@@ -4522,7 +4672,34 @@ void FltWin::resetUser()
 void FltWin::keyClick() const
 //-------------------------------------------------------------------------------
 {
-	Audio::instance()->play( "drop.wav" );
+	Audio::instance()->play( "drop" );
+}
+
+void FltWin::toggleFullscreen()
+//-------------------------------------------------------------------------------
+{
+	static int ox = 0;
+	static int oy = 0;
+	if ( _fullscreen )
+	{
+		fullscreen_off( ox, oy, SCREEN_W, SCREEN_H );
+		size_range( SCREEN_W, SCREEN_H, SCREEN_W, SCREEN_H );	// disable resizing
+		restoreScreenResolution();
+	}
+	else
+	{
+		ox = x();
+		oy = y();
+		setScreenResolution( SCREEN_W, SCREEN_H );
+		int X, Y, W, H;
+		Fl::screen_xywh( X, Y, W, H );
+		if ( W == (int)SCREEN_W && H == (int)SCREEN_H )
+		{
+			size_range( SCREEN_W, SCREEN_H );
+		}
+		fullscreen();
+	}
+	_fullscreen = !_fullscreen;
 }
 
 void FltWin::toggleShip( bool prev_/* = false */ )
@@ -4751,6 +4928,10 @@ int FltWin::handle( int e_ )
 	{
 		toggleBgSound();
 	}
+	if ( e_ == FL_KEYUP && 0xffc7/*F10*/ == c )
+	{
+		toggleFullscreen();
+	}
 	if ( _state == TITLE || _state == SCORE || _state == DEMO || _done )
 	{
 		if ( _state == SCORE && e_ == FL_KEYUP && c >= '0' && c < 'z' )
@@ -4796,14 +4977,14 @@ int FltWin::handle( int e_ )
 		setPaused( false );
 		if ( KEY_LEFT == c )
 			_left = true;
-		if ( KEY_RIGHT == c )
+		else if ( KEY_RIGHT == c )
 		{
 			repeated_right++;
 			_right = true;
 		}
-		if ( KEY_UP == c )
+		else if ( KEY_UP == c )
 			_up = true;
-		if ( KEY_DOWN == c )
+		else if ( KEY_DOWN == c )
 			_down = true;
 		return 1;
 	}
@@ -4811,7 +4992,7 @@ int FltWin::handle( int e_ )
 	{
 		if ( KEY_LEFT == c )
 			_left = false;
-		if ( KEY_RIGHT == c )
+		else if ( KEY_RIGHT == c )
 		{
 			_right = false;
 			_speed_right = 0;
@@ -4819,18 +5000,18 @@ int FltWin::handle( int e_ )
 				fireMissile();
 			repeated_right = -1;
 		}
-		if ( ' ' == c )
+		else if ( ' ' == c )
 		{
 			if ( !ignore_space )
 				dropBomb();
 			ignore_space = false;
 			return 1;
 		}
-		if ( KEY_UP == c )
+		else if ( KEY_UP == c )
 			_up = false;
-		if ( KEY_DOWN == c )
+		else if ( KEY_DOWN == c )
 			_down = false;
-		if ( '7' <= c && '9' >= c )
+		else if ( '7' <= c && '9' >= c )
 		{
 			if ( !_done && !_collision )
 			{
@@ -5272,13 +5453,13 @@ public:
 				}
 				break;
 			case 1:
-				Audio::instance()->play( "firework_start.wav" );
+				Audio::instance()->play( "firework_start" );
 				break;
 			case 2:
 			{
 				static int flip = 0;
 				flip ^= 1;
-				Audio::instance()->play( "firework_explode.wav" );
+				Audio::instance()->play( "firework_explode" );
 				if ( flip )
 					f->_text->color( f->explodeColor() );
 				else

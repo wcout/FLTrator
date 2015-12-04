@@ -135,6 +135,11 @@ if [ "$APLAY_HAVE_PIDFILE" != "" ]; then
 destwrite "APLAY_HAVE_PIDFILE=1"
 fi
 
+FLTK_USES_XRENDER=`$fltk_config --ldflags | grep "Xrender"`
+if [ "$FLTK_USES_XRENDER" != "" ]; then
+destwrite "FLTK_USES_XRENDER=1"
+fi
+
 cat Makefile.in >>$DEST
 log "$DEST written successfully."
 # force complete rebuild

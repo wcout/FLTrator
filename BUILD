@@ -5,13 +5,21 @@ I developed this game on Linux (Ubuntu 14.04 64 bit).
 
 It is written with **FLTK**, and has **no other dependencies**.
 
-To compile it, you first need FLTK 1.3 (preferably version 1.3.3) or above.
+To compile it, you first need FLTK 1.3 (I recommend to use at least version 1.3.3)
+or above.
 
+As I have no access to and no knowledge about Apple OSX I can only assume
+that the code should compile and run on this platform (as FLTK works well on OSX).
+
+I have successfully tested and run a Mingw compiled version of the program
+under Windows XP and Windows 7.
+
+Under Linux the program was tested with various distros, also some older ones.
 
 General
 =======
 
-One main goal at development was to use NO external libraries whatsoever
+One main goal at development was to use *NO* external libraries whatsoever
 (except FLTK of course) to stay simple and clean. So the code should be
 really easy to compile.
 
@@ -33,17 +41,22 @@ Audio
 
 According to the goal to use no external libraries, the program plays `.wav`
 files by using the builtin play tool of the OS. This is `aplay` for Linux
-and `play` for Apple. Works pretty well...
+and `play` for Apple (actually I don't know for sure).
+Works pretty well - at least on Linux...
 
 If you don't hear sound please make sure, that this program is installed
 on your system and plays sounds from the command line.
 
 Under Windows there is no such tool and one cannot output multiple sounds in
-background easy. So I made a little executable `playsound.exe` that is called
-by fltrator.
+background easy (I stayed with the old Windows MM-API - PlaySound(), because
+everything else seemed complete overkill). So I made a little executable
+`playsound.exe` that is called by fltrator.
 It has to be in the path somewhere (or in the same path as fltrator).
 
-It is also possible to specify a play command with the command line (see `--help`).
+It is also possible to specify a play command by command line option (see `--help`).
+
+Under Linux you can also use your own sound-player, when you stick to the
+outline given in playsound.cxx.
 
 ---
 
@@ -85,42 +98,27 @@ If that succeeds go to the fltrator directory and
     make install (optional)
 
 
-Running fullscreen under Linux
-------------------------------
+Running fullscreen
+------------------
 
 Running FLTrator in fullscreen on a big monitor is really a great pleasure!
 It also runs faster and more smooth I believe.
 
-So I dug out some instructions how to change resolution using Xrandr and created
-a program `xrand_change_screen_res` and a shell script `fltrator-fullscreen`.
+So I dug out some instructions how to change resolution under Linux using Xrandr
+and and also for Windows and integrated it everything into the program.
 
-Calling this script will change screen resolution to 800x600 before running
-fltrator and restore to the original resolution afterwards:
+Note for Linux: For fullsceeen to work you must have the `libxrandr-dev` package
+installed.
 
-    sh ./fltrator-fullscreen.sh
-
-to run the local version of fltrator in fullsceen.
-
-These programs are not *not* installed with `make install`.
-
-Either put them manually somewhere in your path, or call the local
-`fltrator-fullscreen.sh` with --install, which will compile and then
-copy them to ~/bin/.
-
-    ./fltrator-fullscreen.sh --install
-
-Note: To compile `xrand_change_screen_res.c` successfully you must have the
-`libxrandr-dev` package installed.
-
-[Tested to work under Ubuntu 12.04 and 14.04]
+[Tested to work under Ubuntu 12.04 and 14.04, Windows 7]
 
 ---
 
 General notes about the Windows version
 =======================================
 
-*Prologue*: I never program for Windows. When I need something for Windows I build
-it with `mingw` under Linux. So forgive me if I talk nonsense.
+As noted already, I am no Windows specialist. However I successfully run some of my
+programs written for Linux crosscompiled with 'mingw' under Windows.
 
 FLTrator normally would like to use a 200Hz timer for scrolling the landscape.
 This is just the right speed for a smooth scrolling by 1 pixel/frame. No problem
@@ -133,17 +131,16 @@ using Windows hires timers and integrate these with FLTK's main loop.
 
 The second problem is, that Windows hires timers seem to be not very reliable
 (but maybe it's just my lack of knowledge, how to set up things right).
-With much fiddling it works now somehow - I managed to run FLTrator under Windows 7
-on a recent quad core processor with 200 fps. But likely on slower machines it
-may not work too well.
 
-If it does on your machine - then fine. Otherwise I found 40Hz to be the ideal
+So the Windows version by default just uses 100 FPS using Windows hi-res timers.
+That seems to work...
+
+If you have still performance problems with it, I found 40 FPS to be the ideal
 rate in this case. Therefore I have added an option `HAVE_SLOW_CPU` to compile
-with a 40Hz timer. This makes the scrolling a little jumpy, but maybe this
-even adds to the retro feeling...
+with a 40Hz timer (using FLTK timers). This makes the scrolling a little jumpy,
+but maybe this even adds to the retro feeling...
 
-Should you experience bad performance, you can enable the switch in your compile
-shell with:
+You can enable the switch in your compile shell with:
 
     export HAVE_SLOW_CPU=1
 
@@ -218,3 +215,6 @@ Of course lower values will decrease the smoothness of the scrolling.
 If you found your best rate, you can put it in the command line:
 
     -Rfps  e.g. -R40
+
+Note for Windows: You will get 100 and 200 FPS only, if you didn't compile with
+the 'HAVE_SLOW_CPU' option.

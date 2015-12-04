@@ -30,15 +30,20 @@
 #endif
 
 static const char *pidFileName = 0;
+static bool HAVE_PIDFILE =
+#if !defined(WIN32) && defined(APLAY_HAVE_PIDFILE)
+	true
+#else
+	false
+#endif
+	;
 
 void cleanup()
 {
-#ifndef APLAY_HAVE_PIDFILE
-	if ( pidFileName )
+	if ( !HAVE_PIDFILE && pidFileName )
 	{
 		remove( pidFileName );
 	}
-#endif
 }
 
 void playSound( const char *file_, const char *pidFileName_ )
@@ -72,18 +77,22 @@ void playSound( const char *file_, const char *pidFileName_ )
 	}
 	else if ( pid == 0 )
 	{
-#ifdef APLAY_HAVE_PIDFILE
-		if ( pidFileName )
-			execlp( "aplay", "aplay", "-q", file_,	"--process-id-file", pidFileName, (const char *) NULL );
+		static const char wav_player[] = "aplay";
+		static const char ogg_player[] = "ogg123";
+
+		// use ogg player for extension .ogg
+		const char *ogg = strcasestr( file_, ".ogg" );
+		if ( ogg && strlen( file_ ) > 4 && ogg != &file_[ strlen( file_ ) - 4 ] )
+			ogg = 0;
+		const char *player = ogg ? ogg_player : wav_player;
+
+		if ( pidFileName && HAVE_PIDFILE )
+			execlp( player, player, "-q", file_,	"--process-id-file", pidFileName, (const char *) NULL );
 		else
-			execlp( "aplay", "aplay", "-q", file_, (const char*) NULL );
-#else
-		execlp( "aplay", "aplay", "-q", file_, (const char*) NULL );
-#endif
+			execlp( player, player, "-q", file_, (const char*) NULL );
 		exit( EXIT_FAILURE );
 	}
-#ifndef APLAY_HAVE_PIDFILE
-	if ( pidFileName_ )
+	if ( pidFileName_ && !HAVE_PIDFILE )
 	{
 		FILE *f = fopen( pidFileName_, "wb" );
 		if ( f )
@@ -94,7 +103,6 @@ void playSound( const char *file_, const char *pidFileName_ )
 			fclose( f );
 		}
 	}
-#endif
 	if ( pid > 0 )
 		waitpid( pid, 0, 0 );
 #endif
