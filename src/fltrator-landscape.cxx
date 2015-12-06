@@ -626,8 +626,9 @@ void PreviewWindow::draw()
 	// draw outline
 	if ( _ls->outline_width() )
 	{
-		// TODO: fix for WIN32
+#ifndef WIN32
 		fl_line_style( FL_SOLID, 1 );
+#endif
 		for ( int i = 1; i < (int)_ls->size() - 1; i++ )
 		{
 			int S0 = _ls->sky( i - 1 );
@@ -635,11 +636,17 @@ void PreviewWindow::draw()
 			int G0 = _ls->ground( i - 1 );
 			int G1 = _ls->ground( i + 1 );
 			fl_color( _ls->outline_color_sky() );
+#ifdef WIN32
+			fl_line_style( FL_SOLID, 1 );
+#endif
 			fl_line( (int)((double)(i - 1) / Scale),
 			         (int((double)S0 / Scale)),
 			         (int)((double)(i + 1) / Scale),
 			         (int((double)S1 / Scale)) );
 			fl_color( _ls->outline_color_ground() );
+#ifdef WIN32
+			fl_line_style( FL_SOLID, 1 );
+#endif
 			fl_line( (int)((double)(i - 1) / Scale),
 			         h() - (int((double)G0 / Scale)),
 			         (int)((double)(i + 1) / Scale),
@@ -886,8 +893,9 @@ void LSEditor::draw()
 	// draw outline
 	if ( _ls->outline_width() )
 	{
-		// TODO: fix for WIN32
+#ifndef WIN32
 		fl_line_style( FL_SOLID, _ls->outline_width() );
+#endif
 		for ( int i = ( _xoff ? _xoff : 1 ); i < _xoff + w() - 1; i++ )
 		{
 			int S0 = _ls->sky( i - 1 );
@@ -895,8 +903,14 @@ void LSEditor::draw()
 			int S1 = _ls->sky( i + 1 );
 			int G1 = H - _ls->ground( i  + 1 );
 			fl_color( _ls->outline_color_sky() );
+#ifdef WIN32
+			fl_line_style( FL_SOLID, _ls->outline_width() );
+#endif
 			fl_line( i - _xoff - 1, S0, i - _xoff + 1, S1 );
 			fl_color( _ls->outline_color_ground() );
+#ifdef WIN32
+			fl_line_style( FL_SOLID, _ls->outline_width() );
+#endif
 			fl_line( i - _xoff - 1, G0, i - _xoff + 1, G1 );
 		}
 		fl_line_style( 0 );
@@ -1321,10 +1335,6 @@ void LSEditor::onXoff()
 void LSEditor::placeObject( int obj_, int x_, int y_ )
 //--------------------------------------------------------------------------
 {
-	Object* obj = objects.find( obj_ );
-	assert( obj );
-//	placeObject( obj->image(), x_, y_ );
-
 	int X = _xoff + x_;
 	int x = searchObject( obj_, x_, y_ );
 	if ( x )
