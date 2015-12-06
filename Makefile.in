@@ -127,6 +127,7 @@ clean::
 	$(RM) -f $(ALL) *.o core makedepend depend *~
 	$(RM) -f $(TARGET1)
 	$(RM) -f $(TARGET2)
+	$(RM) -f $(TARGET3)
 
 distclean:: clean
 	$(RM) -f config.log Makefile

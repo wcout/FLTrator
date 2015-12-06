@@ -5359,7 +5359,6 @@ int FltWin::run()
 	QueryPerformanceCounter( &startTime );
 #endif // ifndef WIN32
 
-
 	while ( Fl::first_window() )
 	{
 		unsigned elapsedMilliSeconds = 0;
