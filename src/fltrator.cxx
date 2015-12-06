@@ -14,7 +14,7 @@
 // See the GNU General Public License for more details:
 // http://www.gnu.org/licenses/.
 //
-#define VERSION "1.6"
+#define VERSION "1.61"
 
 #include <FL/Fl.H>
 #include <FL/Fl_Double_Window.H>
@@ -3342,15 +3342,19 @@ void FltWin::draw()
 	// draw outline
 	if ( T.ls_outline_width )
 	{
+		fl_color( T.outline_color_sky );
 		fl_line_style( FL_SOLID, T.ls_outline_width );
 		for ( int i = 0; i < w(); i++ )
 		{
 			if ( T[_xoff + i].sky_level() >= 0 )
 			{
-				fl_color( T.outline_color_sky );
 				fl_line( i - 1, T[_xoff + i - 1].sky_level(), i + 1, T[_xoff + i + 1].sky_level() );
 			}
-			fl_color( T.outline_color_ground );
+		 }
+		fl_color( T.outline_color_ground );
+		fl_line_style( FL_SOLID, T.ls_outline_width );
+		for ( int i = 0; i < w(); i++ )
+		{
 			fl_line( i - 1, h() - T[_xoff + i - 1].ground_level(), i + 1,
 			         h() - T[_xoff + i + 1].ground_level() );
 		}
@@ -3545,9 +3549,9 @@ int FltWin::handle( int e_ )
 			toggleShip();
 		if ( _state == TITLE && e_ == FL_KEYUP && 'r' == c )
 			resetUser();
-		if ( _state == TITLE && e_ == FL_KEYUP && '-' == c )
+		if ( _state == TITLE && e_ == FL_KEYUP && '-' == Fl::event_text()[0] )
 			setup( FPS - 1, false );
-		if ( _state == TITLE && e_ == FL_KEYUP && '+' == c )
+		if ( _state == TITLE && e_ == FL_KEYUP && '+' == Fl::event_text()[0] )
 			setup( -FPS - 1, false );
 		if ( e_ == FL_KEYDOWN && ' ' == c )
 		{
@@ -3666,13 +3670,19 @@ void FltWin::onActionKey()
 //	printf( "onActionKey\n" );
 	Fl::remove_timeout( cb_demo, this );
 	Fl::remove_timeout( cb_paused, this );
+	if ( _state == DEMO )
+	{
+		_done = true;	// ensure ship gets reloaded in onNextScreen()
+		return;
+	}
 	if ( _state == SCORE )
 	{
 		if ( _input.empty() )
 			_input = DEFAULT_USER;
 		if ( _username == DEFAULT_USER && _input != DEFAULT_USER )
 			_cfg->remove( _username );	// remove default user
-		_username = _input;
+		if ( _username == DEFAULT_USER )
+			_username = _input;
 //		printf( "_username: '%s'\n", _username.c_str() );
 //		printf( "_input: '%s'\n", _input.c_str() );
 //		printf( "_score: '%u'\n", _score );
@@ -3685,7 +3695,7 @@ void FltWin::onActionKey()
 		_first_level = _done_level + 1;
 		if ( _first_level > MAX_LEVEL )
 			_first_level = 1;
-		printf( "score saved.\n" );
+//		printf( "score saved.\n" );
 	}
 
 	changeState();
@@ -3892,11 +3902,10 @@ int FltWin::run()
 	QueryPerformanceCounter( &startTime );
 #endif // ifndef WIN32
 
-	unsigned delayMilliSeconds = 1000 / FPS;
-
 	while ( Fl::first_window() )
 	{
 		unsigned elapsedMilliSeconds = 0;
+		unsigned delayMilliSeconds = 1000 / FPS;
 
 		while ( elapsedMilliSeconds < delayMilliSeconds && Fl::first_window() )
 		{
@@ -3946,6 +3955,9 @@ int main( int argc_, const char *argv_[] )
 //-------------------------------------------------------------------------------
 {
 	fl_register_images();
+	Fl::set_font( FL_HELVETICA, " Verdana" );
+	Fl::set_font( FL_HELVETICA_BOLD_ITALIC, "PVerdana" );
+
 	FltWin fltrator( argc_, argv_ );
 	return fltrator.run();
 }
