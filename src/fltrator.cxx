@@ -115,7 +115,7 @@ static bool _USE_FLTK_RUN =
 static unsigned FPS = 40;
 #pragma message( "USE_FLTK_RUN with FPS 40" )
 #else
-#pragma message( "USE FAST_FPS" )
+#pragma message( "USE DEFAULT_FPS" )
 static unsigned FPS = DEFAULT_FPS;
 #endif
 #else
@@ -701,7 +701,7 @@ void Audio::cmd( const string& cmd_ )
 	parseAudioCmdLine( cmd_, playCmd, bgPlayCmd, ext );
 	static const string DefaultCmd =
 #ifdef WIN32
-	"playsound %f"
+	"playsound %F"
 #elif __APPLE__
 	"play %f"
 #else
@@ -711,7 +711,7 @@ void Audio::cmd( const string& cmd_ )
 	;
 	static const string DefaultBgCmd =
 #ifdef WIN32
-	"playsound %f %p"
+	"playsound %F %p"
 #elif __APPLE__
 	"play %f"
 #else
@@ -3066,24 +3066,21 @@ Fl_Image *FltWin::terrain_as_image()
 	// NOTE: WIN32 must set line style AFTER setting drawing color
 	if ( T.ls_outline_width )
 	{
-#ifndef WIN32
+		fl_color( T.outline_color_sky );
 		fl_line_style( FL_SOLID, T.ls_outline_width );
-#endif
 		for ( int xoff = 1; xoff < W - 1; xoff++ )
 		{
 			if ( T[xoff].sky_level() >= 0 )
 			{
-				fl_color( T.outline_color_sky );
-#ifdef WIN32
-				fl_line_style( FL_SOLID, T.ls_outline_width );
-#endif
 				fl_line( xoff - 1, T[xoff - 1].sky_level(),
 				         xoff + 1, T[xoff + 1].sky_level() );
 			}
-			fl_color( T.outline_color_ground );
-#ifdef WIN32
-			fl_line_style( FL_SOLID, T.ls_outline_width );
-#endif
+		}
+
+		fl_color( T.outline_color_ground );
+		fl_line_style( FL_SOLID, T.ls_outline_width );
+		for ( int xoff = 1; xoff < W - 1; xoff++ )
+		{
 			fl_line( xoff - 1, h() - T[xoff - 1].ground_level(),
 			         xoff + 1, h() - T[xoff + 1].ground_level() );
 		}
@@ -4485,8 +4482,8 @@ void FltWin::draw_title()
 
 	if ( _gimmicks && reveal_height < h() - 40 )
 	{
+		fl_rectf( 40, 20 + reveal_height, w() - 80, h() - reveal_height - 40, FL_BLACK );
 		reveal_height += 6 * DX;
-		fl_rectf( 40, reveal_height, w() - 80, h() - reveal_height - 40, FL_BLACK );
 	}
 }
 
@@ -4501,6 +4498,8 @@ void FltWin::draw()
 		return draw_scores();
 	if ( G_paused && _frame % 10 != 0 )	// don't hog the CPU in paused level mode
 		return;
+	if ( T.empty() )	// safety check
+		return Inherited::draw();
 
 	static int reveal_width = 0;
 	if ( _frame <= 1 )
@@ -4538,26 +4537,24 @@ void FltWin::draw()
 		// NOTE: WIN32 must set line style AFTER setting drawing color
 		if ( T.ls_outline_width )
 		{
-#ifndef WIN32
-			fl_line_style( FL_SOLID, T.ls_outline_width );
-#endif
 			int O( _xoff == 0 );
 			int W( _xoff + w() < (int)T.size() ? w() : w() - 1 );
+
+			fl_color( T.outline_color_sky );
+			fl_line_style( FL_SOLID, T.ls_outline_width );
 			for ( int i = O; i < W; i++ )
 			{
 				if ( T[_xoff + i].sky_level() >= 0 )
 				{
-					fl_color( T.outline_color_sky );
-#ifdef WIN32
-					fl_line_style( FL_SOLID, T.ls_outline_width );
-#endif
 					fl_line( i - 1, T[_xoff + i - 1].sky_level(),
 					         i + 1, T[_xoff + i + 1].sky_level() );
 				}
-				fl_color( T.outline_color_ground );
-#ifdef WIN32
-				fl_line_style( FL_SOLID, T.ls_outline_width );
-#endif
+			}
+
+			fl_color( T.outline_color_ground );
+			fl_line_style( FL_SOLID, T.ls_outline_width );
+			for ( int i = O; i < W; i++ )
+			{
 				fl_line( i - 1, h() - T[_xoff + i - 1].ground_level(),
 				         i + 1, h() - T[_xoff + i + 1].ground_level() );
 			}
@@ -4591,8 +4588,8 @@ void FltWin::draw()
 		reveal_width = w();
 	if ( _gimmicks && reveal_width < w() )
 	{
-		reveal_width += 6 * DX;
 		fl_rectf( reveal_width, 0, w() - reveal_width, h(), FL_BLACK );
+		reveal_width += 6 * DX;
 	}
 }
 
@@ -4946,22 +4943,24 @@ int FltWin::handle( int e_ )
 		}
 		if ( _state == TITLE && e_ == FL_KEYUP )
 		{
-			if( KEY_LEFT == c )
+			if ( KEY_LEFT == c )
 				toggleUser( true );
-			if ( KEY_RIGHT == c )
+			else if ( KEY_RIGHT == c )
 				toggleUser();
-			if ( KEY_UP == c )
+			else if ( KEY_UP == c )
 				toggleShip( true );
-			if ( KEY_DOWN == c )
+			else if ( KEY_DOWN == c )
 				toggleShip();
-			if ( 'r' == c )
+			else if ( 'r' == c )
 				resetUser();
-			if ( '-' == c )
-				setup( FPS - 1, false, _USE_FLTK_RUN );
-			if ( '+' == c )
-				setup( -FPS - 1, false, _USE_FLTK_RUN );
-			if ( 'd' == c )
+			else if ( 'd' == c )
 				cb_demo( this );
+			else if ( '-' == Fl::event_text()[0] )
+				setup( FPS - 1, false, _USE_FLTK_RUN );
+			else if ( '+' == Fl::event_text()[0] )
+			{
+				setup( -FPS - 1, false, _USE_FLTK_RUN );
+			}
 		}
 		if ( e_ == FL_KEYDOWN && ' ' == c )
 			{
@@ -5071,7 +5070,8 @@ void FltWin::onActionKey()
 			_input = DEFAULT_USER;
 		if ( _username == DEFAULT_USER && _input != DEFAULT_USER )
 			_cfg->remove( _username );	// remove default user
-		_username = _input;
+		if ( _username == DEFAULT_USER )
+			_username = _input;
 //		printf( "_username: '%s'\n", _username.c_str() );
 //		printf( "_input: '%s'\n", _input.c_str() );
 //		printf( "_score: '%u'\n", _score );
@@ -5352,17 +5352,18 @@ int FltWin::run()
 	LARGE_INTEGER startTime, endTime, elapsedMicroSeconds;
 	LARGE_INTEGER frequency;
 
-	SetPriorityClass( GetCurrentProcess(), HIGH_PRIORITY_CLASS );
+	if ( getenv( "FLTRATOR_SET_PRIORITY" ) )
+		SetPriorityClass( GetCurrentProcess(), HIGH_PRIORITY_CLASS );
 
 	QueryPerformanceFrequency( &frequency );
 	QueryPerformanceCounter( &startTime );
 #endif // ifndef WIN32
 
-	unsigned delayMilliSeconds = 1000 / FPS;
 
 	while ( Fl::first_window() )
 	{
 		unsigned elapsedMilliSeconds = 0;
+		unsigned delayMilliSeconds = 1000 / FPS;
 
 		while ( elapsedMilliSeconds < delayMilliSeconds && Fl::first_window() )
 		{
