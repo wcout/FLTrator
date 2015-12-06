@@ -134,7 +134,7 @@ install: all
 	$(CP) -a ../levels/L_*.txt $(RSC_PATH)/levels/.
 
 clean::
-	$(RM) -f $(ALL) *.o core makedepend depend *~
+	$(RM) -f $(ALL) *.o *.res core makedepend depend *~
 	$(RM) -f $(TARGET1)
 	$(RM) -f $(TARGET2)
 	$(RM) -f $(TARGET3)
