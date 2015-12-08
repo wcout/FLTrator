@@ -1972,27 +1972,9 @@ private:
 	void position_spaceship();
 	void addScrollinZone();
 	void addScrolloutZone();
-	void create_spaceship();
-#ifndef NO_PREBUILD_LANDSCAPE
-	Fl_Image *terrain_as_image();
-#endif
-	void create_terrain();
-	void create_level();
-	void draw_objects( bool pre_ );
-	void draw_missiles();
-	void draw_bombs();
-	void draw_rockets();
-	void draw_phasers();
-	void draw_radars();
-	void draw_drops();
-	void draw_badies();
-	void draw_cumuluses();
+
 	State changeState( State toState_ = NEXT_STATE );
-	void check_hits();
-	void check_missile_hits();
-	void check_bomb_hits();
-	void check_rocket_hits();
-	void check_drop_hits();
+
 	bool iniValue( size_t level_, const string& id_,
 	               int &value_, int min_, int max_, int default_ );
 	bool iniValue( size_t level_, const string& id_,
@@ -2004,30 +1986,60 @@ private:
 	string demoFileName( unsigned  level_ = 0 ) const;
 	bool loadDemoData();
 	bool saveDemoData();
-	void update_missiles();
-	void update_bombs();
 	bool collision( const Object& o_, int w_, int h_ );
+
+	void create_spaceship();
 	void create_objects();
 	void delete_objects();
-	void update_objects();
-	void update_drops();
-	void update_badies();
-	void update_cumuluses();
-	void update_rockets();
-	void update_phasers();
-	void update_radars();
+
+	void check_bomb_hits();
+	void check_drop_hits();
+	void check_missile_hits();
+	void check_rocket_hits();
+	void check_hits();
+
+#ifndef NO_PREBUILD_LANDSCAPE
+	Fl_Image *terrain_as_image();
+#endif
+	void create_terrain();
+	void create_level();
+
+	void draw_badies();
+	void draw_bombs();
+	void draw_cumuluses();
+	void draw_drops();
+	void draw_missiles();
+	void draw_phasers();
+	void draw_radars();
+	void draw_rockets();
+	void draw_objects( bool pre_ );
+
 	int drawText( int x_, int y_, const char *text_, size_t sz_, Fl_Color c_, ... ) const;
 	int drawTable( int w_, int y_, const char *text_, size_t sz_, Fl_Color c_, ... ) const;
 	void draw_score();
 	void draw_scores();
 	void draw_title();
 	void draw();
+
+	void update_badies();
+	void update_bombs();
+	void update_cumuluses();
+	void update_drops();
+	void update_missiles();
+	void update_phasers();
+	void update_radars();
+	void update_rockets();
+	void update_objects();
+
 	bool dropBomb();
 	bool fireMissile();
 	int handle( int e_ );
 	void keyClick() const;
+
 	void onActionKey();
 	void onCollision();
+	void onPaused();
+	void onContinued();
 	void onDemo();
 	void onLostFocus();
 	void onGotFocus();
@@ -2036,16 +2048,13 @@ private:
 	void onStateChange( State from_state_ );
 	void onUpdate();
 	void onUpdateDemo();
+
 	void setUser();
 	void resetUser();
 	void toggleFullscreen();
 	void toggleShip( bool prev_ = false );
 	void toggleUser( bool prev_ = false );
-	void startBgSound() const
-	{
-		if ( _bgsound.size() )
-			Audio::instance()->play( _bgsound.c_str(), true );
-	}
+
 	bool paused() const { return _state == PAUSED; }
 	void bombUnlock();
 	static void cb_bomb_unlock( void *d_ );
@@ -2055,94 +2064,13 @@ private:
 	State state() const { return _state; }
 	bool alternate_ship() const { return _state == DEMO ? _demoData.alternate_ship() : _alternate_ship; }
 	bool user_completed() const { return _state == DEMO ? _demoData.user_completed() : _user_completed; }
-	void onPaused()
-	{
-		Audio::instance()->stop_bg();
-	}
-	void onContinued()
-	{
-		if ( _state == LEVEL )
-		{
-			startBgSound();
-		}
-	}
-	void setPaused( bool paused_ )
-	{
-		if ( G_paused != paused_ )
-		{
-			G_paused = paused_;
-			if ( G_paused )
-				onPaused();
-			else
-				onContinued();
-		}
-	}
-	void toggleBgSound() const
-	{
-		if ( Audio::hasBgSound() )
-		{
-			Audio::instance()->bg_disable( !Audio::instance()->bg_disabled() );
-			if ( Audio::instance()->bg_enabled() && _state == LEVEL )
-				startBgSound();
-			else if ( Audio::instance()->bg_disabled() && _state == LEVEL )
-				Audio::instance()->stop_bg();
-		}
-		else
-		{
-			Audio::instance()->disable( !Audio::instance()->disabled() );
-		}
-	}
-	void toggleSound() const
-	{
-		Audio::instance()->disable( !Audio::instance()->disabled() );
-	}
-	void togglePaused()
-	{
-		if ( G_paused )
-		{
-			G_paused = false;
-			onContinued();
-		}
-		else
-		{
-			G_paused = true;
-			onPaused();
-		}
-	}
-	void setBgSoundFile()
-	{
-		_bgsound.erase();
-		if ( Audio::hasBgSound() )
-		{
-			string bgfile = wavPath.get( "bgsound" );
-			if ( access( bgfile.c_str(), R_OK ) == 0 )
-			{
-				_bgsound = bgfile;
-			}
-			else
-			{
-				// pick a random bg sound from folder 'bgsound'
-				dirent **ls;
-				Fl_File_Sort_F *sort = fl_casealphasort;
-				string bgdir( mkPath( "bgsound" ) );
-				int num_files = fl_filename_list( bgdir.c_str(), &ls, sort );
-				vector<string> bgSoundList;
-				for ( int i = 0; i < num_files; i++ )
-				{
-					string pattern = "*." + Audio::instance()->ext();
-					if ( fl_filename_match( ls[i]->d_name, pattern.c_str() ) )
-					{
-						bgSoundList.push_back( bgdir + ls[i]->d_name );
-					}
-				}
-				fl_filename_free_list( &ls, num_files );
-				if ( bgSoundList.size() )
-				{
-					_bgsound = bgSoundList[Random::pRand() % bgSoundList.size()] ;
-				}
-			}
-		}
-	}
+
+	void setPaused( bool paused_ );
+	void toggleBgSound() const;
+	void toggleSound() const;
+	void togglePaused();
+	void setBgSoundFile();
+	void startBgSound() const;
 protected:
 	Terrain T;
 	vector<Missile *> Missiles;
@@ -2418,7 +2346,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		printf("  -Rvalue\tset frame rate to 'value' fps [20,25,40,50,100,200]\n" );
 		printf("  -S\trun with settings for slow computer\n" );
 		printf("  -Uusername\tstart as user 'username'\n" );
-		exit(0);
+		exit( 0 );
 	}
 	if ( _fullscreen )
 		setScreenResolution( SCREEN_W, SCREEN_H );
@@ -2798,7 +2726,9 @@ bool FltWin::iniValue( size_t level_, const string& id_,
 void FltWin::init_parameter()
 //-------------------------------------------------------------------------------
 {
-	iniValue( _level, "level_name", _level_name, 35, "" );
+	ostringstream defLevelName;
+	defLevelName << ( _internal_levels ? "Internal level" : "Level" )  << " " << _level;
+	iniValue( _level, "level_name", _level_name, 35, defLevelName.str() );
 	ostringstream os;
 	os << "Level " << _level;
 	if ( _level_name.size() )
@@ -2902,13 +2832,6 @@ void FltWin::init_parameter()
 	printf( "_cumulus_min_start_speed: %d\n", _cumulus_min_start_speed );
 	printf( "_cumulus_max_start_speed: %d\n", _cumulus_max_start_speed );
 #endif
-}
-
-void FltWin::create_spaceship()
-//-------------------------------------------------------------------------------
-{
-	delete _spaceship;
-	_spaceship = new Spaceship( w() / 2, 40, w(), h(), alternate_ship() );	// before create_terrain()!
 }
 
 string FltWin::demoFileName( unsigned level_/* = 0*/ ) const
@@ -3038,6 +2961,67 @@ bool FltWin::saveDemoData()
 	return true;
 }
 
+bool FltWin::loadLevel( int level_, const string levelFileName_/* = ""*/ )
+//-------------------------------------------------------------------------------
+{
+	string levelFileName( levelFileName_ );
+	if ( levelFileName_.empty() )
+	{
+		ostringstream os;
+		os << "L_" << level_ << ".txt";
+		levelFileName = levelPath( os.str() );
+	}
+	ifstream f( levelFileName.c_str() );
+	if ( !f.is_open() )
+		return false;
+//	printf( "reading level %d from %s\n", level_, levelFileName.c_str() );
+	unsigned long version;
+	f >> version;
+	f >> T.flags;
+	if ( version )
+	{
+		// new format
+		f >> T.ls_outline_width;
+		f >> T.outline_color_ground;
+		f >> T.outline_color_sky;
+	}
+	f >> T.bg_color;
+	f >> T.ground_color;
+	f >> T.sky_color;
+
+	while ( f.good() )	// access data is ignored!
+	{
+		int s, g;
+		int obj;
+		f >> s;
+		f >> g;
+		f >> obj;
+		if ( !f.good() ) break;
+		T.push_back( TerrainPoint( g, s, obj ) );
+		if ( obj & O_COLOR_CHANGE )
+		{
+			// fetch extra data for color change object
+			Fl_Color bg_color, ground_color, sky_color;
+			f >> bg_color;
+			f >> ground_color;
+			f >> sky_color;
+			if ( f.good() )
+			{
+				T.back().bg_color = bg_color;
+				T.back().ground_color = ground_color;
+				T.back().sky_color = sky_color;
+			}
+		}
+	}
+	f.clear(); 	// reset for reading of ini section
+	string line;
+	while ( getline( f, line ) )
+	{
+		_ini.push_back( line );
+	}
+	return true;
+}
+
 #ifndef NO_PREBUILD_LANDSCAPE
 Fl_Image *FltWin::terrain_as_image()
 //-------------------------------------------------------------------------------
@@ -3105,7 +3089,7 @@ static void fixColorChange( Terrain &T_ )
 		{
 			bool change( false );
 			size_t e = ( ( i + DX ) / DX ) * DX;
-//			printf( "fix range [%lu, %lu]\n", i, e );
+//			printf( "fix range [%lu, %lu]\n", (unsigned long)i, (unsigned long)e );
 			if ( e > T_.size() )
 				e = T_.size() - 1;
 			for ( size_t j = i + 1; j <= e; j++ )
@@ -3113,7 +3097,7 @@ static void fixColorChange( Terrain &T_ )
 				if ( T_[ j ].object() & O_COLOR_CHANGE )
 				{
 					change = true;
-//					printf( "interrupted by another cc object at %lu\n", j );
+//					printf( "interrupted by another cc object at %lu\n", (unsigned long)j );
 					i = j - 1;
 					break;
 				}
@@ -3159,9 +3143,18 @@ void FltWin::create_terrain()
 	wavPath.level( _level );
 	imgPath.level( _level );
 
-	_ini.clear();
-	T.clear();
-	if ( ( !_internal_levels || _levelFile.size() )
+	static unsigned lastCachedTerrainLevel = 0;
+	static Terrain TC;
+	if ( _level != lastCachedTerrainLevel )
+	{
+		_ini.clear();
+		T.clear();
+	}
+	else
+	{
+		T = TC;
+	}
+	if ( T.empty() && ( !_internal_levels || _levelFile.size() )
 	      && loadLevel( _level, _levelFile ) )	// try to load level from landscape file
 	{
 		assert( (int)T.size() >= w() );
@@ -3170,22 +3163,25 @@ void FltWin::create_terrain()
 		if ( !( T.flags & Terrain::NO_SCROLLOUT_ZONE ) )
 			addScrolloutZone();
 	}
-	else
+	else if ( T.empty() )
 	{
 		// internal level
 		create_level();
 	}
-	fixColorChange( T );
 #ifndef NO_PREBUILD_LANDSCAPE
-	static unsigned lastCachedTerrainImageLevel = 0;
-	if ( _level != lastCachedTerrainImageLevel || !_terrain )
+	if ( _level != lastCachedTerrainLevel || !_terrain )
 	{
 		delete _terrain;
 		// terrains with color change cannot be prebuild as image!
 		_terrain = T.hasColorChange() ? 0 : terrain_as_image();
-		lastCachedTerrainImageLevel = _level;
 	}
 #endif
+	if ( lastCachedTerrainLevel != _level )
+	{
+		lastCachedTerrainLevel = _level;
+		fixColorChange( T );
+		TC = T;
+	}
 
 	// initialise the objects parameters (eventuall read from level file)
 	init_parameter();
@@ -3247,15 +3243,27 @@ void FltWin::create_level()
 		int r = i ? range : range / 2;
 		int peak = Random::Rand() % r  + 20;
 		int j;
-		for ( j = 0; j < peak; j++ )
-			T.push_back( TerrainPoint( j + bott ) );
+
+		int peak_dist = ( Random::Rand() % ( peak * 2 ) ) + peak / 2 ;
+		for ( j = 0; j < peak_dist; j++ )
+		{
+			int dy =  ( (double)j / peak_dist ) * (double)peak;
+			T.push_back( TerrainPoint( dy + bott ) );
+		}
+
 		int flat = Random::Rand() % ( w() / 2 );
 		if ( Random::Rand() % 3 == 0 )
 			flat = Random::Rand() % 10;
+
 		for ( j = 0; j < flat; j++ )
 			T.push_back( T.back() );
-		for ( j = peak; j >= 0; j-- )
-			T.push_back( TerrainPoint( j + bott ) );
+
+		for ( j = peak_dist; j >= 0; j-- )
+		{
+			int dy =  ( (double)j / peak_dist ) * (double)peak;
+			T.push_back( TerrainPoint( dy + bott ) );
+		}
+
 		/*int */flat = Random::Rand() % ( w() / 2 );
 		for ( j = 0; j < flat; j++ )
 			T.push_back( T.back() );
@@ -3291,7 +3299,7 @@ void FltWin::create_level()
 	if ( max_dist < _rocket.w() * 3 )
 		max_dist = _rocket.w() * 3;
 
-	int last_x = Random::Rand() % max_dist + ( _level * min_dist * 2 ) / 3;	// first object farther away!
+	int last_x = Random::Rand() % max_dist + min_dist;
 	while ( last_x < (int)T.size() )
 	{
 		if ( h() - T[last_x].ground_level() > ( 100 - (int)_level * 10 ) /*&& Random::Rand() % 2*/ )
@@ -3328,6 +3336,10 @@ void FltWin::create_level()
 					break;
 				case 7:
 				case 8:
+						if ( flat )
+							T[last_x].object( O_PHASER );
+						else
+							T[last_x].object( O_BADY );
 					break;
 				case 9:
 					if ( Random::Rand() % 4 == 0 )
@@ -3339,36 +3351,16 @@ void FltWin::create_level()
 		}
 		last_x += Random::Rand() % max_dist + min_dist;
 	}
+	addScrollinZone();
 	addScrolloutZone();
 }
 
-void FltWin::draw_objects( bool pre_ )
+void FltWin::draw_badies()
 //-------------------------------------------------------------------------------
 {
-	if ( pre_ )
+	for ( size_t i = 0; i < Badies.size(); i++ )
 	{
-		draw_bombs();
-		draw_phasers();
-		draw_radars();
-		draw_drops();
-		draw_badies();
-		draw_rockets();
-		draw_missiles();
-	}
-	else
-	{
-		draw_cumuluses();
-		if ( _anim_text )
-			_anim_text->draw();
-	}
-}
-
-void FltWin::draw_missiles()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Missiles.size(); i++ )
-	{
-		Missiles[i]->draw();
+		Badies[i]->draw();
 	}
 }
 
@@ -3381,12 +3373,30 @@ void FltWin::draw_bombs()
 	}
 }
 
-void FltWin::draw_rockets()
+void FltWin::draw_cumuluses()
 //-------------------------------------------------------------------------------
 {
-	for ( size_t i = 0; i < Rockets.size(); i++ )
+	for ( size_t i = 0; i < Cumuluses.size(); i++ )
 	{
-		Rockets[i]->draw();
+		Cumuluses[i]->draw();
+	}
+}
+
+void FltWin::draw_drops()
+//-------------------------------------------------------------------------------
+{
+	for ( size_t i = 0; i < Drops.size(); i++ )
+	{
+		Drops[i]->draw();
+	}
+}
+
+void FltWin::draw_missiles()
+//-------------------------------------------------------------------------------
+{
+	for ( size_t i = 0; i < Missiles.size(); i++ )
+	{
+		Missiles[i]->draw();
 	}
 }
 
@@ -3408,762 +3418,33 @@ void FltWin::draw_radars()
 	}
 }
 
-void FltWin::draw_drops()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Drops.size(); i++ )
-	{
-		Drops[i]->draw();
-	}
-}
-
-void FltWin::draw_badies()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Badies.size(); i++ )
-	{
-		Badies[i]->draw();
-	}
-}
-
-void FltWin::draw_cumuluses()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Cumuluses.size(); i++ )
-	{
-		Cumuluses[i]->draw();
-	}
-}
-
-void FltWin::check_hits()
-//-------------------------------------------------------------------------------
-{
-	check_missile_hits();
-	check_bomb_hits();
-	if ( !_done )
-		check_rocket_hits();
-	check_drop_hits();
-}
-
-void FltWin::check_missile_hits()
-//-------------------------------------------------------------------------------
-{
-	vector<Missile *>::iterator m = Missiles.begin();
-	for ( ; m != Missiles.end(); )
-	{
-		vector<Rocket *>::iterator r = Rockets.begin();
-		for ( ; r != Rockets.end(); )
-		{
-			if ( !(*r)->exploding() &&
-			     (*m)->rect().intersects( (*r)->rect() ) )
-			{
-				// rocket hit by missile
-				Audio::instance()->play( "missile_hit" );
-				(*r)->explode();
-				add_score( 20 );
-
-				// missile also is gone...
-				delete *m;
-				m = Missiles.erase(m);
-				break;
-			}
-			++r;
-		}
-		if ( m == Missiles.end() ) break;
-
-		vector<Phaser *>::iterator pa = Phasers.begin();
-		for ( ; pa != Phasers.end(); )
-		{
-			if ( !(*pa)->exploding() &&
-			     (*m)->rect().intersects( (*pa)->rect() ) )
-			{
-				// phaser hit by missile
-				Audio::instance()->play( "bomb_x" );
-				(*pa)->explode();
-				add_score( 40 );
-
-				// missile also is gone...
-				delete *m;
-				m = Missiles.erase(m);
-				break;
-			}
-			++pa;
-		}
-		if ( m == Missiles.end() ) break;
-
-		vector<Radar *>::iterator ra = Radars.begin();
-		for ( ; ra != Radars.end(); )
-		{
-			if ( !(*ra)->exploding() &&
-			     (*m)->rect().intersects( (*ra)->rect() ) )
-			{
-				// radar hit by missile
-				if ( (*ra)->hit() )	// takes 2 missile hits to succeed!
-				{
-					Audio::instance()->play( "missile_hit" );
-					(*ra)->explode();
-					add_score( 40 );
-				}
-				// missile also is gone...
-				delete *m;
-				m = Missiles.erase(m);
-				break;
-			}
-			++ra;
-		}
-		if ( m == Missiles.end() ) break;
-
-		vector<Bady *>::iterator b = Badies.begin();
-		for ( ; b != Badies.end(); )
-		{
-			if ( (*m)->rect().inside( (*b)->rect()) )
-			{
-				// bady hit by missile
-				if ( (*b)->hit() )
-				{
-					Audio::instance()->play( "bady_hit" );
-					delete *b;
-					b = Badies.erase(b);
-					add_score( 100 );
-				}
-				// missile is also gone...
-				delete *m;
-				m = Missiles.erase(m);
-				break;
-			}
-			++b;
-		}
-		if ( m == Missiles.end() ) break;
-
-		vector<Drop *>::iterator d = Drops.begin();
-		for ( ; d != Drops.end(); )
-		{
-			if ( (*m)->rect().intersects( (*d)->rect()) )
-			{
-				// drop hit by missile
-				(*d)->hit();
-				Audio::instance()->play( "drop_hit" );
-				delete *d;
-				d = Drops.erase(d);
-				add_score( 5 );
-				break;
-			}
-			++d;
-		}
-		if ( m == Missiles.end() ) break;
-
-		++m;
-	}
-}
-
-void FltWin::check_bomb_hits()
-//-------------------------------------------------------------------------------
-{
-	vector <Bomb *>::iterator b = Bombs.begin();
-	for ( ; b != Bombs.end(); )
-	{
-		vector<Rocket *>::iterator r = Rockets.begin();
-		for ( ; r != Rockets.end(); )
-		{
-			if ( !(*r)->exploding() &&
-			     (*b)->rect().intersects( (*r)->rect() ) )
-			{
-				// rocket hit by bomb
-				Audio::instance()->play( "bomb_x" );
-				(*r)->explode();
-				add_score( 50 );
-
-				// bomb also is gone...
-				delete *b;
-				b = Bombs.erase(b);
-				break;
-			}
-			++r;
-		}
-		if ( b == Bombs.end() ) break;
-
-		vector<Phaser *>::iterator pa = Phasers.begin();
-		for ( ; pa != Phasers.end(); )
-		{
-			if ( !(*pa)->exploding() &&
-			     (*b)->rect().intersects( (*pa)->rect() ) )
-			{
-				// phaser hit by bomb
-				Audio::instance()->play( "bomb_x" );
-				(*pa)->explode();
-				add_score( 50 );
-
-				// bomb also is gone...
-				delete *b;
-				b = Bombs.erase(b);
-				break;
-			}
-			++pa;
-		}
-		if ( b == Bombs.end() ) break;
-
-		vector<Radar *>::iterator ra = Radars.begin();
-		for ( ; ra != Radars.end(); )
-		{
-			if ( !(*ra)->exploding() &&
-			     (*b)->rect().intersects( (*ra)->rect() ) )
-			{
-				// radar hit by bomb
-				Audio::instance()->play( "bomb_x" );
-				(*ra)->explode();
-				add_score( 50 );
-
-				// bomb also is gone...
-				delete *b;
-				b = Bombs.erase(b);
-				break;
-			}
-			++ra;
-		}
-		if ( b == Bombs.end() ) break;
-
-
-		++b;
-	}
-}
-
-void FltWin::check_rocket_hits()
-//-------------------------------------------------------------------------------
-{
-	vector<Rocket *>::iterator r = Rockets.begin();
-	for ( ; r != Rockets.end(); )
-	{
-		if ( !(*r)->exploding() &&
-		  	(*r)->lifted() && (*r)->rect().intersects( _spaceship->rect() ) )
-		{
-			if ( (*r)->collision( *_spaceship ) )
-			{
-				// rocket hit by spaceship
-				(*r)->explode( 0.5 );
-				_collision = true;
-				onCollision();
-			}
-		}
-		++r;
-	}
-}
-
-void FltWin::check_drop_hits()
-//-------------------------------------------------------------------------------
-{
-	vector<Drop *>::iterator d = Drops.begin();
-	for ( ; d != Drops.end(); )
-	{
-		if ( !(*d)->dropped() ||
-		     !(*d)->rect().intersects( _spaceship->rect() ) )
-		{
-			++d;
-			continue;
-		}
-		if ( (*d)->collision( *_spaceship ) )
-		{
-			if ( (*d)->x() > _spaceship->cx() + _spaceship->w() / 4 )	// front of ship
-			{
-//				printf( "drop deflected\n" );
-				(*d)->x( (*d)->x() + 10 );
-				++d;
-				continue;
-			}
-//			printf( "drop fully hit spaceship\n" );
-			delete *d;
-			d = Drops.erase(d);
-			_collision = true;
-			onCollision();
-			continue;
-		}
-		else
-			++d;
-	}
-}
-
-void FltWin::update_missiles()
-//-------------------------------------------------------------------------------
-{
-//	printf( "#%u missiles\n", Missiles.size() );
-	for ( size_t i = 0; i < Missiles.size(); i++ )
-	{
-		bool gone = Missiles[i]->exhausted() ||
-		            Missiles[i]->x() > w() ||
-		            Missiles[i]->y() > h() - T[_xoff + Missiles[i]->x() + Missiles[i]->w()].ground_level() ||
-		            Missiles[i]->y() < T[_xoff + Missiles[i]->x() + Missiles[i]->w()].sky_level();
-		if ( gone )
-		{
-//			printf( " gone one missile from #%d\n", Missiles.size() );
-			Missile *m = Missiles[i];
-			Missiles.erase( Missiles.begin() + i );
-			delete m;
-			i--;
-		}
-	}
-}
-
-void FltWin::update_bombs()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Bombs.size(); i++ )
-	{
-		bool gone = Bombs[i]->y() > h() ||
-		            Bombs[i]->y() + Bombs[i]->h() > h() - T[_xoff + Bombs[i]->x()].ground_level();
-		if ( gone )
-		{
-//			printf( " gone one bomb from #%d\n", Missiles.size() );
-			Bomb *b = Bombs[i];
-			Bombs.erase( Bombs.begin() + i );
-			delete b;
-			i--;
-		}
-	}
-}
-
-void FltWin::create_objects()
-//-------------------------------------------------------------------------------
-{
-	// Only consider scrolled part!
-	// Plus 150 pixel (=half width of broadest object) in advance in order to
-	// make appearance of new objects smooth.
-	for ( int i = (_xoff == 0 ? 0 : w() - DX); i < w() + 150 ; i++ )
-	{
-		if ( _xoff + i >= (int)T.size() ) break;
-		unsigned int o = T[_xoff + i].object();
-		if ( !o ) continue;
-		if ( o & O_ROCKET && i - _rocket.w() / 2 < w() )
-		{
-			Rocket *r = new Rocket( i, h() - T[_xoff + i].ground_level() - _rocket.h() / 2 );
-			int start_dist = _rocket_max_start_dist - _level * 20 -
-			                 Random::Rand() % _rocket_var_start_dist;
-			if ( start_dist < _rocket_min_start_dist )
-			{
-				start_dist = _rocket_min_start_dist;
-			}
-			r->data1( start_dist );
-			Rockets.push_back( r );
-			o &= ~O_ROCKET;
-#ifdef DEBUG
-			printf( "#rockets: %lu\n", (unsigned long)Rockets.size() );
-#endif
-		}
-		if ( o & O_RADAR && i - _radar.w() / 2 < w() )
-		{
-			Radar *r = new Radar( i, h() - T[_xoff + i].ground_level() - _radar.h() / 2 );
-			Radars.push_back( r );
-			o &= ~O_RADAR;
-#ifdef DEBUG
-			printf( "#radars: %lu\n", (unsigned long)Radars.size() );
-#endif
-		}
-		if ( o & O_PHASER && i - _phaser.w() / 2 < w())
-		{
-			Phaser *p = new Phaser( i, h() - T[_xoff + i].ground_level() - _phaser.h() / 2 );
-			Phasers.push_back( p );
-			o &= ~O_PHASER;
-#ifdef DEBUG
-			printf( "#phaser: %lu\n", (unsigned long)Phasers.size() );
-#endif
-			Phasers.back()->bg_color( T.bg_color );
-			Phasers.back()->max_height( T[_xoff + i].sky_level() );
-			Phasers.back()->start();
-		}
-		if ( o & O_DROP && i - _drop.w() / 2 < w() )
-		{
-			Drop *d = new Drop( i, T[_xoff + i].sky_level() + _drop.h() / 2 );
-			int start_dist = _drop_max_start_dist - _level * 20 -
-			                 Random::Rand() % _drop_var_start_dist;
-			if ( start_dist < _drop_min_start_dist )
-			{
-				start_dist = _drop_min_start_dist;
-			}
-			d->data1( start_dist );
-			Drops.push_back( d );
-			o &= ~O_DROP;
-#ifdef DEBUG
-			printf( "#drops: %lu\n", (unsigned long)Drops.size() );
-#endif
-		}
-		if ( o & O_BADY && i - _bady.w() / 2 < w() )
-		{
-			bool turn( Random::Rand() % 3 == 0 );
-			int X = turn ?
-			        h() - T[_xoff + i].ground_level() - _bady.h() / 2 :
-			        T[_xoff + i].sky_level() + _bady.h() / 2;
-			Bady *b = new Bady( i, X );
-			o &= ~O_BADY;
-			if ( turn )
-				b->turn();
-			b->stamina( rangedRandom( _bady_min_hits, _bady_max_hits ) );
-			Badies.push_back( b );
-#ifdef DEBUG
-			printf( "#badies: %lu\n", (unsigned long)Badies.size() );
-#endif
-		}
-		if ( o & O_CUMULUS && i - _cumulus.w() / 2 < w() )
-		{
-			bool turn( Random::Rand() % 3 == 0 );
-			int X = turn ?
-			        h() - T[_xoff + i].ground_level() - _cumulus.h() / 2 :
-			        T[_xoff + i].sky_level() + _cumulus.h() / 2;
-			Cumulus *c = new Cumulus( i, X );
-			o &= ~O_CUMULUS;
-			if ( turn )
-				c->turn();
-			Cumuluses.push_back( c );
-#ifdef DEBUG
-			printf( "#cumuluses: %lu\n", (unsigned long)Cumuluses.size() );
-#endif
-		}
-		T[_xoff + i].object( o );
-	}
-}
-
-void FltWin::delete_objects()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Rockets.size(); i++ )
-		delete Rockets[i];
-	Rockets.clear();
-	for ( size_t i = 0; i < Phasers.size(); i++ )
-		delete Phasers[i];
-	Phasers.clear();
-	for ( size_t i = 0; i < Radars.size(); i++ )
-		delete Radars[i];
-	Radars.clear();
-	for ( size_t i = 0; i < Drops.size(); i++ )
-		delete Drops[i];
-	Drops.clear();
-	for ( size_t i = 0; i < Badies.size(); i++ )
-		delete Badies[i];
-	Badies.clear();
-	for ( size_t i = 0; i < Cumuluses.size(); i++ )
-		delete Cumuluses[i];
-	Cumuluses.clear();
-}
-
-bool FltWin::loadLevel( int level_, const string levelFileName_/* = ""*/ )
-//-------------------------------------------------------------------------------
-{
-	string levelFileName( levelFileName_ );
-	if ( levelFileName_.empty() )
-	{
-		ostringstream os;
-		os << "L_" << level_ << ".txt";
-		levelFileName = levelPath( os.str() );
-	}
-	ifstream f( levelFileName.c_str() );
-	if ( !f.is_open() )
-		return false;
-//	printf( "reading level %d from %s\n", level_, levelFileName.c_str() );
-	unsigned long version;
-	f >> version;
-	f >> T.flags;
-	if ( version )
-	{
-		// new format
-		f >> T.ls_outline_width;
-		f >> T.outline_color_ground;
-		f >> T.outline_color_sky;
-	}
-	f >> T.bg_color;
-	f >> T.ground_color;
-	f >> T.sky_color;
-
-	while ( f.good() )	// access data is ignored!
-	{
-		int s, g;
-		int obj;
-		f >> s;
-		f >> g;
-		f >> obj;
-		if ( !f.good() ) break;
-		T.push_back( TerrainPoint( g, s, obj ) );
-		if ( obj & O_COLOR_CHANGE )
-		{
-			// fetch extra data for color change object
-			Fl_Color bg_color, ground_color, sky_color;
-			f >> bg_color;
-			f >> ground_color;
-			f >> sky_color;
-			if ( f.good() )
-			{
-				T.back().bg_color = bg_color;
-				T.back().ground_color = ground_color;
-				T.back().sky_color = sky_color;
-			}
-		}
-	}
-	f.clear(); 	// reset for reading of ini section
-	string line;
-	while ( getline( f, line ) )
-	{
-		_ini.push_back( line );
-	}
-	return true;
-}
-
-void FltWin::update_objects()
-//-------------------------------------------------------------------------------
-{
-	update_missiles();
-	update_bombs();
-	update_rockets();
-	update_phasers();
-	update_radars();
-	update_drops();
-	update_badies();
-	update_cumuluses();
-}
-
-void FltWin::update_drops()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Drops.size(); i++ )
-	{
-		if ( !paused() )
-			Drops[i]->x( Drops[i]->x() - DX );
-
-		int bottom = h() - T[_xoff + Drops[i]->x()].ground_level();
-		if ( 0 == bottom  ) bottom += Drops[i]->h();	// glide out completely if no ground
-		bool gone = Drops[i]->y() + Drops[i]->h() / 2 > bottom || Drops[i]->x() < -Drops[i]->w();
-		if ( gone )
-		{
-#ifdef DEBUG
-			printf( " gone one drop from #%lu\n", (unsigned long)Drops.size() );
-#endif
-			Drop *d = Drops[i];
-			Drops.erase( Drops.begin() + i );
-			delete d;
-			i--;
-			continue;
-		}
-		else
-		{
-			// drop fall strategy...
-			if ( Drops[i]->nostart() ) continue;
-			if ( Drops[i]->dropped() ) continue;
-			// if user has completed all 10 levels, objects start later (which is harder)...
-			int dist = user_completed() ? Drops[i]->cx() - _spaceship->cx() // center distance S<->R
-			                            : Drops[i]->x() - _spaceship->x();
-			int start_dist = (int)Drops[i]->data1();	// 400 - _level * 20 - Random::Rand() % 200;
-			if ( dist <= 0 || dist >= start_dist ) continue;
-//			printf( "start drop #%ld, start_dist=%d?\n", i, start_dist );
-			// really start drop?
-			unsigned drop_prob = _drop_start_prob;
-//			printf( "drop_prob: %u\n", drop_prob );
-			if ( Random::Rand() % 100 < drop_prob )
-			{
-				int speed = rangedValue( rangedRandom( _drop_min_start_speed, _drop_max_start_speed ), 1, 10 );
-//				printf( "   drop with speed %d!\n", speed );
-				Drops[i]->start( speed );
-				assert( Drops[i]->dropped() );
-				continue;
-			}
-			Drops[i]->nostart( true );
-		}
-	}
-}
-
-void FltWin::update_badies()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Badies.size(); i++ )
-	{
-		if ( !paused() )
-			Badies[i]->x( Badies[i]->x() - DX );
-
-		int top = T[_xoff + Badies[i]->x() + Badies[i]->w() / 2].sky_level();
-		int bottom = h() - T[_xoff + Badies[i]->x() + Badies[i]->w() / 2].ground_level();
-		bool gone = Badies[i]->x() < -Badies[i]->w();
-		if ( gone )
-		{
-#ifdef DEBUG
-			printf( " gone one bady from #%lu\n", (unsigned long)Badies.size() );
-#endif
-			Bady *b = Badies[i];
-			Badies.erase( Badies.begin() + i );
-			delete b;
-			i--;
-			continue;
-		}
-		else
-		{
-			// bady fall strategy: always start!
-			if ( !Badies[i]->started() )
-			{
-				int speed = rangedValue( rangedRandom( _bady_min_start_speed, _bady_max_start_speed ), 1, 10 );
-//				printf( "   start bady with speed %d!\n", speed );
-				Badies[i]->start( speed );
-				assert( Badies[i]->started() );
-			}
-			else
-			{
-				if ( ( Badies[i]->y() + Badies[i]->h() >= bottom &&
-				       !Badies[i]->turned() ) ||
-				      ( Badies[i]->y() <= top  &&
-				        Badies[i]->turned() ) )
-					Badies[i]->turn();
-			}
-		}
-	}
-}
-
-void FltWin::update_cumuluses()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Cumuluses.size(); i++ )
-	{
-		if ( !paused() )
-			Cumuluses[i]->x( Cumuluses[i]->x() - DX );
-
-		int top = T[_xoff + Cumuluses[i]->x() + Cumuluses[i]->w() / 2].sky_level();
-		int bottom = h() - T[_xoff + Cumuluses[i]->x() + Cumuluses[i]->w() / 2].ground_level();
-		bool gone = Cumuluses[i]->x() < -Cumuluses[i]->w();
-		if ( gone )
-		{
-#ifdef DEBUG
-			printf( " gone one cumulus from #%lu\n", (unsigned long)Cumuluses.size() );
-#endif
-			Cumulus *c = Cumuluses[i];
-			Cumuluses.erase( Cumuluses.begin() + i );
-			delete c;
-			i--;
-			continue;
-		}
-		else
-		{
-			// cumulus fall strategy: always start!
-			if ( !Cumuluses[i]->started() )
-			{
-				int speed = rangedValue( rangedRandom( _cumulus_min_start_speed, _cumulus_max_start_speed ), 1, 10 );
-//				printf( "   start cunulus with speed %d!\n", speed );
-				Cumuluses[i]->start( speed );
-				assert( Cumuluses[i]->started() );
-			}
-			else
-			{
-				if ( ( Cumuluses[i]->y() + Cumuluses[i]->h() >= bottom &&
-				       !Cumuluses[i]->turned() ) ||
-				      ( Cumuluses[i]->y() <= top  &&
-				        Cumuluses[i]->turned() ) )
-					Cumuluses[i]->turn();
-			}
-		}
-	}
-}
-
-void FltWin::update_rockets()
+void FltWin::draw_rockets()
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Rockets.size(); i++ )
 	{
-		if ( !paused() )
-			Rockets[i]->x( Rockets[i]->x() - DX );
-
-		int top = T[_xoff + Rockets[i]->x()].sky_level();
-		if ( -1 == top  ) top -= Rockets[i]->h();	// glide out completely if no sky
-		bool gone = Rockets[i]->exploded() || Rockets[i]->x() < -Rockets[i]->w();
-		// NOTE: when there's no sky, explosion is not visible, but still occurs,
-		//       so checking exploded() suffices as end state for all rockets.
-		if ( gone )
-		{
-#ifdef DEBUG
-			printf( " gone one rocket from #%lu\n", (unsigned long)Rockets.size() );
-#endif
-			Rocket *r = Rockets[i];
-			Rockets.erase( Rockets.begin() + i );
-			delete r;
-			i--;
-			continue;
-		}
-		else if ( Rockets[i]->y() <= top && !Rockets[i]->exploding() )
-		{
-			Rockets[i]->crash();
-		}
-		else if ( !Rockets[i]->exploding() )
-		{
-			// rocket fire strategy...
-			if ( Rockets[i]->nostart() ) continue;
-			if ( Rockets[i]->lifted() ) continue;
-			// if user has completed all 10 levels, objects start later (which is harder)...
-			int dist = user_completed() ? Rockets[i]->cx() - _spaceship->cx() // center distance S<->R
-			                            : Rockets[i]->x() - _spaceship->x();
-			int start_dist = (int)Rockets[i]->data1();	// 400 - _level * 20 - Random::Rand() % 200;
-			if ( dist <= 0 || dist >= start_dist ) continue;
-//			printf( "start rocket #%ld, start_dist=%d?\n", i, start_dist );
-			// really start rocket?
-			unsigned lift_prob = _rocket_start_prob;
-//			printf( "lift prob: %u\n", lift_prob );
-			// if a radar is within start_dist then the
-			// probability gets much higher
-			int x = Rockets[i]->x();
-			for ( size_t ra = 0; ra < Radars.size(); ra++ )
-			{
-				if ( Radars[ra]->defunct() ) continue;
-				if ( Radars[ra]->x() >= x ) continue;
-				if ( Radars[ra]->x() <= x - start_dist ) continue;
-				// there's a working radar within start_dist
-				lift_prob = _rocket_radar_start_prob;
-//				printf( "raise lift_prob to %f\n", lift_prob );
-				break;
-			}
-			if ( Random::Rand() % 100 < lift_prob )
-			{
-				int speed = rangedValue( rangedRandom( _rocket_min_start_speed, _rocket_max_start_speed ), 1, 10 );
-//				printf( "   lift with speed %d!\n", speed );
-				Rockets[i]->start( speed );
-				assert( Rockets[i]->lifted() );
-				continue;
-			}
-			Rockets[i]->nostart( true );
-		}
+		Rockets[i]->draw();
 	}
 }
 
-void FltWin::update_phasers()
+void FltWin::draw_objects( bool pre_ )
 //-------------------------------------------------------------------------------
 {
-	for ( size_t i = 0; i < Phasers.size(); i++ )
+	if ( pre_ )
 	{
-		if ( !paused() )
-			Phasers[i]->x( Phasers[i]->x() - DX );
-
-		bool gone = Phasers[i]->exploded() || Phasers[i]->x() < -Phasers[i]->w();
-		if ( gone )
-		{
-#ifdef DEBUG
-			printf( " gone one phaser from #%lu\n", (unsigned long)Phasers.size() );
-#endif
-			Phaser *p = Phasers[i];
-			Phasers.erase( Phasers.begin() + i );
-			delete p;
-			i--;
-			continue;
-		}
+		draw_bombs();
+		draw_phasers();
+		draw_radars();
+		draw_drops();
+		draw_badies();
+		draw_rockets();
+		draw_missiles();
 	}
-}
-
-void FltWin::update_radars()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Radars.size(); i++ )
+	else
 	{
-		if ( !paused() )
-			Radars[i]->x( Radars[i]->x() - DX );
-
-		bool gone = Radars[i]->exploded() || Radars[i]->x() < -Radars[i]->w();
-		if ( gone )
-		{
-#ifdef DEBUG
-			printf( " gone one radar from #%lu\n", (unsigned long)Radars.size() );
-#endif
-			Radar *r = Radars[i];
-			Radars.erase( Radars.begin() + i );
-			delete r;
-			i--;
-			continue;
-		}
+		draw_cumuluses();
+		if ( _anim_text )
+			_anim_text->draw();
 	}
 }
 
@@ -4593,49 +3874,682 @@ void FltWin::draw()
 	}
 }
 
-void FltWin::onCollision()
+void FltWin::check_bomb_hits()
 //-------------------------------------------------------------------------------
 {
-	if ( _cheatMode )
+	vector <Bomb *>::iterator b = Bombs.begin();
+	for ( ; b != Bombs.end(); )
 	{
-		if ( _xoff % 20 == 0 )
-			Audio::instance()->play( "boink" );
-		_collision = false;
+		vector<Rocket *>::iterator r = Rockets.begin();
+		for ( ; r != Rockets.end(); )
+		{
+			if ( !(*r)->exploding() &&
+			     (*b)->rect().intersects( (*r)->rect() ) )
+			{
+				// rocket hit by bomb
+				Audio::instance()->play( "bomb_x" );
+				(*r)->explode();
+				add_score( 50 );
+
+				// bomb also is gone...
+				delete *b;
+				b = Bombs.erase(b);
+				break;
+			}
+			++r;
+		}
+		if ( b == Bombs.end() ) break;
+
+		vector<Phaser *>::iterator pa = Phasers.begin();
+		for ( ; pa != Phasers.end(); )
+		{
+			if ( !(*pa)->exploding() &&
+			     (*b)->rect().intersects( (*pa)->rect() ) )
+			{
+				// phaser hit by bomb
+				Audio::instance()->play( "bomb_x" );
+				(*pa)->explode();
+				add_score( 50 );
+
+				// bomb also is gone...
+				delete *b;
+				b = Bombs.erase(b);
+				break;
+			}
+			++pa;
+		}
+		if ( b == Bombs.end() ) break;
+
+		vector<Radar *>::iterator ra = Radars.begin();
+		for ( ; ra != Radars.end(); )
+		{
+			if ( !(*ra)->exploding() &&
+			     (*b)->rect().intersects( (*ra)->rect() ) )
+			{
+				// radar hit by bomb
+				Audio::instance()->play( "bomb_x" );
+				(*ra)->explode();
+				add_score( 50 );
+
+				// bomb also is gone...
+				delete *b;
+				b = Bombs.erase(b);
+				break;
+			}
+			++ra;
+		}
+		if ( b == Bombs.end() ) break;
+
+
+		++b;
 	}
 }
 
-void FltWin::onGotFocus()
+void FltWin::check_drop_hits()
 //-------------------------------------------------------------------------------
 {
-	if ( !_focus_out )
-		return;
-
-//	printf(" onGotFocus()\n" );
-	if ( _state == TITLE || _state == DEMO )
+	vector<Drop *>::iterator d = Drops.begin();
+	for ( ; d != Drops.end(); )
 	{
-		setPaused( false );
-		_state = START;
-		changeState( TITLE );
+		if ( !(*d)->dropped() ||
+		     !(*d)->rect().intersects( _spaceship->rect() ) )
+		{
+			++d;
+			continue;
+		}
+		if ( (*d)->collision( *_spaceship ) )
+		{
+			if ( (*d)->x() > _spaceship->cx() + _spaceship->w() / 4 )	// front of ship
+			{
+//				printf( "drop deflected\n" );
+				(*d)->x( (*d)->x() + 10 );
+				++d;
+				continue;
+			}
+//			printf( "drop fully hit spaceship\n" );
+			delete *d;
+			d = Drops.erase(d);
+			_collision = true;
+			onCollision();
+			continue;
+		}
+		else
+			++d;
 	}
 }
 
-void FltWin::onLostFocus()
+void FltWin::check_missile_hits()
 //-------------------------------------------------------------------------------
 {
-	if ( !_focus_out )
-		return;
+	vector<Missile *>::iterator m = Missiles.begin();
+	for ( ; m != Missiles.end(); )
+	{
+		vector<Rocket *>::iterator r = Rockets.begin();
+		for ( ; r != Rockets.end(); )
+		{
+			if ( !(*r)->exploding() &&
+			     (*m)->rect().intersects( (*r)->rect() ) )
+			{
+				// rocket hit by missile
+				Audio::instance()->play( "missile_hit" );
+				(*r)->explode();
+				add_score( 20 );
 
-//	printf(" onLostFocus()\n" );
-	setPaused( true );
-	if ( _state == TITLE || _state == DEMO )
-	{
-		_state = START;	// re-change also to TITLE
-		changeState( TITLE );
+				// missile also is gone...
+				delete *m;
+				m = Missiles.erase(m);
+				break;
+			}
+			++r;
+		}
+		if ( m == Missiles.end() ) break;
+
+		vector<Phaser *>::iterator pa = Phasers.begin();
+		for ( ; pa != Phasers.end(); )
+		{
+			if ( !(*pa)->exploding() &&
+			     (*m)->rect().intersects( (*pa)->rect() ) )
+			{
+				// phaser hit by missile
+				Audio::instance()->play( "bomb_x" );
+				(*pa)->explode();
+				add_score( 40 );
+
+				// missile also is gone...
+				delete *m;
+				m = Missiles.erase(m);
+				break;
+			}
+			++pa;
+		}
+		if ( m == Missiles.end() ) break;
+
+		vector<Radar *>::iterator ra = Radars.begin();
+		for ( ; ra != Radars.end(); )
+		{
+			if ( !(*ra)->exploding() &&
+			     (*m)->rect().intersects( (*ra)->rect() ) )
+			{
+				// radar hit by missile
+				if ( (*ra)->hit() )	// takes 2 missile hits to succeed!
+				{
+					Audio::instance()->play( "missile_hit" );
+					(*ra)->explode();
+					add_score( 40 );
+				}
+				// missile also is gone...
+				delete *m;
+				m = Missiles.erase(m);
+				break;
+			}
+			++ra;
+		}
+		if ( m == Missiles.end() ) break;
+
+		vector<Bady *>::iterator b = Badies.begin();
+		for ( ; b != Badies.end(); )
+		{
+			if ( (*m)->rect().inside( (*b)->rect()) )
+			{
+				// bady hit by missile
+				if ( (*b)->hit() )
+				{
+					Audio::instance()->play( "bady_hit" );
+					delete *b;
+					b = Badies.erase(b);
+					add_score( 100 );
+				}
+				// missile is also gone...
+				delete *m;
+				m = Missiles.erase(m);
+				break;
+			}
+			++b;
+		}
+		if ( m == Missiles.end() ) break;
+
+		vector<Drop *>::iterator d = Drops.begin();
+		for ( ; d != Drops.end(); )
+		{
+			if ( (*m)->rect().intersects( (*d)->rect()) )
+			{
+				// drop hit by missile
+				(*d)->hit();
+				Audio::instance()->play( "drop_hit" );
+				delete *d;
+				d = Drops.erase(d);
+				add_score( 5 );
+				break;
+			}
+			++d;
+		}
+		if ( m == Missiles.end() ) break;
+
+		++m;
 	}
-	else if ( _state == LEVEL )
+}
+
+void FltWin::check_rocket_hits()
+//-------------------------------------------------------------------------------
+{
+	vector<Rocket *>::iterator r = Rockets.begin();
+	for ( ; r != Rockets.end(); )
 	{
-		Audio::instance()->stop_bg();
+		if ( !(*r)->exploding() &&
+		  	(*r)->lifted() && (*r)->rect().intersects( _spaceship->rect() ) )
+		{
+			if ( (*r)->collision( *_spaceship ) )
+			{
+				// rocket hit by spaceship
+				(*r)->explode( 0.5 );
+				_collision = true;
+				onCollision();
+			}
+		}
+		++r;
 	}
+}
+
+void FltWin::check_hits()
+//-------------------------------------------------------------------------------
+{
+	check_missile_hits();
+	check_bomb_hits();
+	if ( !_done )
+		check_rocket_hits();
+	check_drop_hits();
+}
+
+void FltWin::create_spaceship()
+//-------------------------------------------------------------------------------
+{
+	delete _spaceship;
+	_spaceship = new Spaceship( w() / 2, 40, w(), h(), alternate_ship() );	// before create_terrain()!
+}
+
+void FltWin::create_objects()
+//-------------------------------------------------------------------------------
+{
+	// Only consider scrolled part!
+	// Plus 150 pixel (=half width of broadest object) in advance in order to
+	// make appearance of new objects smooth.
+	for ( int i = (_xoff == 0 ? 0 : w() - DX); i < w() + 150 ; i++ )
+	{
+		if ( _xoff + i >= (int)T.size() ) break;
+		unsigned int o = T[_xoff + i].object();
+		if ( !o ) continue;
+		if ( o & O_ROCKET && i - _rocket.w() / 2 < w() )
+		{
+			Rocket *r = new Rocket( i, h() - T[_xoff + i].ground_level() - _rocket.h() / 2 );
+			int start_dist = _rocket_max_start_dist - _level * 20 -
+			                 Random::Rand() % _rocket_var_start_dist;
+			if ( start_dist < _rocket_min_start_dist )
+			{
+				start_dist = _rocket_min_start_dist;
+			}
+			r->data1( start_dist );
+			Rockets.push_back( r );
+			o &= ~O_ROCKET;
+#ifdef DEBUG
+			printf( "#rockets: %lu\n", (unsigned long)Rockets.size() );
+#endif
+		}
+		if ( o & O_RADAR && i - _radar.w() / 2 < w() )
+		{
+			Radar *r = new Radar( i, h() - T[_xoff + i].ground_level() - _radar.h() / 2 );
+			Radars.push_back( r );
+			o &= ~O_RADAR;
+#ifdef DEBUG
+			printf( "#radars: %lu\n", (unsigned long)Radars.size() );
+#endif
+		}
+		if ( o & O_PHASER && i - _phaser.w() / 2 < w())
+		{
+			Phaser *p = new Phaser( i, h() - T[_xoff + i].ground_level() - _phaser.h() / 2 );
+			Phasers.push_back( p );
+			o &= ~O_PHASER;
+#ifdef DEBUG
+			printf( "#phaser: %lu\n", (unsigned long)Phasers.size() );
+#endif
+			Phasers.back()->bg_color( T.bg_color );
+			Phasers.back()->max_height( T[_xoff + i].sky_level() );
+			Phasers.back()->start();
+		}
+		if ( o & O_DROP && i - _drop.w() / 2 < w() )
+		{
+			Drop *d = new Drop( i, T[_xoff + i].sky_level() + _drop.h() / 2 );
+			int start_dist = _drop_max_start_dist - _level * 20 -
+			                 Random::Rand() % _drop_var_start_dist;
+			if ( start_dist < _drop_min_start_dist )
+			{
+				start_dist = _drop_min_start_dist;
+			}
+			d->data1( start_dist );
+			Drops.push_back( d );
+			o &= ~O_DROP;
+#ifdef DEBUG
+			printf( "#drops: %lu\n", (unsigned long)Drops.size() );
+#endif
+		}
+		if ( o & O_BADY && i - _bady.w() / 2 < w() )
+		{
+			bool turn( Random::Rand() % 3 == 0 );
+			int X = turn ?
+			        h() - T[_xoff + i].ground_level() - _bady.h() / 2 :
+			        T[_xoff + i].sky_level() + _bady.h() / 2;
+			Bady *b = new Bady( i, X );
+			o &= ~O_BADY;
+			if ( turn )
+				b->turn();
+			b->stamina( rangedRandom( _bady_min_hits, _bady_max_hits ) );
+			Badies.push_back( b );
+#ifdef DEBUG
+			printf( "#badies: %lu\n", (unsigned long)Badies.size() );
+#endif
+		}
+		if ( o & O_CUMULUS && i - _cumulus.w() / 2 < w() )
+		{
+			bool turn( Random::Rand() % 3 == 0 );
+			int X = turn ?
+			        h() - T[_xoff + i].ground_level() - _cumulus.h() / 2 :
+			        T[_xoff + i].sky_level() + _cumulus.h() / 2;
+			Cumulus *c = new Cumulus( i, X );
+			o &= ~O_CUMULUS;
+			if ( turn )
+				c->turn();
+			Cumuluses.push_back( c );
+#ifdef DEBUG
+			printf( "#cumuluses: %lu\n", (unsigned long)Cumuluses.size() );
+#endif
+		}
+		T[_xoff + i].object( o );
+	}
+}
+
+void FltWin::delete_objects()
+//-------------------------------------------------------------------------------
+{
+	for ( size_t i = 0; i < Rockets.size(); i++ )
+		delete Rockets[i];
+	Rockets.clear();
+	for ( size_t i = 0; i < Phasers.size(); i++ )
+		delete Phasers[i];
+	Phasers.clear();
+	for ( size_t i = 0; i < Radars.size(); i++ )
+		delete Radars[i];
+	Radars.clear();
+	for ( size_t i = 0; i < Drops.size(); i++ )
+		delete Drops[i];
+	Drops.clear();
+	for ( size_t i = 0; i < Badies.size(); i++ )
+		delete Badies[i];
+	Badies.clear();
+	for ( size_t i = 0; i < Cumuluses.size(); i++ )
+		delete Cumuluses[i];
+	Cumuluses.clear();
+}
+
+void FltWin::update_badies()
+//-------------------------------------------------------------------------------
+{
+	for ( size_t i = 0; i < Badies.size(); i++ )
+	{
+		if ( !paused() )
+			Badies[i]->x( Badies[i]->x() - DX );
+
+		int top = T[_xoff + Badies[i]->x() + Badies[i]->w() / 2].sky_level();
+		int bottom = h() - T[_xoff + Badies[i]->x() + Badies[i]->w() / 2].ground_level();
+		bool gone = Badies[i]->x() < -Badies[i]->w();
+		if ( gone )
+		{
+#ifdef DEBUG
+			printf( " gone one bady from #%lu\n", (unsigned long)Badies.size() );
+#endif
+			Bady *b = Badies[i];
+			Badies.erase( Badies.begin() + i );
+			delete b;
+			i--;
+			continue;
+		}
+		else
+		{
+			// bady fall strategy: always start!
+			if ( !Badies[i]->started() )
+			{
+				int speed = rangedValue( rangedRandom( _bady_min_start_speed, _bady_max_start_speed ), 1, 10 );
+//				printf( "   start bady with speed %d!\n", speed );
+				Badies[i]->start( speed );
+				assert( Badies[i]->started() );
+			}
+			else
+			{
+				if ( ( Badies[i]->y() + Badies[i]->h() >= bottom &&
+				       !Badies[i]->turned() ) ||
+				      ( Badies[i]->y() <= top  &&
+				        Badies[i]->turned() ) )
+					Badies[i]->turn();
+			}
+		}
+	}
+}
+
+void FltWin::update_bombs()
+//-------------------------------------------------------------------------------
+{
+	for ( size_t i = 0; i < Bombs.size(); i++ )
+	{
+		bool gone = Bombs[i]->y() > h() ||
+		            Bombs[i]->y() + Bombs[i]->h() > h() - T[_xoff + Bombs[i]->x()].ground_level();
+		if ( gone )
+		{
+//			printf( " gone one bomb from #%d\n", Missiles.size() );
+			Bomb *b = Bombs[i];
+			Bombs.erase( Bombs.begin() + i );
+			delete b;
+			i--;
+		}
+	}
+}
+
+void FltWin::update_cumuluses()
+//-------------------------------------------------------------------------------
+{
+	for ( size_t i = 0; i < Cumuluses.size(); i++ )
+	{
+		if ( !paused() )
+			Cumuluses[i]->x( Cumuluses[i]->x() - DX );
+
+		int top = T[_xoff + Cumuluses[i]->x() + Cumuluses[i]->w() / 2].sky_level();
+		int bottom = h() - T[_xoff + Cumuluses[i]->x() + Cumuluses[i]->w() / 2].ground_level();
+		bool gone = Cumuluses[i]->x() < -Cumuluses[i]->w();
+		if ( gone )
+		{
+#ifdef DEBUG
+			printf( " gone one cumulus from #%lu\n", (unsigned long)Cumuluses.size() );
+#endif
+			Cumulus *c = Cumuluses[i];
+			Cumuluses.erase( Cumuluses.begin() + i );
+			delete c;
+			i--;
+			continue;
+		}
+		else
+		{
+			// cumulus fall strategy: always start!
+			if ( !Cumuluses[i]->started() )
+			{
+				int speed = rangedValue( rangedRandom( _cumulus_min_start_speed, _cumulus_max_start_speed ), 1, 10 );
+//				printf( "   start cunulus with speed %d!\n", speed );
+				Cumuluses[i]->start( speed );
+				assert( Cumuluses[i]->started() );
+			}
+			else
+			{
+				if ( ( Cumuluses[i]->y() + Cumuluses[i]->h() >= bottom &&
+				       !Cumuluses[i]->turned() ) ||
+				      ( Cumuluses[i]->y() <= top  &&
+				        Cumuluses[i]->turned() ) )
+					Cumuluses[i]->turn();
+			}
+		}
+	}
+}
+
+void FltWin::update_drops()
+//-------------------------------------------------------------------------------
+{
+	for ( size_t i = 0; i < Drops.size(); i++ )
+	{
+		if ( !paused() )
+			Drops[i]->x( Drops[i]->x() - DX );
+
+		int bottom = h() - T[_xoff + Drops[i]->x()].ground_level();
+		if ( 0 == bottom  ) bottom += Drops[i]->h();	// glide out completely if no ground
+		bool gone = Drops[i]->y() + Drops[i]->h() / 2 > bottom || Drops[i]->x() < -Drops[i]->w();
+		if ( gone )
+		{
+#ifdef DEBUG
+			printf( " gone one drop from #%lu\n", (unsigned long)Drops.size() );
+#endif
+			Drop *d = Drops[i];
+			Drops.erase( Drops.begin() + i );
+			delete d;
+			i--;
+			continue;
+		}
+		else
+		{
+			// drop fall strategy...
+			if ( Drops[i]->nostart() ) continue;
+			if ( Drops[i]->dropped() ) continue;
+			// if user has completed all 10 levels, objects start later (which is harder)...
+			int dist = user_completed() ? Drops[i]->cx() - _spaceship->cx() // center distance S<->R
+			                            : Drops[i]->x() - _spaceship->x();
+			int start_dist = (int)Drops[i]->data1();	// 400 - _level * 20 - Random::Rand() % 200;
+			if ( dist <= 0 || dist >= start_dist ) continue;
+//			printf( "start drop #%ld, start_dist=%d?\n", i, start_dist );
+			// really start drop?
+			unsigned drop_prob = _drop_start_prob;
+//			printf( "drop_prob: %u\n", drop_prob );
+			if ( Random::Rand() % 100 < drop_prob )
+			{
+				int speed = rangedValue( rangedRandom( _drop_min_start_speed, _drop_max_start_speed ), 1, 10 );
+//				printf( "   drop with speed %d!\n", speed );
+				Drops[i]->start( speed );
+				assert( Drops[i]->dropped() );
+				continue;
+			}
+			Drops[i]->nostart( true );
+		}
+	}
+}
+
+void FltWin::update_missiles()
+//-------------------------------------------------------------------------------
+{
+//	printf( "#%u missiles\n", Missiles.size() );
+	for ( size_t i = 0; i < Missiles.size(); i++ )
+	{
+		bool gone = Missiles[i]->exhausted() ||
+		            Missiles[i]->x() > w() ||
+		            Missiles[i]->y() > h() - T[_xoff + Missiles[i]->x() + Missiles[i]->w()].ground_level() ||
+		            Missiles[i]->y() < T[_xoff + Missiles[i]->x() + Missiles[i]->w()].sky_level();
+		if ( gone )
+		{
+//			printf( " gone one missile from #%d\n", Missiles.size() );
+			Missile *m = Missiles[i];
+			Missiles.erase( Missiles.begin() + i );
+			delete m;
+			i--;
+		}
+	}
+}
+
+void FltWin::update_phasers()
+//-------------------------------------------------------------------------------
+{
+	for ( size_t i = 0; i < Phasers.size(); i++ )
+	{
+		if ( !paused() )
+			Phasers[i]->x( Phasers[i]->x() - DX );
+
+		bool gone = Phasers[i]->exploded() || Phasers[i]->x() < -Phasers[i]->w();
+		if ( gone )
+		{
+#ifdef DEBUG
+			printf( " gone one phaser from #%lu\n", (unsigned long)Phasers.size() );
+#endif
+			Phaser *p = Phasers[i];
+			Phasers.erase( Phasers.begin() + i );
+			delete p;
+			i--;
+			continue;
+		}
+	}
+}
+
+void FltWin::update_radars()
+//-------------------------------------------------------------------------------
+{
+	for ( size_t i = 0; i < Radars.size(); i++ )
+	{
+		if ( !paused() )
+			Radars[i]->x( Radars[i]->x() - DX );
+
+		bool gone = Radars[i]->exploded() || Radars[i]->x() < -Radars[i]->w();
+		if ( gone )
+		{
+#ifdef DEBUG
+			printf( " gone one radar from #%lu\n", (unsigned long)Radars.size() );
+#endif
+			Radar *r = Radars[i];
+			Radars.erase( Radars.begin() + i );
+			delete r;
+			i--;
+			continue;
+		}
+	}
+}
+
+void FltWin::update_rockets()
+//-------------------------------------------------------------------------------
+{
+	for ( size_t i = 0; i < Rockets.size(); i++ )
+	{
+		if ( !paused() )
+			Rockets[i]->x( Rockets[i]->x() - DX );
+
+		int top = T[_xoff + Rockets[i]->x()].sky_level();
+		if ( -1 == top  ) top -= Rockets[i]->h();	// glide out completely if no sky
+		bool gone = Rockets[i]->exploded() || Rockets[i]->x() < -Rockets[i]->w();
+		// NOTE: when there's no sky, explosion is not visible, but still occurs,
+		//       so checking exploded() suffices as end state for all rockets.
+		if ( gone )
+		{
+#ifdef DEBUG
+			printf( " gone one rocket from #%lu\n", (unsigned long)Rockets.size() );
+#endif
+			Rocket *r = Rockets[i];
+			Rockets.erase( Rockets.begin() + i );
+			delete r;
+			i--;
+			continue;
+		}
+		else if ( Rockets[i]->y() <= top && !Rockets[i]->exploding() )
+		{
+			Rockets[i]->crash();
+		}
+		else if ( !Rockets[i]->exploding() )
+		{
+			// rocket fire strategy...
+			if ( Rockets[i]->nostart() ) continue;
+			if ( Rockets[i]->lifted() ) continue;
+			// if user has completed all 10 levels, objects start later (which is harder)...
+			int dist = user_completed() ? Rockets[i]->cx() - _spaceship->cx() // center distance S<->R
+			                            : Rockets[i]->x() - _spaceship->x();
+			int start_dist = (int)Rockets[i]->data1();	// 400 - _level * 20 - Random::Rand() % 200;
+			if ( dist <= 0 || dist >= start_dist ) continue;
+//			printf( "start rocket #%ld, start_dist=%d?\n", i, start_dist );
+			// really start rocket?
+			unsigned lift_prob = _rocket_start_prob;
+//			printf( "lift prob: %u\n", lift_prob );
+			// if a radar is within start_dist then the
+			// probability gets much higher
+			int x = Rockets[i]->x();
+			for ( size_t ra = 0; ra < Radars.size(); ra++ )
+			{
+				if ( Radars[ra]->defunct() ) continue;
+				if ( Radars[ra]->x() >= x ) continue;
+				if ( Radars[ra]->x() <= x - start_dist ) continue;
+				// there's a working radar within start_dist
+				lift_prob = _rocket_radar_start_prob;
+//				printf( "raise lift_prob to %f\n", lift_prob );
+				break;
+			}
+			if ( Random::Rand() % 100 < lift_prob )
+			{
+				int speed = rangedValue( rangedRandom( _rocket_min_start_speed, _rocket_max_start_speed ), 1, 10 );
+//				printf( "   lift with speed %d!\n", speed );
+				Rockets[i]->start( speed );
+				assert( Rockets[i]->lifted() );
+				continue;
+			}
+			Rockets[i]->nostart( true );
+		}
+	}
+}
+
+void FltWin::update_objects()
+//-------------------------------------------------------------------------------
+{
+	update_missiles();
+	update_bombs();
+	update_rockets();
+	update_phasers();
+	update_radars();
+	update_drops();
+	update_badies();
+	update_cumuluses();
 }
 
 void FltWin::setUser()
@@ -4666,10 +4580,83 @@ void FltWin::resetUser()
 	onTitleScreen();	// immediate display + reset demo timer
 }
 
+void FltWin::setBgSoundFile()
+//-------------------------------------------------------------------------------
+{
+	_bgsound.erase();
+	if ( Audio::hasBgSound() )
+	{
+		string bgfile = wavPath.get( "bgsound" );
+		if ( access( bgfile.c_str(), R_OK ) == 0 )
+		{
+			_bgsound = bgfile;
+		}
+		else
+		{
+			// pick a random bg sound from folder 'bgsound'
+			dirent **ls;
+			Fl_File_Sort_F *sort = fl_casealphasort;
+			string bgdir( mkPath( "bgsound" ) );
+			int num_files = fl_filename_list( bgdir.c_str(), &ls, sort );
+			vector<string> bgSoundList;
+			for ( int i = 0; i < num_files; i++ )
+			{
+				string pattern = "*." + Audio::instance()->ext();
+				if ( fl_filename_match( ls[i]->d_name, pattern.c_str() ) )
+				{
+					bgSoundList.push_back( bgdir + ls[i]->d_name );
+				}
+			}
+			fl_filename_free_list( &ls, num_files );
+			if ( bgSoundList.size() )
+			{
+				_bgsound = bgSoundList[Random::pRand() % bgSoundList.size()] ;
+			}
+		}
+	}
+}
+
+void FltWin::setPaused( bool paused_ )
+//-------------------------------------------------------------------------------
+{
+	if ( G_paused != paused_ )
+	{
+		G_paused = paused_;
+		if ( G_paused )
+			onPaused();
+		else
+			onContinued();
+	}
+}
+
+void FltWin::startBgSound() const
+//-------------------------------------------------------------------------------
+{
+	if ( _bgsound.size() )
+		Audio::instance()->play( _bgsound.c_str(), true );
+}
+
 void FltWin::keyClick() const
 //-------------------------------------------------------------------------------
 {
 	Audio::instance()->play( "drop" );
+}
+
+void FltWin::toggleBgSound() const
+//-------------------------------------------------------------------------------
+{
+	if ( Audio::hasBgSound() )
+	{
+		Audio::instance()->bg_disable( !Audio::instance()->bg_disabled() );
+		if ( Audio::instance()->bg_enabled() && _state == LEVEL )
+			startBgSound();
+		else if ( Audio::instance()->bg_disabled() && _state == LEVEL )
+			Audio::instance()->stop_bg();
+	}
+	else
+	{
+		Audio::instance()->disable( !Audio::instance()->disabled() );
+	}
 }
 
 void FltWin::toggleFullscreen()
@@ -4697,6 +4684,27 @@ void FltWin::toggleFullscreen()
 		fullscreen();
 	}
 	_fullscreen = !_fullscreen;
+}
+
+void FltWin::toggleSound() const
+//-------------------------------------------------------------------------------
+{
+	Audio::instance()->disable( !Audio::instance()->disabled() );
+}
+
+void FltWin::togglePaused()
+//-------------------------------------------------------------------------------
+{
+	if ( G_paused )
+	{
+		G_paused = false;
+		onContinued();
+	}
+	else
+	{
+		G_paused = true;
+		onPaused();
+	}
 }
 
 void FltWin::toggleShip( bool prev_/* = false */ )
@@ -4768,6 +4776,359 @@ bool FltWin::fireMissile()
 		return true;
 	}
 	return false;
+}
+
+void FltWin::bombUnlock()
+//-------------------------------------------------------------------------------
+{
+	_bomb_lock = false;
+}
+
+/*static*/
+void FltWin::cb_bomb_unlock( void *d_ )
+//-------------------------------------------------------------------------------
+{
+	((FltWin *)d_)->bombUnlock();
+}
+
+/*static*/
+void FltWin::cb_demo( void *d_ )
+//-------------------------------------------------------------------------------
+{
+	((FltWin *)d_)->changeState( DEMO );
+}
+
+/*static*/
+void FltWin::cb_paused( void *d_ )
+//-------------------------------------------------------------------------------
+{
+	((FltWin *)d_)->changeState();
+}
+
+/*static*/
+void FltWin::cb_update( void *d_ )
+//-------------------------------------------------------------------------------
+{
+	FltWin *f = (FltWin *)d_;
+	f->state() == FltWin::DEMO ? f->onUpdateDemo() : f->onUpdate();
+	if ( _USE_FLTK_RUN )
+		Fl::repeat_timeout( FRAMES, cb_update, d_ );
+}
+
+void FltWin::onActionKey()
+//-------------------------------------------------------------------------------
+{
+//	printf( "onActionKey\n" );
+	Fl::remove_timeout( cb_demo, this );
+	Fl::remove_timeout( cb_paused, this );
+	if ( _state == DEMO )
+	{
+		_done = true;	// ensure ship gets reloaded in onNextScreen()
+		return;
+	}
+	if ( _state == SCORE )
+	{
+		if ( _input.empty() )
+			_input = DEFAULT_USER;
+		if ( _username == DEFAULT_USER && _input != DEFAULT_USER )
+			_cfg->remove( _username );	// remove default user
+		if ( _username == DEFAULT_USER )
+			_username = _input;
+//		printf( "_username: '%s'\n", _username.c_str() );
+//		printf( "_input: '%s'\n", _input.c_str() );
+//		printf( "_score: '%u'\n", _score );
+		_cfg->write( _username, _score, _done_level );
+		_cfg->flush();
+		_hiscore = _cfg->hiscore();
+		_hiscore_user = _cfg->best().name;
+		_old_score = _score;
+		_initial_score = _score;
+		_first_level = _done_level + 1;
+		if ( _first_level > MAX_LEVEL )
+			_first_level = 1;
+//		printf( "score saved.\n" );
+	}
+
+	changeState();
+}
+
+void FltWin::onCollision()
+//-------------------------------------------------------------------------------
+{
+	if ( _cheatMode )
+	{
+		if ( _xoff % 20 == 0 )
+			Audio::instance()->play( "boink" );
+		_collision = false;
+	}
+}
+
+void FltWin::onPaused()
+//-------------------------------------------------------------------------------
+{
+	Audio::instance()->stop_bg();
+}
+
+void FltWin::onContinued()
+//-------------------------------------------------------------------------------
+{
+	if ( _state == LEVEL )
+	{
+		startBgSound();
+	}
+}
+
+void FltWin::onGotFocus()
+//-------------------------------------------------------------------------------
+{
+	if ( !_focus_out )
+		return;
+
+//	printf(" onGotFocus()\n" );
+	if ( _state == TITLE || _state == DEMO )
+	{
+		setPaused( false );
+		_state = START;
+		changeState( TITLE );
+	}
+}
+
+void FltWin::onLostFocus()
+//-------------------------------------------------------------------------------
+{
+	if ( !_focus_out )
+		return;
+
+//	printf(" onLostFocus()\n" );
+	setPaused( true );
+	if ( _state == TITLE || _state == DEMO )
+	{
+		_state = START;	// re-change also to TITLE
+		changeState( TITLE );
+	}
+	else if ( _state == LEVEL )
+	{
+		Audio::instance()->stop_bg();
+	}
+}
+
+void FltWin::onDemo()
+//-------------------------------------------------------------------------------
+{
+//	printf( "starting demo...\n" );
+	_state = DEMO;
+	onNextScreen( true );
+}
+
+void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
+//-------------------------------------------------------------------------------
+{
+	delete _spaceship;
+	_spaceship = 0;
+	delete _anim_text;
+	_anim_text = 0;
+	delete _title_anim;
+	_title_anim = 0;
+
+	delete_objects();
+
+	_xoff = 0;
+	_frame = 0;
+	_collision = false;
+	_completed = false;
+
+	bool show_scores = false;
+	if ( _state == LEVEL && _demoData.size() && _demoData.size() >= T.size() - w() &&
+		!_trainMode && !_no_demo )
+		saveDemoData();
+
+	if ( fromBegin_ )
+	{
+		Random::Srand( time( 0 ) );	// otherwise determined because of demo seed!
+		_level = _state == DEMO ? pickRandomDemoLevel( 1,
+		                          max( 3, _user_completed ? (int)MAX_LEVEL : (int)_level ) )
+		                        : _first_level;
+		_level_repeat = 0;
+		_score = _initial_score;
+	}
+	else
+	{
+		show_scores = _old_score > _hiscore && !_done;
+
+		if ( _done || _state == DEMO )
+		{
+			_level++;
+			_level_repeat = 0;
+
+			if ( _level > MAX_LEVEL || _state == DEMO/*new: demo stops after one level*/ )
+			{
+				_level = _first_level; // restart with level 1
+				_score = _initial_score;
+				changeState( TITLE );
+			}
+		}
+		else
+		{
+			_level_repeat++;
+			if ( _level_repeat > MAX_LEVEL_REPEAT )
+			{
+				_level = _first_level;
+				_level_repeat = 0;
+//				_score = _initial_score;
+				changeState( TITLE );
+			}
+		}
+	}
+
+	if ( _state == DEMO )
+		loadDemoData();
+
+	create_spaceship();	// after loadDemoData()!
+
+	create_terrain();
+
+	if ( _demoData.size() && _demoData.size() < T.size() - w() )
+		_demoData.clear();
+
+	if ( _state == DEMO && !_demoData.size() )
+	{
+		changeState( TITLE );
+	}
+
+	position_spaceship();
+
+	if ( !_level_repeat )
+	{
+		(_anim_text = new AnimText( 0, 20, w(), _level_name.c_str() ))->start();
+		if ( _state == LEVEL )
+			setBgSoundFile();
+	}
+
+	_done = false;
+	setPaused( false );
+	_left = _right = _up = _down = false;
+
+	show_scores &= _level == _first_level && _level_repeat == 0;
+	if ( show_scores )
+	{
+		_input = _username == DEFAULT_USER ? "" : _username;
+		changeState( SCORE );
+	}
+	else if ( _state == LEVEL )
+	{
+		startBgSound();
+	}
+}
+
+void FltWin::onTitleScreen()
+//-------------------------------------------------------------------------------
+{
+	if ( _trainMode )
+		return;
+	_state = TITLE;
+	_frame = 0;
+	Fl::remove_timeout( cb_demo, this );
+	if ( !G_paused && !_no_demo )
+		Fl::add_timeout( 20.0, cb_demo, this );
+}
+
+void FltWin::onUpdateDemo()
+//-------------------------------------------------------------------------------
+{
+	create_objects();
+
+	update_objects();
+
+	check_hits();
+
+	int cx = 0;
+	int cy = 0;
+	bool bomb( false );
+	bool missile( false );
+	_demoData.get( _xoff, cx, cy, bomb, missile );
+	_spaceship->cx( cx );
+	_spaceship->cy( cy );
+	if ( bomb )
+		dropBomb();
+	if ( missile )
+		fireMissile();
+
+	_collision = false;
+
+	redraw();
+
+	if ( _done )
+	{
+		onNextScreen();	// ... but for now, just skip pause in demo mode
+		return;	// do not increment _xoff now!
+	}
+
+	_xoff += DX;
+	if ( _xoff + w() >= (int)T.size() - 1 )
+		_done = true;
+}
+
+void FltWin::onUpdate()
+//-------------------------------------------------------------------------------
+{
+	if ( _mouseMode )
+	{
+		static int cnt =0 ;
+		cnt += DX;
+		if ( cnt >= 10 )
+		{
+			cnt = 0;
+			handle( TIMER_CALLBACK );
+		}
+	}
+
+	if ( _state == TITLE || _state == SCORE || G_paused )
+	{
+		redraw();
+		return;
+	}
+	create_objects();
+
+	update_objects();
+
+	check_hits();
+
+	if ( paused() )
+	{
+		redraw();
+		return;
+	}
+
+	if ( _xoff % SCORE_STEP == 0 )
+	{
+		add_score( 1 );
+		Audio::instance()->check();	// test bg-sound expired
+	}
+
+	if ( _left && _xoff + w() + w() / 2 < (int)T.size() ) // no retreat at end!
+		_spaceship->left();
+	if ( _right )
+	{
+		int ox = _spaceship->x();
+		_spaceship->right();
+		if ( ox != _spaceship->x() )
+			_speed_right++;
+	}
+	if ( _up )
+		_spaceship->up();
+	if ( _down  )
+		_spaceship->down();
+	_demoData.setShip( _xoff, _spaceship->cx(), _spaceship->cy() );
+
+	redraw();
+	if ( _collision )
+		changeState( LEVEL_FAIL );
+	else if ( _done )
+		changeState( LEVEL_DONE );
+
+	_xoff += DX;
+	if ( _xoff + w() >= (int)T.size() - 1 )
+		_done = true;
 }
 
 int FltWin::handle( int e_ )
@@ -5020,299 +5381,6 @@ int FltWin::handle( int e_ )
 		return 1;
 	}
 	return Inherited::handle( e_ );
-}
-
-/*static*/
-void FltWin::cb_bomb_unlock( void *d_ )
-//-------------------------------------------------------------------------------
-{
-	((FltWin *)d_)->bombUnlock();
-}
-
-/*static*/
-void FltWin::cb_demo( void *d_ )
-//-------------------------------------------------------------------------------
-{
-	((FltWin *)d_)->changeState( DEMO );
-}
-
-/*static*/
-void FltWin::cb_paused( void *d_ )
-//-------------------------------------------------------------------------------
-{
-	((FltWin *)d_)->changeState();
-}
-
-/*static*/
-void FltWin::cb_update( void *d_ )
-//-------------------------------------------------------------------------------
-{
-	FltWin *f = (FltWin *)d_;
-	f->state() == FltWin::DEMO ? f->onUpdateDemo() : f->onUpdate();
-	if ( _USE_FLTK_RUN )
-		Fl::repeat_timeout( FRAMES, cb_update, d_ );
-}
-
-void FltWin::onActionKey()
-//-------------------------------------------------------------------------------
-{
-//	printf( "onActionKey\n" );
-	Fl::remove_timeout( cb_demo, this );
-	Fl::remove_timeout( cb_paused, this );
-	if ( _state == DEMO )
-	{
-		_done = true;	// ensure ship gets reloaded in onNextScreen()
-		return;
-	}
-	if ( _state == SCORE )
-	{
-		if ( _input.empty() )
-			_input = DEFAULT_USER;
-		if ( _username == DEFAULT_USER && _input != DEFAULT_USER )
-			_cfg->remove( _username );	// remove default user
-		if ( _username == DEFAULT_USER )
-			_username = _input;
-//		printf( "_username: '%s'\n", _username.c_str() );
-//		printf( "_input: '%s'\n", _input.c_str() );
-//		printf( "_score: '%u'\n", _score );
-		_cfg->write( _username, _score, _done_level );
-		_cfg->flush();
-		_hiscore = _cfg->hiscore();
-		_hiscore_user = _cfg->best().name;
-		_old_score = _score;
-		_initial_score = _score;
-		_first_level = _done_level + 1;
-		if ( _first_level > MAX_LEVEL )
-			_first_level = 1;
-//		printf( "score saved.\n" );
-	}
-
-	changeState();
-}
-
-void FltWin::onDemo()
-//-------------------------------------------------------------------------------
-{
-//	printf( "starting demo...\n" );
-	_state = DEMO;
-	onNextScreen( true );
-}
-
-void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
-//-------------------------------------------------------------------------------
-{
-	delete _spaceship;
-	_spaceship = 0;
-	delete _anim_text;
-	_anim_text = 0;
-	delete _title_anim;
-	_title_anim = 0;
-
-	delete_objects();
-
-	_xoff = 0;
-	_frame = 0;
-	_collision = false;
-	_completed = false;
-
-	bool show_scores = false;
-	if ( _state == LEVEL && _demoData.size() && _demoData.size() >= T.size() - w() &&
-		!_trainMode && !_no_demo )
-		saveDemoData();
-
-	if ( fromBegin_ )
-	{
-		Random::Srand( time( 0 ) );	// otherwise determined because of demo seed!
-		_level = _state == DEMO ? pickRandomDemoLevel( 1,
-		                          max( 3, _user_completed ? (int)MAX_LEVEL : (int)_level ) )
-		                        : _first_level;
-		_level_repeat = 0;
-		_score = _initial_score;
-	}
-	else
-	{
-		show_scores = _old_score > _hiscore && !_done;
-
-		if ( _done || _state == DEMO )
-		{
-			_level++;
-			_level_repeat = 0;
-
-			if ( _level > MAX_LEVEL || _state == DEMO/*new: demo stops after one level*/ )
-			{
-				_level = _first_level; // restart with level 1
-				_score = _initial_score;
-				changeState( TITLE );
-			}
-		}
-		else
-		{
-			_level_repeat++;
-			if ( _level_repeat > MAX_LEVEL_REPEAT )
-			{
-				_level = _first_level;
-				_level_repeat = 0;
-//				_score = _initial_score;
-				changeState( TITLE );
-			}
-		}
-	}
-
-	if ( _state == DEMO )
-		loadDemoData();
-
-	create_spaceship();	// after loadDemoData()!
-
-	create_terrain();
-
-	if ( _demoData.size() && _demoData.size() < T.size() - w() )
-		_demoData.clear();
-
-	if ( _state == DEMO && !_demoData.size() )
-	{
-		changeState( TITLE );
-	}
-
-	position_spaceship();
-
-	if ( !_level_repeat )
-	{
-		(_anim_text = new AnimText( 0, 20, w(), _level_name.c_str() ))->start();
-		if ( _state == LEVEL )
-			setBgSoundFile();
-	}
-
-	_done = false;
-	setPaused( false );
-	_left = _right = _up = _down = false;
-
-	show_scores &= _level == _first_level && _level_repeat == 0;
-	if ( show_scores )
-	{
-		_input = _username == DEFAULT_USER ? "" : _username;
-		changeState( SCORE );
-	}
-	else if ( _state == LEVEL )
-	{
-		startBgSound();
-	}
-}
-
-void FltWin::onTitleScreen()
-//-------------------------------------------------------------------------------
-{
-	if ( _trainMode )
-		return;
-	_state = TITLE;
-	_frame = 0;
-	Fl::remove_timeout( cb_demo, this );
-	if ( !G_paused && !_no_demo )
-		Fl::add_timeout( 20.0, cb_demo, this );
-}
-
-void FltWin::onUpdateDemo()
-//-------------------------------------------------------------------------------
-{
-	create_objects();
-
-	update_objects();
-
-	check_hits();
-
-	int cx = 0;
-	int cy = 0;
-	bool bomb( false );
-	bool missile( false );
-	_demoData.get( _xoff, cx, cy, bomb, missile );
-	_spaceship->cx( cx );
-	_spaceship->cy( cy );
-	if ( bomb )
-		dropBomb();
-	if ( missile )
-		fireMissile();
-
-	_collision = false;
-
-	redraw();
-
-	if ( _done )
-	{
-		onNextScreen();	// ... but for now, just skip pause in demo mode
-		return;	// do not increment _xoff now!
-	}
-
-	_xoff += DX;
-	if ( _xoff + w() >= (int)T.size() - 1 )
-		_done = true;
-}
-
-void FltWin::onUpdate()
-//-------------------------------------------------------------------------------
-{
-	if ( _mouseMode )
-	{
-		static int cnt =0 ;
-		cnt += DX;
-		if ( cnt >= 10 )
-		{
-			cnt = 0;
-			handle( TIMER_CALLBACK );
-		}
-	}
-
-	if ( _state == TITLE || _state == SCORE || G_paused )
-	{
-		redraw();
-		return;
-	}
-	create_objects();
-
-	update_objects();
-
-	check_hits();
-
-	if ( paused() )
-	{
-		redraw();
-		return;
-	}
-
-	if ( _xoff % SCORE_STEP == 0 )
-	{
-		add_score( 1 );
-		Audio::instance()->check();	// test bg-sound expired
-	}
-
-	if ( _left && _xoff + w() + w() / 2 < (int)T.size() ) // no retreat at end!
-		_spaceship->left();
-	if ( _right )
-	{
-		int ox = _spaceship->x();
-		_spaceship->right();
-		if ( ox != _spaceship->x() )
-			_speed_right++;
-	}
-	if ( _up )
-		_spaceship->up();
-	if ( _down  )
-		_spaceship->down();
-	_demoData.setShip( _xoff, _spaceship->cx(), _spaceship->cy() );
-
-	redraw();
-	if ( _collision )
-		changeState( LEVEL_FAIL );
-	else if ( _done )
-		changeState( LEVEL_DONE );
-
-	_xoff += DX;
-	if ( _xoff + w() >= (int)T.size() - 1 )
-		_done = true;
-}
-
-void FltWin::bombUnlock()
-//-------------------------------------------------------------------------------
-{
-	_bomb_lock = false;
 }
 
 int FltWin::run()
