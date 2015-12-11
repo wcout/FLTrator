@@ -112,8 +112,9 @@ if [ $HAVE_XRANDR = "1" ]; then
 if [ ! -e "/usr/include/X11/extensions/Xrandr.h" ]; then
 	HAVE_XRANDR=0
 	log "No fullscreen support (install libxrandr-dev package if required)"
+else
+	log "xrandr will be used for switching to fullscreen."
 fi
-log "xrandr will be used for switching to fullscreen."
 fi
 
 
