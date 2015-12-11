@@ -41,6 +41,7 @@
 #include <sstream>
 #include <iostream>
 #include <ctime>
+#include <cstring>
 #include <cassert>
 
 // We like to use Fl_Image::RGB_scaling and Fl_Window::default_icon(Fl_RGB_Image *)
@@ -1220,7 +1221,6 @@ void Object::draw_collision() const
 		{
 			fl_rectf( x() + X - sz / 2, y() + Y - sz / 2, sz, sz,
 			          ( Random::pRand() % 2 ? ( Random::pRand() % 2 ? 0xff660000 : FL_RED ) : FL_YELLOW ) );
-			fl_color( Random::pRand() % 2 ? FL_RED : FL_YELLOW );
 		}
 	}
 }
@@ -1980,7 +1980,7 @@ private:
 	bool iniValue( size_t level_, const string& id_,
 	               string& value_, size_t max_, const string& default_ );
 	void init_parameter();
-	bool loadLevel( int level_, const string levelFileName_ = "" );
+	bool loadLevel( int level_, string& levelFileName_ );
 	bool validDemoData( unsigned level_ = 0 ) const;
 	unsigned pickRandomDemoLevel( unsigned minLevel_ = 0, unsigned maxLevel_ = 0 );
 	string demoFileName( unsigned  level_ = 0 ) const;
@@ -2001,7 +2001,7 @@ private:
 #ifndef NO_PREBUILD_LANDSCAPE
 	Fl_Image *terrain_as_image();
 #endif
-	void create_terrain();
+	bool create_terrain();
 	void create_level();
 
 	void draw_badies();
@@ -2019,6 +2019,7 @@ private:
 	void draw_score();
 	void draw_scores();
 	void draw_title();
+	void draw_landscape( int xoff_, int W_ );
 	void draw();
 
 	void update_badies();
@@ -2222,7 +2223,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		}
 		if ( "--version" == arg )
 		{
-			printf( "%s\n", VERSION );
+			cout << VERSION << endl;
 			exit( 0 );
 		}
 		int level = atoi( arg.c_str() );
@@ -2310,42 +2311,42 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		else
 		{
 			_levelFile = arg;
-			printf( "level file: '%s'\n", _levelFile.c_str() );
+			cout << "level file: '" << _levelFile.c_str() << "'" << endl;
 		}
 	}
 	if ( unknown_option.size() )
 	{
-		printf( "Invalid option: '%s'\n\n", unknown_option.c_str() );
+		cout << "Invalid option: '" << unknown_option.c_str() << "'" << endl << endl;
 		usage = true;
 	}
 	if ( usage )
 	{
-		printf( "Usage:\n");
-		printf( "  %s [level] [levelfile] [options]\n\n", argv_[0] );
-		printf( "\tlevel      [1, 10] startlevel\n");
-		printf( "\tlevelfile  name of levelfile (for testing a new level)\n");
-		printf("Options:\n");
-		printf("  -a\tuser alternate (penetrator like) ship image\n" );
-		printf("  -b\tdisable background sound\n" );
-		printf("  -c\thide mouse cursor in window\n" );
-		printf("  -e\tenable Esc as boss key\n" );
-		printf("  -d\tdisable demo\n" );
-		printf("  -f\tenable full screen mode\n" );
-		printf("  -h\tdisplay this help\n" );
-		printf("  -i\tplay internal (auto-generated) levels\n" );
-		printf("  -l\tleft handed play\n" );
-		printf("  -n\treset user (only if startet with -U)\n" );
-		printf("  -m\tuse mouse for input\n" );
-		printf("  -p\tdisable pause on focus out\n" );
-		printf("  -r\tdisable ramdomness\n" );
-		printf("  -s\tstart with sound disabled\n" );
-		printf("  -x\tdisable gimmick effects\n" );
-		printf("  -A\"playcmd\"\tspecify audio play command\n" );
-		printf("   \te.g. -A\"cmd=playsound -q %%f; bgcmd=playsound -q %%f %%p; ext=wav\"\n" );
-		printf("  -F\trun with settings for fast computer\n" );
-		printf("  -Rvalue\tset frame rate to 'value' fps [20,25,40,50,100,200]\n" );
-		printf("  -S\trun with settings for slow computer\n" );
-		printf("  -Uusername\tstart as user 'username'\n" );
+		cout << "Usage:" << endl;
+		cout << "  " << argv_[0] << " [level] [levelfile] [options]" << endl << endl;
+		cout << "\tlevel      [1, 10] startlevel" << endl;
+		cout << "\tlevelfile  name of levelfile (for testing a new level)" << endl;
+		cout << "Options:" << endl;
+		cout << "  -a\tuser alternate (penetrator like) ship image" << endl;
+		cout << "  -b\tdisable background sound" << endl;
+		cout << "  -c\thide mouse cursor in window" << endl;
+		cout << "  -e\tenable Esc as boss key" << endl;
+		cout << "  -d\tdisable demo" << endl;
+		cout << "  -f\tenable full screen mode" << endl;
+		cout << "  -h\tdisplay this help" << endl;
+		cout << "  -i\tplay internal (auto-generated) levels" << endl;
+		cout << "  -l\tleft handed play" << endl;
+		cout << "  -n\treset user (only if startet with -U)" << endl;
+		cout << "  -m\tuse mouse for input" << endl;
+		cout << "  -p\tdisable pause on focus out" << endl;
+		cout << "  -r\tdisable ramdomness" << endl;
+		cout << "  -s\tstart with sound disabled" << endl;
+		cout << "  -x\tdisable gimmick effects" << endl;
+		cout << "  -A\"playcmd\"\tspecify audio play command" << endl;
+		cout << "   \te.g. -A\"cmd=playsound -q %f; bgcmd=playsound -q %f %p; ext=wav\"" << endl;
+		cout << "  -F\trun with settings for fast computer" << endl;
+		cout << "  -Rvalue\tset frame rate to 'value' fps [20,25,40,50,100,200]" << endl;
+		cout << "  -S\trun with settings for slow computer" << endl;
+		cout << "  -Uusername\tstart as user 'username'" << endl;
 		exit( 0 );
 	}
 	if ( _fullscreen )
@@ -2755,6 +2756,14 @@ void FltWin::init_parameter()
 	iniValue( _level, "rocket_min_start_dist", _rocket_min_start_dist, 0, 50, 50 );
 	iniValue( _level, "rocket_max_start_dist", _rocket_max_start_dist, 50, 400, 400 );
 	iniValue( _level, "rocket_var_start_dist", _rocket_var_start_dist, 0, 200, 200 );
+#ifdef DEBUG
+	printf("rocket_min_start_speed: %d\n", _rocket_min_start_speed);
+	printf("rocket_max_start_speed: %d\n", _rocket_max_start_speed);
+	printf("rocket_start_prob     : %d\n", _rocket_start_prob);
+	printf("rocket_min_start_dist : %d\n", _rocket_min_start_dist);
+	printf("rocket_max_start_dist : %d\n", _rocket_max_start_dist);
+	printf("rocket_var_start_dist : %d\n", _rocket_var_start_dist);
+#endif
 
 	iniValue( _level, "drop_start_prob", _drop_start_prob, 0, 100,
 	          (int)( 45. + 30. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ) ); // 45% - 75%
@@ -2883,7 +2892,7 @@ unsigned FltWin::pickRandomDemoLevel( unsigned minLevel_/* = 0*/, unsigned maxLe
 		}
 	}
 	if ( possibleLevels.size() )
-		return possibleLevels[ rangedRandom( 0, possibleLevels.size() - 1 ) ];
+		return possibleLevels[ Random::pRand() % possibleLevels.size() ];
 	return minLevel;	// return a valid level even if there's no demo data
 }
 
@@ -2895,7 +2904,7 @@ bool FltWin::loadDemoData()
 	ifstream f( demoFileName().c_str() );
 	if ( !f.is_open() )
 		return false;
-//	cout << "using demo data " <<  demoFileName << endl;
+//	cout << "using demo data " <<  demoFileName().c_str() << endl;
 	unsigned int seed;
 	unsigned int dx;
 	f >> seed;
@@ -2937,7 +2946,7 @@ bool FltWin::saveDemoData()
 	ofstream f( demoFileName().c_str() );
 	if ( !f.is_open() )
 		return false;
-//	cout << "save to demo data " << demoFileName << endl;
+//	cout << "save to demo data " << demoFileName().c_str() << endl;
 	f << _demoData.seed() << endl;
 	f << _alternate_ship << endl;
 	f << DX << endl;
@@ -2961,7 +2970,7 @@ bool FltWin::saveDemoData()
 	return true;
 }
 
-bool FltWin::loadLevel( int level_, const string levelFileName_/* = ""*/ )
+bool FltWin::loadLevel( int level_, string& levelFileName_ )
 //-------------------------------------------------------------------------------
 {
 	string levelFileName( levelFileName_ );
@@ -2970,6 +2979,7 @@ bool FltWin::loadLevel( int level_, const string levelFileName_/* = ""*/ )
 		ostringstream os;
 		os << "L_" << level_ << ".txt";
 		levelFileName = levelPath( os.str() );
+		levelFileName_ = levelFileName;
 	}
 	ifstream f( levelFileName.c_str() );
 	if ( !f.is_open() )
@@ -3038,38 +3048,7 @@ Fl_Image *FltWin::terrain_as_image()
 	fl_rectf( 0, 0, W, h(), T.bg_color );
 
 	// draw landscape
-	for ( int xoff = 0; xoff < W; xoff++ )
-	{
-		fl_color( T.sky_color );
-		fl_yxline( xoff, -1, T[xoff].sky_level() );
-		fl_color( T.ground_color );
-		fl_yxline( xoff, h() - T[xoff].ground_level(), h() );
-	}
-
-	// draw outline
-	// NOTE: WIN32 must set line style AFTER setting drawing color
-	if ( T.ls_outline_width )
-	{
-		fl_color( T.outline_color_sky );
-		fl_line_style( FL_SOLID, T.ls_outline_width );
-		for ( int xoff = 1; xoff < W - 1; xoff++ )
-		{
-			if ( T[xoff].sky_level() >= 0 )
-			{
-				fl_line( xoff - 1, T[xoff - 1].sky_level(),
-				         xoff + 1, T[xoff + 1].sky_level() );
-			}
-		}
-
-		fl_color( T.outline_color_ground );
-		fl_line_style( FL_SOLID, T.ls_outline_width );
-		for ( int xoff = 1; xoff < W - 1; xoff++ )
-		{
-			fl_line( xoff - 1, h() - T[xoff - 1].ground_level(),
-			         xoff + 1, h() - T[xoff + 1].ground_level() );
-		}
-		fl_line_style( 0 );
-	}
+	draw_landscape( 0, W );
 
 	Fl_RGB_Image *image = img_surf->image();
 	delete img_surf;
@@ -3112,13 +3091,26 @@ static void fixColorChange( Terrain &T_ )
 	}
 }
 
-void FltWin::create_terrain()
+bool FltWin::create_terrain()
 //-------------------------------------------------------------------------------
 {
 	assert( _level > 0 && _level <= MAX_LEVEL );
+	static unsigned int seed = 0;
+	static unsigned lastCachedTerrainLevel = 0;
+	static Terrain TC;
+
+	if ( _level != lastCachedTerrainLevel )
+	{
+		_ini.clear();
+		T.clear();
+		seed = 0;
+	}
+	else
+	{
+		T = TC;
+	}
 
 	// set level randomness
-	unsigned int seed;
 	if ( _state == DEMO )
 	{
 		seed = _demoData.seed();
@@ -3128,7 +3120,10 @@ void FltWin::create_terrain()
 		if ( _no_random )
 			seed = _level * 10000;	// always the same sequences/objects
 		else
-			seed = time( 0 );	// random sequences/objects
+		{
+			if ( !seed )
+				seed = time( 0 );	// random sequences/objects
+		}
 		if ( _state == LEVEL )
 		{
 			_demoData.clear();
@@ -3143,30 +3138,32 @@ void FltWin::create_terrain()
 	wavPath.level( _level );
 	imgPath.level( _level );
 
-	static unsigned lastCachedTerrainLevel = 0;
-	static Terrain TC;
-	if ( _level != lastCachedTerrainLevel )
+	string levelFile( _levelFile );
+	bool loaded( false );
+	errno = 0;
+	if ( _internal_levels )
 	{
-		_ini.clear();
+		// internal level (always create, to keep random generator in sync)
 		T.clear();
+		create_level();
+		loaded = (int)T.size() > w();
 	}
-	else
+	else if ( T.empty() )
 	{
-		T = TC;
+		loaded = loadLevel( _level, levelFile );	// try to load level from landscape file
 	}
-	if ( T.empty() && ( !_internal_levels || _levelFile.size() )
-	      && loadLevel( _level, _levelFile ) )	// try to load level from landscape file
+	if ( (int)T.size() < w() )
 	{
-		assert( (int)T.size() >= w() );
+		string err( T.empty() && errno ? strerror( errno ) : "File is not a valid level file" );
+		cerr << "Failed to load level file " << levelFile << ": " << err.c_str() << endl;
+		return false;
+	}
+	else if ( !_internal_levels && loaded )
+	{
 		if ( !( T.flags & Terrain::NO_SCROLLIN_ZONE ) )
 			addScrollinZone();
 		if ( !( T.flags & Terrain::NO_SCROLLOUT_ZONE ) )
 			addScrolloutZone();
-	}
-	else if ( T.empty() )
-	{
-		// internal level
-		create_level();
 	}
 #ifndef NO_PREBUILD_LANDSCAPE
 	if ( _level != lastCachedTerrainLevel || !_terrain )
@@ -3185,6 +3182,8 @@ void FltWin::create_terrain()
 
 	// initialise the objects parameters (eventuall read from level file)
 	init_parameter();
+
+	return true;
 }
 
 void FltWin::create_level()
@@ -3236,37 +3235,52 @@ void FltWin::create_level()
 	}
 	T.sky_color = T.ground_color;
 
-	int range = (h() * (sky ? 2 : 3)) / 5;
-	int bott = h() / 5;
-	for ( size_t i = 0; i < 15; i++ )
+	int range = ( h() * ( sky ? 3 : 4 ) ) / 5; // use 3/5 (with sky) or 4/5 ( w/o sky) of height
+	int bott = h() / 5;	// default ground level
+	bool edgy = _level == 7;
+	static const int DEMO_TERRAIN_SIZE( 9 * SCREEN_W );
+	while ( T.size() < DEMO_TERRAIN_SIZE )
 	{
-		int r = i ? range : range / 2;
-		int peak = Random::Rand() % r  + 20;
+		int r = T.empty() ? range / 2 : range;	// don't start with a high ground
+		int peak = Random::Rand() % ( r / 2 )  + r / 2;
 		int j;
 
-		int peak_dist = ( Random::Rand() % ( peak * 2 ) ) + peak / 2 ;
-		for ( j = 0; j < peak_dist; j++ )
+		int peak_dist = ( Random::Rand() % ( peak * 2 ) ) + peak / 4 ;
+		int bott1 = T.size() ? T.back().ground_level() : bott;
+		if ( !edgy )
 		{
-			int dy =  ( (double)j / peak_dist ) * (double)peak;
-			T.push_back( TerrainPoint( dy + bott ) );
+			for ( j = 0; j < peak_dist; j++ )
+			{
+				int dy =  ( (double)j / peak_dist ) * (double)( peak - bott1 );
+				T.push_back( TerrainPoint( dy + bott1 ) );
+			}
+		}
+		else
+			bott1 = peak;
+
+		int flat = Random::Rand() % ( w() / 2 ) + ( edgy * w() / 5 );
+
+		if (!edgy)
+		{
+			if ( Random::Rand() % 3 == 0 )
+				flat = Random::Rand() % 10;
 		}
 
-		int flat = Random::Rand() % ( w() / 2 );
-		if ( Random::Rand() % 3 == 0 )
-			flat = Random::Rand() % 10;
-
 		for ( j = 0; j < flat; j++ )
-			T.push_back( T.back() );
+			T.push_back( edgy ? bott1 : T.back() );
 
-		for ( j = peak_dist; j >= 0; j-- )
+		int bott2 = bott + ( Random::Rand() % bott ) - bott / 2;
+		if ( bott2 > peak - 20 )
+			bott2 = peak - 20;
+
+		if ( !edgy )
 		{
-			int dy =  ( (double)j / peak_dist ) * (double)peak;
-			T.push_back( TerrainPoint( dy + bott ) );
+			for ( j = peak_dist - 1; j >= 0; j-- )
+			{
+				int dy =  ( (double)j / peak_dist ) * (double)( peak - bott2 );
+				T.push_back( TerrainPoint( dy + bott2 ) );
+			}
 		}
-
-		/*int */flat = Random::Rand() % ( w() / 2 );
-		for ( j = 0; j < flat; j++ )
-			T.push_back( T.back() );
 	}
 
 	if ( sky )
@@ -3293,45 +3307,59 @@ void FltWin::create_level()
 
 	// setup object positions
 	int min_dist = 100 - _level * 5;
-	int max_dist = 200 - _level * 5;
+	int max_dist = 200 - _level * 6;
 	if ( min_dist < _rocket.w() )
 		min_dist = _rocket.w();
 	if ( max_dist < _rocket.w() * 3 )
 		max_dist = _rocket.w() * 3;
 
+//	printf( "min_dist: %d\n", min_dist );
+//	printf( "max_dist: %d\n", max_dist );
+
 	int last_x = Random::Rand() % max_dist + min_dist;
 	while ( last_x < (int)T.size() )
 	{
-		if ( h() - T[last_x].ground_level() > ( 100 - (int)_level * 10 ) /*&& Random::Rand() % 2*/ )
+		bool flat( true );
+		int g = T[last_x].ground_level();
+		if ( h() - g > ( 100 - (int)_level * 10 ) )
 		{
-			bool flat( true );
-			for ( int i = -5; i < 5; i++ )
-				if ( T[last_x].ground_level() != T[last_x + i].ground_level() )
+			for ( int x = last_x -_rocket.w() / 2; x < last_x + _rocket.w() / 2; x++ )
+			{
+				if ( T[x].ground_level() > g + 2 || T[x].ground_level() < g - 2 )
+				{
 					flat = false;
+					break;
+				}
+			}
 			switch ( Random::Rand() % _level ) // 0-9
 			{
 				case 0:
 				case 1:
-					if ( flat && Random::Rand() % 3 == 0 )
-						T[last_x].object( O_RADAR );
-					else
+					if ( flat )
+						T[last_x].object( Random::Rand() % 2 ? O_RADAR : O_ROCKET );
+					else if ( flat || !edgy )
 						T[last_x].object( O_ROCKET );
 					break;
 				case 2:
 				case 3:
-					if ( sky && Random::Rand() % 3 ==  0)
+					if ( sky && Random::Rand() % 3 ==  0 )
 						T[last_x].object( O_DROP );
-					else if ( flat && Random::Rand() % 2 == 0 )
+					else if ( flat && Random::Rand() % 3 == 0 )
 						T[last_x].object( O_RADAR );
-					else
+					else if ( flat || !edgy )
 						T[last_x].object( O_ROCKET );
 					break;
 				case 4:
 				case 5:
 				case 6:
 					if ( sky )
-						T[last_x].object( Random::Rand() % 2 ? O_DROP : O_ROCKET );
-					else
+					{
+						if ( Random::Rand() % 2 )
+							T[last_x].object( O_DROP );
+						else if ( flat || !edgy )
+							T[last_x].object( O_ROCKET );
+					}
+					else if ( flat || !edgy )
 						T[last_x].object( Random::Rand() % 3 ? O_BADY : O_ROCKET );
 					break;
 				case 7:
@@ -3349,7 +3377,15 @@ void FltWin::create_level()
 					break;
 			}
 		}
-		last_x += Random::Rand() % max_dist + min_dist;
+		if ( !T[last_x].object() )
+		{
+			//  object not set (not flat), try a little more right
+			last_x += 10;
+		}
+		else
+		{
+			last_x += Random::Rand() % max_dist + min_dist;
+		}
 	}
 	addScrollinZone();
 	addScrolloutZone();
@@ -3768,6 +3804,69 @@ void FltWin::draw_title()
 	}
 }
 
+void FltWin::draw_landscape( int xoff_, int W_ )
+//-------------------------------------------------------------------------------
+{
+	// draw landscape
+#if 0
+	for ( int i = 0; i < W_; i++ )
+	{
+		fl_color( T.sky_color );
+		fl_yxline( i, -1, T[xoff_ + i].sky_level() );
+		fl_color( T.ground_color );
+		fl_yxline( i, h() - T[xoff_ + i].ground_level(), h() );
+	}
+#else
+	int x = 0;
+	fl_color( T.sky_color );
+	while ( x < W_ )
+	{
+		int xo = x;
+		int s = T[xoff_ + x].sky_level();
+		while ( x < W_ && T[xoff_ + x + 1].sky_level() == s )
+			x++;
+		fl_rectf( xo, 0, x - xo + 1, s );
+		x++;
+	}
+
+	/*int*/ x = 0;
+	fl_color( T.ground_color );
+	while ( x < W_ )
+	{
+		int xo = x;
+		int g = T[xoff_ + x].ground_level();
+		while ( x < W_ && T[xoff_ + x + 1].ground_level() == g )
+			x++;
+		fl_rectf( xo, h() - g, x - xo + 1, g );
+		x++;
+	}
+#endif
+	// draw outline
+	// NOTE: WIN32 must set line style AFTER setting drawing color
+	if ( T.ls_outline_width )
+	{
+		fl_color( T.outline_color_sky );
+		fl_line_style( FL_SOLID, T.ls_outline_width );
+		for ( int i = 1; i < W_ - 1; i++ )
+		{
+			if ( T[xoff_ + i].sky_level() >= 0 )
+			{
+				fl_line( i - 1, T[xoff_ + i - 1].sky_level(),
+				         i + 1, T[xoff_ + i + 1].sky_level() );
+			}
+		}
+
+		fl_color( T.outline_color_ground );
+		fl_line_style( FL_SOLID, T.ls_outline_width );
+		for ( int i = 1; i < W_ - 1; i++ )
+		{
+			fl_line( i - 1, h() - T[xoff_ + i - 1].ground_level(),
+			         i + 1, h() - T[xoff_ + i + 1].ground_level() );
+		}
+		fl_line_style( 0 );
+	}
+}
+
 void FltWin::draw()
 //-------------------------------------------------------------------------------
 {
@@ -3806,41 +3905,7 @@ void FltWin::draw()
 		fl_rectf( 0, 0, w(), h(), T.bg_color );
 
 		// draw landscape
-		for ( int i = 0; i < w(); i++ )
-		{
-			fl_color( T.sky_color );
-			fl_yxline( i, -1, T[_xoff + i].sky_level() );
-			fl_color( T.ground_color );
-			fl_yxline( i, h() - T[_xoff + i].ground_level(), h() );
-		}
-
-		// draw outline
-		// NOTE: WIN32 must set line style AFTER setting drawing color
-		if ( T.ls_outline_width )
-		{
-			int O( _xoff == 0 );
-			int W( _xoff + w() < (int)T.size() ? w() : w() - 1 );
-
-			fl_color( T.outline_color_sky );
-			fl_line_style( FL_SOLID, T.ls_outline_width );
-			for ( int i = O; i < W; i++ )
-			{
-				if ( T[_xoff + i].sky_level() >= 0 )
-				{
-					fl_line( i - 1, T[_xoff + i - 1].sky_level(),
-					         i + 1, T[_xoff + i + 1].sky_level() );
-				}
-			}
-
-			fl_color( T.outline_color_ground );
-			fl_line_style( FL_SOLID, T.ls_outline_width );
-			for ( int i = O; i < W; i++ )
-			{
-				fl_line( i - 1, h() - T[_xoff + i - 1].ground_level(),
-				         i + 1, h() - T[_xoff + i + 1].ground_level() );
-			}
-			fl_line_style( 0 );
-		}
+		draw_landscape( _xoff, w() );
 	}
 
 	draw_objects( true );	// objects for collision check
@@ -4985,10 +5050,17 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 
 	create_spaceship();	// after loadDemoData()!
 
-	create_terrain();
+	if ( !create_terrain() )
+	{
+		hide();
+		return;
+	}
 
 	if ( _demoData.size() && _demoData.size() < T.size() - w() )
+	{
+		// clear incomplete demo data
 		_demoData.clear();
+	}
 
 	if ( _state == DEMO && !_demoData.size() )
 	{
@@ -5540,10 +5612,16 @@ private:
 	AnimText *_text;
 };
 
+#ifdef WIN32
+#include "win32_console.H"
+#endif
 //-------------------------------------------------------------------------------
 int main( int argc_, const char *argv_[] )
 //-------------------------------------------------------------------------------
 {
+#ifdef WIN32
+	Console console;	// output goes to command window (if started from there)
+#endif
 	fl_register_images();
 	Fl::set_font( FL_HELVETICA, " Verdana" );
 	Fl::set_font( FL_HELVETICA_BOLD_ITALIC, "PVerdana" );
