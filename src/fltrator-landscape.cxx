@@ -73,42 +73,100 @@ In PLACE mode select object type to place with\n \
 When closing the window all changes will be saved.\n \
 Press ESC if you want to exit *without* saving.";
 
-static string homeDir()
+static const string& homeDir()
 //-------------------------------------------------------------------------------
 {
-	char home_path[ FL_PATH_MAX ];
+	static string home;
+	if ( home.empty() )
+	{
+		char home_path[ FL_PATH_MAX ];
+		if ( access( "wav", R_OK ) == 0  &&
+		     access( "levels", R_OK ) == 0 &&
+		     access( "images", R_OK ) == 0 )
+		{
+			home = "./";
+		}
+		else
+		{
 #ifdef WIN32
-	fl_filename_expand( home_path, "$APPDATA/" );
+			fl_filename_expand( home_path, "$APPDATA/" );
 #else
-	fl_filename_expand( home_path, "$HOME/." );
+			fl_filename_expand( home_path, "$HOME/." );
 #endif
-	return (string)home_path + "fltrator/";
+			home = home_path;
+			home += "fltrator/";
+		}
+	}
+	return home;
 }
 
-static string mkPath( const string& dir_, const string& file_ )
+static string asString( int n_ )
+//-------------------------------------------------------------------------------
+{
+	ostringstream os;
+	os << n_;
+	return os.str();
+}
+
+static string mkPath( const string& dir_, const string sub_ = "",
+	const string& file_ = "" )
 //-------------------------------------------------------------------------------
 {
 	string dir( dir_ );
 	if ( dir.size() && dir[ dir.size() - 1 ] != '/' )
 		dir.push_back( '/' );
-	if ( access( file_.c_str(), R_OK ) == 0 )
-		return file_;
-	string localPath( dir + file_ );
-	if ( access( localPath.c_str(), R_OK ) == 0 )
-		return localPath;
-	return homeDir() + dir + file_;
+	string sub( sub_ );
+	if ( sub.size() && sub[ sub.size() - 1 ] != '/' )
+		sub.push_back( '/' );
+	return homeDir() + dir + sub + file_;
 }
+
+//-------------------------------------------------------------------------------
+class LevelPath
+//-------------------------------------------------------------------------------
+{
+public:
+	LevelPath( const string& baseDir_ ) :
+		_baseDir( baseDir_ ), _level( 0 ) {}
+	string get( const string& file_ ) const
+	{
+		if ( file_.find( '/' ) != string::npos )	// do not change paths
+			return file_;
+		if ( _level )
+		{
+			string p = mkPath( _baseDir, asString( _level ), file_ + _ext );
+			if ( access( p.c_str(), R_OK ) == 0 )
+				return p;
+		}
+		return mkPath( _baseDir, "", file_ + _ext );
+	}
+	void level( size_t level_ ) { _level = level_; }
+	void ext( const string ext_ )
+	{
+		_ext = ext_;
+		if ( _ext.size() )
+			_ext.insert( 0, "." );
+	}
+private:
+	string _baseDir;
+	size_t _level;
+	string _ext;
+};
 
 static string levelPath( const string& file_ )
 //-------------------------------------------------------------------------------
 {
-	return mkPath( "levels", file_ );
+	return mkPath( "levels", "", file_ );
 }
 
-static string imgPath( const string& file_ )
-//-------------------------------------------------------------------------------
+static LevelPath imgPath( "images" );
+
+static string mkLevelName( int level_ )
+//--------------------------------------------------------------------------
 {
-	return mkPath( "images", file_ );
+	ostringstream os;
+	os << "L_" << level_ << ".txt";
+	return os.str();
 }
 
 //--------------------------------------------------------------------------
@@ -123,12 +181,19 @@ public:
 		_w( 0 ),
 		_h( 0 )
 	{
+		image( image_ );
+	}
+	void image( const char *image_ )
+	{
 		if ( image_ )
 		{
-			_image = new Fl_GIF_Image( imgPath( image_ ).c_str() );
+			if ( _image )
+				delete _image;
+			_image = new Fl_GIF_Image( imgPath.get( image_ ).c_str() );
 			assert( _image && _image->d() );
 			_w = _image->w();
 			_h = _image->h();
+			_imageName = image_;
 			const char *p = strstr( image_, "_" );
 			if ( p && isdigit( p[1] ) )
 			{
@@ -142,6 +207,7 @@ public:
 		}
 	}
 	const char *name() const { return _name.c_str(); }
+	const char *imageName() const { return _imageName.c_str(); }
 	const int id() const { return _id; }
 	Fl_Image *image() const { return _image; }
 	void w( int w_ ) { _w = w_; }
@@ -152,6 +218,7 @@ private:
 	int _id;
 	Fl_Image *_image;
 	string _name;
+	string _imageName;
 	int _w;
 	int _h;
 };
@@ -470,6 +537,7 @@ public:
 	int handle( int e_ );
 	void gotoXPos( size_t xpos_ );
 	void placeObject( int obj_, int x_, int y_ );
+	void reloadImages();
 	void redraw();
 	void save();
 	int searchObject( int obj_, int x_, int y_ );
@@ -481,7 +549,7 @@ public:
 	void setTitle();
 	void xoff( int xoff_ ) { _xoff = xoff_; }
 	int xoff() const { return _xoff; }
-	void onLoad();
+	void onLoad( int level_ = 0 );
 	void onSave() { save(); }
 	void onQuit() { _dont_save = true; hide(); }
 	void onSaveAs();
@@ -490,7 +558,8 @@ public:
 	bool dont_save() const { return _dont_save; }
 	void update_zoom( int x_, int y_ );
 private:
-	static void load_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onLoad(); }
+	static void load_cb( Fl_Widget *o_, void *d_ )
+		{ ((LSEditor *)d_)->onLoad( atoi( ((Fl_Menu_Bar *)o_)->mvalue()->label() ) ); }
 	static void save_as_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onSaveAs(); }
 	static void save_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onSave();}
 	static void quit_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onQuit();}
@@ -783,9 +852,8 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	}
 	if ( level )
 	{
-		ostringstream os;
-		os << "L_" << level << ".txt";
-		_name = levelPath( os.str() );
+		imgPath.level( level );
+		_name = levelPath( mkLevelName( level ) );
 	}
 	else
 	{
@@ -836,6 +904,18 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	{
 		{ "File", 0, 0, 0, FL_SUBMENU },
 			{ "Load level..", 0, load_cb, this, 0 },
+			{ "Load #level..", 0, load_cb, this, FL_SUBMENU },
+				{"1", 0, load_cb, this },
+				{"2", 0, load_cb, this },
+				{"3", 0, load_cb, this },
+				{"4", 0, load_cb, this },
+				{"5", 0, load_cb, this },
+				{"6", 0, load_cb, this },
+				{"7", 0, load_cb, this },
+				{"8", 0, load_cb, this },
+				{"9", 0, load_cb, this },
+				{"10", 0, load_cb, this },
+				{0},
 			{ "Save level as..", 0, save_as_cb, this, 0 },
 			{ "Save", 0, save_cb, this, FL_MENU_DIVIDER },
 			{ "Exit without saving", 0, quit_cb, this, 0 },
@@ -1299,14 +1379,24 @@ void LSEditor::gotoXPos( size_t xpos_ )
 	redraw();
 }
 
-void LSEditor::onLoad()
+void LSEditor::onLoad( int level_/*= 0*/ )
 //--------------------------------------------------------------------------
 {
-	char * name = fl_file_chooser( "Load a level file", "L_*.txt", "", 0 );
-	if ( !name )
+	string name;
+	if ( level_ )
+	{
+		name = levelPath( mkLevelName( level_ ) );
+	}
+	if ( name.empty() )
+	{
+		const char *fname = fl_file_chooser( "Load a level file", "L_*.txt", "", 0 );
+		if ( fname )
+			name = fname;
+	}
+	if ( name.empty() )
 		return;
 	bool loaded( false );
-	LS *ls = new LS( 0, name, &loaded );
+	LS *ls = new LS( 0, name.c_str(), &loaded );
 	if ( ls && loaded )
 	{
 		delete _ls;
@@ -1316,6 +1406,11 @@ void LSEditor::onLoad()
 		_preview = new PreviewWindow( SCREEN_H, _ls );
 		_slider->reset( w(), _ls->size() );
 		_name = name;
+		if ( level_ )
+		{
+			imgPath.level( level_ );
+			reloadImages();
+		}
 		_changed = false;
 		setTitle();
 	}
@@ -1362,6 +1457,19 @@ void LSEditor::placeObject( int obj_, int x_, int y_ )
 	}
 	_changed = true;
 	redraw();
+}
+
+void LSEditor::reloadImages()
+//--------------------------------------------------------------------------
+{
+	for ( size_t i = 0; i < objects.size();  i++ )
+		objects[i].image( objects[i].imageName() );
+	_rocket = (Fl_Image *)objects.find( O_ROCKET )->image();
+	_drop = (Fl_Image *)objects.find( O_DROP )->image();
+	_bady = (Fl_Image *)objects.find( O_BADY )->image();
+	_cumulus = (Fl_Image *)objects.find( O_CUMULUS )->image();
+	_radar = (Fl_Image *)objects.find( O_RADAR )->image();
+	_phaser = (Fl_Image *)objects.find( O_PHASER )->image();
 }
 
 void LSEditor::redraw()
