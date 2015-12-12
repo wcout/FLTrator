@@ -27,6 +27,11 @@ ifdef HAVE_XRANDR
 LDLIBS+=-lXrandr
 endif
 
+export INSTALL_PATH_CHECK=$(shell echo $$PATH | grep '$(INSTALL_PATH)')
+ifeq "$(INSTALL_PATH_CHECK)" ""
+WARNING="\n\n**** Make sure '$(INSTALL_PATH)' is included in your path! ****\n\n"
+endif
+
 FLTKCXXFLAGS = `$(FLTK_CONFIG) --cxxflags`
 CXXDEFS+=-DUSE_FLTK_RUN=$(USE_FLTK_RUN)
 CXXDEFS+=-DHAVE_SLOW_CPU=$(HAVE_SLOW_CPU)
@@ -116,6 +121,7 @@ install: all
 	done
 	$(CP) -a $(ROOT)/ATTRIBUTION $(RSC_PATH)/.
 	$(CP) -a $(ROOT)/levels/L_*.txt $(RSC_PATH)/levels/.
+	@echo $(WARNING)
 
 uninstall:
 	@echo uninstalling..
