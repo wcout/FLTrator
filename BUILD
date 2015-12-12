@@ -98,6 +98,10 @@ If that succeeds go to the fltrator directory and
     make install (optional)
 
 
+*NOTE*: `make install` copies to `~/bin`. Make sure that you have included this
+      path in your search path.
+
+
 Running fullscreen
 ------------------
 
