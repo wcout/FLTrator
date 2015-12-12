@@ -1382,6 +1382,16 @@ void LSEditor::gotoXPos( size_t xpos_ )
 void LSEditor::onLoad( int level_/*= 0*/ )
 //--------------------------------------------------------------------------
 {
+	if ( changed() )
+	{
+		if ( !Fl::event_ctrl() )
+		{
+			fl_alert( "There are unsaved changes!\n\n"
+			          "Either save them before\n"
+			          "or try again with Ctrl-key held down." );
+			return;
+		}
+	}
 	string name;
 	if ( level_ )
 	{
