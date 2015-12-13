@@ -174,27 +174,29 @@ class Object
 //--------------------------------------------------------------------------
 {
 public:
-	Object( int id_, const char *image_, const char *name_ = 0 ) :
+	Object( int id_, const string& imageName_, const string& name_ = "" ) :
 		_id( id_ ),
 		_image( 0 ),
-		_name( name_ ? name_ : "" ),
+		_name( name_ ),
 		_w( 0 ),
 		_h( 0 )
 	{
-		image( image_ );
+		image( imageName_ );
 	}
-	void image( const char *image_ )
+	void image( const string& imageName_ )
 	{
-		if ( image_ )
+		if ( _image )
+			delete _image;
+		_image = 0;
+		_imageName = imageName_;
+		if ( imageName_.size() )
 		{
-			if ( _image )
-				delete _image;
-			_image = new Fl_GIF_Image( imgPath.get( image_ ).c_str() );
-			assert( _image && _image->d() );
+			_image = new Fl_GIF_Image( imgPath.get( imageName_ ).c_str() );
+			if ( _image->w() == 0 && _image->h() == 0 )
+				cerr << "Invalid image '" << imageName_ << "'" << endl;
 			_w = _image->w();
 			_h = _image->h();
-			_imageName = image_;
-			const char *p = strstr( image_, "_" );
+			const char *p = strstr( imageName_.c_str(), "_" );
 			if ( p && isdigit( p[1] ) )
 			{
 				p++;
@@ -206,8 +208,8 @@ public:
 			}
 		}
 	}
-	const char *name() const { return _name.c_str(); }
-	const char *imageName() const { return _imageName.c_str(); }
+	string name() const { return _name; }
+	string imageName() const { return _imageName; }
 	const int id() const { return _id; }
 	Fl_Image *image() const { return _image; }
 	void w( int w_ ) { _w = w_; }
@@ -305,7 +307,7 @@ public:
 			ifstream f( f_ );
 			if ( f.is_open() )
 			{
-				printf( "reading from %s\n", f_ );
+				cout << "reading from " << f_ << endl;
 				if ( loaded_ ) *loaded_ = true;
 				unsigned long version;
 				f >> version;
@@ -685,44 +687,44 @@ void PreviewWindow::draw()
 	for ( int i = 0; i < (int)_ls->size(); i++ )
 	{
 		int S = _ls->sky( i );
-		fl_line( (int)((double)i / Scale), -1, (int)((double)i / Scale), (int((double)S / Scale)) - 1 );	// TODO: -1 ??
+		fl_line( (int)((double)i / Scale), -1,
+		         (int)((double)i / Scale), (int((double)S / Scale)) - 1 );	// TODO: -1 ??
 	}
 
 	fl_color( _ls->ground_color() );
 	for ( int i = 0; i < (int)_ls->size(); i++ )
 	{
 		int G = _ls->ground( i );
-		fl_line( (int)((double)i / Scale), h() - int((double)G / Scale), (int)((double)i / Scale), h() );
+		fl_line( (int)((double)i / Scale), h() - int((double)G / Scale),
+		         (int)((double)i / Scale), h() );
 	}
 
 	// draw outline
 	if ( _ls->outline_width() )
 	{
-#ifndef WIN32
+		fl_color( _ls->outline_color_sky() );
 		fl_line_style( FL_SOLID, 1 );
-#endif
 		for ( int i = 1; i < (int)_ls->size() - 1; i++ )
 		{
 			int S0 = _ls->sky( i - 1 );
 			int S1 = _ls->sky( i + 1 );
+			fl_line( (int)( (double)(i - 1) / Scale ),
+			         (int)( (double)S0 / Scale ),
+			         (int)( (double)(i + 1) / Scale ),
+			         (int)( (double)S1 / Scale ) );
+		}
+		fl_color( _ls->outline_color_ground() );
+#ifdef WIN32
+		fl_line_style( FL_SOLID, 1 );
+#endif
+		for ( int i = 1; i < (int)_ls->size() - 1; i++ )
+		{
 			int G0 = _ls->ground( i - 1 );
 			int G1 = _ls->ground( i + 1 );
-			fl_color( _ls->outline_color_sky() );
-#ifdef WIN32
-			fl_line_style( FL_SOLID, 1 );
-#endif
-			fl_line( (int)((double)(i - 1) / Scale),
-			         (int((double)S0 / Scale)),
-			         (int)((double)(i + 1) / Scale),
-			         (int((double)S1 / Scale)) );
-			fl_color( _ls->outline_color_ground() );
-#ifdef WIN32
-			fl_line_style( FL_SOLID, 1 );
-#endif
-			fl_line( (int)((double)(i - 1) / Scale),
-			         h() - (int((double)G0 / Scale)),
-			         (int)((double)(i + 1) / Scale),
-			         h() - (int((double)G1 / Scale)) );
+			fl_line( (int)( (double)(i - 1) / Scale ),
+			         h() - (int)( (double)G0 / Scale ),
+			         (int)( (double)(i + 1) / Scale ),
+			         h() - (int)( (double)G1 / Scale ) );
 		}
 		fl_line_style( 0 );
 	}
@@ -795,14 +797,14 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		string arg( argv_[argi++] );
 		if ( "--help" == arg )
 		{
-			printf( "Usage:\n" );
-			printf( "  %s [level] [levelfile] [options]\n\n", argv_[0] );
-			printf( "              Defaults are _ls.txt -s 15\n\n" );
-			printf( "Options:\n" );
-			printf( "  -p          start in object place mode\n" );
-			printf( "  -s screens  number of screens\n\n" );
-			printf( "Note: Specifying screens with an existing file\n" );
-			printf( "will expand/shrink the file to the given value!\n" );
+			cout << "Usage:" << endl;
+			cout << "  " << argv_[0] << " [level] [levelfile] [options]" << endl << endl;
+			cout << "              Defaults are _ls.txt -s 15" << endl << endl;
+			cout << "Options:" << endl;
+			cout << "  -p          start in object place mode" << endl;
+			cout << "  -s screens  number of screens" << endl << endl;
+			cout << "Note: Specifying screens with an existing file" << endl;
+			cout << "will expand/shrink the file to the given value!" << endl;
 			exit( 0 );
 		}
 
@@ -828,13 +830,14 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 							screens = atoi( s.c_str() );
 							if ( screens < 2 || screens > MAX_SCREENS )
 							{
-								fprintf( stderr, "Invalid screens parameter: %d [2-%d allowed]\n", screens, MAX_SCREENS );
+								cerr << "Invalid screens parameter: " << screens <<
+								   " [2-" << MAX_SCREENS << " allowed]" << endl;
 								exit( -1 );
 							}
 						}
 						break;
 					default:
-						fprintf( stderr, "Invalid option -%c\n", arg[i] );
+						cerr << "Invalid option -" << arg[i] << endl;
 						exit( -1 );
 				}
 			}
@@ -842,12 +845,12 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		else
 		{
 			levelFile = arg;
-			printf( "level file: '%s'\n", levelFile.c_str() );
+			cout << "level file: '" << levelFile.c_str() << "'" << endl;
 		}
 	}
 	if ( level && levelFile.size() )
 	{
-		printf( "Supply either a level number or a level file!\n" );
+		cerr << "Supply either a level number or a level file!" << endl;
 		exit( -1 );
 	}
 	if ( level )
@@ -869,7 +872,7 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 
 	if ( _mode == PLACE_OBJECTS && !loaded )
 	{
-		fprintf( stderr, "Can't load '%s'\n", name.c_str() );
+		cerr <<  "Can't load '" << name.c_str() << "'" << endl;
 		exit( -1 );
 	}
 
@@ -879,7 +882,7 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	objects.push_back( Object( O_CUMULUS, "cumulus.gif", "Good Cloud" ) );
 	objects.push_back( Object( O_RADAR, "radar_00014_0200.gif", "Radar" ) );
 	objects.push_back( Object( O_PHASER, "phaser.gif", "Phaser" ) );
-	objects.push_back( Object( O_COLOR_CHANGE, 0, "Color Change Marker" ) );
+	objects.push_back( Object( O_COLOR_CHANGE, string(), "Color Change Marker" ) );
 	objects.back().w( 3 );
 	objects.back().h( h() );
 	_rocket = (Fl_Image *)objects.find( O_ROCKET )->image();
@@ -893,7 +896,7 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	{
 		if ( !_rocket || !_drop || !_bady || !_cumulus || !_radar || !_phaser )
 		{
-			fprintf( stderr, "Can't load all object images!\n" );
+			cerr << "Can't load all object images!" << endl;
 			exit( -1 );
 		}
 	}
@@ -978,26 +981,19 @@ void LSEditor::draw()
 	// draw outline
 	if ( _ls->outline_width() )
 	{
-#ifndef WIN32
+		fl_color( _ls->outline_color_sky() );
+		fl_line_style( FL_SOLID, _ls->outline_width() );
+		for ( int i = ( _xoff ? _xoff : 1 ); i < _xoff + w() - 1; i++ )
+			fl_line( i - _xoff - 1, _ls->sky( i - 1 ),
+		            i - _xoff + 1, _ls->sky( i + 1 ) );
+
+		fl_color( _ls->outline_color_ground() );
+#ifdef WIN32
 		fl_line_style( FL_SOLID, _ls->outline_width() );
 #endif
 		for ( int i = ( _xoff ? _xoff : 1 ); i < _xoff + w() - 1; i++ )
-		{
-			int S0 = _ls->sky( i - 1 );
-			int G0 = H - _ls->ground( i  - 1 );
-			int S1 = _ls->sky( i + 1 );
-			int G1 = H - _ls->ground( i  + 1 );
-			fl_color( _ls->outline_color_sky() );
-#ifdef WIN32
-			fl_line_style( FL_SOLID, _ls->outline_width() );
-#endif
-			fl_line( i - _xoff - 1, S0, i - _xoff + 1, S1 );
-			fl_color( _ls->outline_color_ground() );
-#ifdef WIN32
-			fl_line_style( FL_SOLID, _ls->outline_width() );
-#endif
-			fl_line( i - _xoff - 1, G0, i - _xoff + 1, G1 );
-		}
+			fl_line( i - _xoff - 1, H - _ls->ground( i  - 1 ),
+		            i - _xoff + 1, H - _ls->ground( i  + 1 ) );
 		fl_line_style( 0 );
 	}
 
@@ -1473,7 +1469,7 @@ void LSEditor::reloadImages()
 //--------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < objects.size();  i++ )
-		objects[i].image( objects[i].imageName() );
+		objects[i].image( objects[i].imageName().c_str() );
 	_rocket = (Fl_Image *)objects.find( O_ROCKET )->image();
 	_drop = (Fl_Image *)objects.find( O_DROP )->image();
 	_bady = (Fl_Image *)objects.find( O_BADY )->image();
@@ -1500,7 +1496,7 @@ void LSEditor::save()
 	string name( _name );
 	if ( name.empty() )
 		name = "_ls.txt";
-	printf(" saving to %s\n", name.c_str());
+	cout << " saving to %s"<< name.c_str() << endl;
 	ofstream f( name.c_str() );
 	f << 1 << endl;	// version
 	f << _ls->flags() << endl;	// preserved flags (only hand-editable currently)
@@ -1713,14 +1709,20 @@ void LSEditor::setTitle()
 	copy_label( t.c_str() );
 }
 
+#ifdef WIN32
+#include "win32_console.H"
+#endif
 int main( int argc_, const char *argv_[] )
 //--------------------------------------------------------------------------
 {
+#ifdef WIN32
+	Console console;	// output goes to command window (if started from there)
+#endif
 	LSEditor editor( argc_, argv_ );
-	printf("ready!\n");
+	cout << "ready!" << endl;
 	Fl::run();
 	if ( editor.dont_save() || Fl::event_key() == FL_Escape )
-		printf( "not saved.\n" );
+		cout << "not saved." << endl;
 	else
 		editor.save();
 }
