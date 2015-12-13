@@ -51,14 +51,14 @@ Console::Console( int attach_/* = true*/, bool attach_stdout_/* = false*/ ) :
 
 	// redirect std::cerr to our console window
 	_old_cerr = std::cerr.rdbuf();
-	_err.open( "CONERR$" );
+	_err.open( "CONOUT$" );
 	std::cerr.rdbuf( _err.rdbuf() );
 
 	if ( attach_stdout_ )
 	{
 		// make stdout/stderr also use console window (how to reset?)
 		_stdout = freopen( "CONOUT$", "w", stdout );
-		_stderr = freopen( "CONERR$", "w", stderr );
+		_stderr = freopen( "CONOUT$", "w", stderr );
 	}
 }
 
