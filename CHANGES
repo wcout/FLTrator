@@ -1,7 +1,9 @@
-- Fullscreen WIN32
-- Linux: Integrate fullscreen switching code into main program
+- Fullscreen Linux/WIN32(new!)
+	- integrate switching code into main program
+- WIN32: much tuning and testing for more playabilty/speed
 - Background sound (Linux/WIN32)
 	- Play a random file from bgsound folder or a specific one for a level
+   - Interface to use own soundplayer
 - Mouse/touchscreen control for ship
 - Keyset for lefthanded players
 - new 'Phaser' object
