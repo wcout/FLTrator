@@ -3238,7 +3238,7 @@ void FltWin::create_level()
 	int range = ( h() * ( sky ? 3 : 4 ) ) / 5; // use 3/5 (with sky) or 4/5 ( w/o sky) of height
 	int bott = h() / 5;	// default ground level
 	bool edgy = _level == 7;
-	static const int DEMO_TERRAIN_SIZE( 9 * SCREEN_W );
+	static const size_t DEMO_TERRAIN_SIZE( 9 * SCREEN_W );
 	while ( T.size() < DEMO_TERRAIN_SIZE )
 	{
 		int r = T.empty() ? range / 2 : range;	// don't start with a high ground
@@ -3857,7 +3857,9 @@ void FltWin::draw_landscape( int xoff_, int W_ )
 		}
 
 		fl_color( T.outline_color_ground );
+#ifdef WIN32
 		fl_line_style( FL_SOLID, T.ls_outline_width );
+#endif
 		for ( int i = 1; i < W_ - 1; i++ )
 		{
 			fl_line( i - 1, h() - T[xoff_ + i - 1].ground_level(),
