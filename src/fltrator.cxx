@@ -4922,7 +4922,9 @@ void FltWin::onActionKey()
 void FltWin::onCollision()
 //-------------------------------------------------------------------------------
 {
-	if ( _cheatMode )
+	if ( _done )
+		_collision = false;
+	else if ( _cheatMode )
 	{
 		if ( _xoff % 20 == 0 )
 			Audio::instance()->play( "boink" );
