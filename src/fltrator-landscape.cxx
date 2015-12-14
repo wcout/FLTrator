@@ -38,7 +38,7 @@
 using namespace std;
 
 static const unsigned MAX_LEVEL = 10;
-static const int MAX_SCREENS = 15;
+static const int MAX_SCREENS = 10;
 static const int SCREEN_W = 800;
 static const int SCREEN_H = 600;
 
@@ -799,7 +799,7 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		{
 			cout << "Usage:" << endl;
 			cout << "  " << argv_[0] << " [level] [levelfile] [options]" << endl << endl;
-			cout << "              Defaults are _ls.txt -s 15" << endl << endl;
+			cout << "              Defaults are _ls.txt -s " << MAX_SCREENS << endl << endl;
 			cout << "Options:" << endl;
 			cout << "  -p          start in object place mode" << endl;
 			cout << "  -s screens  number of screens" << endl << endl;
@@ -1496,7 +1496,7 @@ void LSEditor::save()
 	string name( _name );
 	if ( name.empty() )
 		name = "_ls.txt";
-	cout << " saving to %s"<< name.c_str() << endl;
+	cout << "saving to " << name.c_str() << endl;
 	ofstream f( name.c_str() );
 	f << 1 << endl;	// version
 	f << _ls->flags() << endl;	// preserved flags (only hand-editable currently)
