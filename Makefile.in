@@ -8,6 +8,7 @@ FLTK_CONFIG=$(FLTK_DIR)fltk-config
 
 RSC_PATH=$(HOME)/.$(APPLICATION)
 INSTALL_PATH=$(HOME)/bin
+TARGET_ROOT=$(HOME)
 
 SRC=$(ROOT)/src
 
@@ -66,6 +67,12 @@ TARGET2=$(LANDSCAPE)
 
 TARGET3=$(PLAYSOUND)
 
+export TARGET_PATH=$(TARGET_ROOT)/$(TARGET1)-$(shell ./$(TARGET1) --version)
+
+.PHONY: clean all target
+
+all:: $(TARGET1) $(TARGET2) $(TARGET3)
+
 $(TARGET1): depend $(OBJ1)
 	@echo Linking $@...
 	$(CXX) -o $@  $(OBJ1) $(LDFLAGS) $(LDLIBS) -lrt
@@ -77,10 +84,6 @@ $(TARGET2): depend $(OBJ2)
 $(TARGET3): depend $(OBJ3)
 	@echo Linking $@...
 	$(CXX) -o $@  $(OBJ3) $(LDFLAGS)
-
-.PHONY: clean all
-
-all:: $(TARGET1) $(TARGET2) $(TARGET3)
 
 %.o: $(SRC)/%.cxx
 	@echo Compiling $@...
@@ -95,6 +98,7 @@ install: all
 	mkdir -p $(RSC_PATH)/bgsound
 	$(CP) -f $(ROOT)/$(TARGET1) $(INSTALL_PATH)
 	$(CP) -f $(ROOT)/$(TARGET2) $(INSTALL_PATH)
+	$(CP) -f $(ROOT)/$(TARGET3) $(INSTALL_PATH)
 	find images -name "*.gif" | while read file; do \
 	dest=$(RSC_PATH)/"$$file"; \
 	destd=`dirname "$$dest"`; \
@@ -137,6 +141,47 @@ clean::
 
 distclean:: clean
 	$(RM) -f config.log Makefile
+
+target: all
+	@echo TARGET_ROOT $(TARGET_ROOT)
+	@echo make target $(TARGET_PATH)
+	mkdir -p $(TARGET_PATH)
+	mkdir -p $(TARGET_PATH)/images
+	mkdir -p $(TARGET_PATH)/wav
+	mkdir -p $(TARGET_PATH)/levels
+	mkdir -p $(TARGET_PATH)/bgsound
+	$(CP) -f $(ROOT)/$(TARGET1) $(TARGET_PATH)
+	$(CP) -f $(ROOT)/$(TARGET2) $(TARGET_PATH)
+	$(CP) -f $(ROOT)/$(TARGET3) $(TARGET_PATH)
+	strip $(TARGET_PATH)/$(TARGET1)
+	strip $(TARGET_PATH)/$(TARGET2)
+	strip $(TARGET_PATH)/$(TARGET3)
+	find images -name "*.gif" | while read file; do \
+	dest=$(TARGET_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	find wav -name "*.wav" | while read file; do \
+	dest=$(TARGET_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	find bgsound -name "*.wav" | while read file; do \
+	dest=$(TARGET_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	find demo -name "*.txt" | while read file; do \
+	dest=$(TARGET_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	$(CP) -a $(ROOT)/ATTRIBUTION $(TARGET_PATH)/.
+	$(CP) -a $(ROOT)/levels/L_*.txt $(TARGET_PATH)/levels/.
 
 depend: $(SRC)/*.cxx
 	@echo Make dependencies..

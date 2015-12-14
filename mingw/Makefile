@@ -72,6 +72,10 @@ TARGET2=$(LANDSCAPE).exe
 
 TARGET3=playsound.exe
 
+.PHONY: clean all
+
+all:: $(TARGET1) $(TARGET2) $(TARGET3)
+
 $(TARGET1): depend $(OBJ1) $(APPLICATION).res
 	@echo Linking $@...
 	$(CXX) -o $@ $(LDFLAGS) $(OBJ1) fltrator.res $(LDLIBS)
@@ -83,11 +87,6 @@ $(TARGET2): depend $(OBJ2)
 $(TARGET3): depend $(OBJ3)
 	@echo Linking $@...
 	$(CXX) -o $@ $(LDFLAGS) $(OBJ3) $(LDLIBSCPP) -mwindows
-
-
-.PHONY: clean all
-
-all:: $(TARGET1) $(TARGET2) $(TARGET3)
 
 %.o: $(SRC)/%.cxx
 	@echo Compiling $@...
