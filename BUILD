@@ -74,7 +74,7 @@ This is the default.
 In a terminal change to the fltrator directory and issue:
 
     ./configure
-    make all
+    make
     make install (optional)
 
 
@@ -94,7 +94,7 @@ Configure and compile it, usually you only need:
 If that succeeds go to the fltrator directory and
 
     ./configure --with-fltk-dir=~/fltk-1.3
-    make all
+    make
     make install (optional)
 
 
