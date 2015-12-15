@@ -1965,7 +1965,7 @@ public:
 	FltWin( int argc_ = 0, const char *argv_[] = 0 );
 	int run();
 	bool trainMode() const { return _trainMode; }
-	bool isFullscreen() const { return _fullscreen; }
+	bool isFullscreen() const { return fullscreen_active(); }
 	bool gimmicks() const { return _gimmicks; }
 private:
 	void add_score( unsigned score_ );
@@ -2135,13 +2135,13 @@ private:
 	bool _completed;
 	bool _user_completed;
 	unsigned _done_level;
-	bool _fullscreen;
 	unsigned _level_repeat;
 	bool _cheatMode;
 	bool _trainMode;	// started with level specification
 	bool _mouseMode;
 	bool _gimmicks;
 	bool _no_demo;
+	bool _no_position;
 	string _levelFile;
 	string _input;
 	string _username;
@@ -2185,13 +2185,13 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_completed( false ),
 	_user_completed( false ),
 	_done_level( 0 ),
-	_fullscreen( false ),
 	_level_repeat( 0 ),
 	_cheatMode( false ),
 	_trainMode( false ),
 	_mouseMode( false ),
 	_gimmicks( true ),
 	_no_demo( false ),
+	_no_position( false ),
 	_cfg( 0 ),
 	_speed_right( 0 ),
 	_internal_levels( false ),
@@ -2211,6 +2211,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	string unknown_option;
 	string arg;
 	bool usage( false );
+	bool fullscreen( false );
 	while ( argc-- > 1 )
 	{
 		if ( unknown_option.size() )
@@ -2270,7 +2271,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 						_enable_boss_key = true;
 						break;
 					case 'f':
-						_fullscreen = true;
+						fullscreen = true;
 						break;
 					case 'l':
 						G_leftHanded = true;
@@ -2286,6 +2287,9 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 						break;
 					case 'n':
 						reset_user = true;
+						break;
+					case 'o':
+						_no_position = true;
 						break;
 					case 'p':
 						_focus_out = false;
@@ -2337,6 +2341,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		cout << "  -l\tleft handed play" << endl;
 		cout << "  -n\treset user (only if startet with -U)" << endl;
 		cout << "  -m\tuse mouse for input" << endl;
+		cout << "  -o\tdo not position window" << endl;
 		cout << "  -p\tdisable pause on focus out" << endl;
 		cout << "  -r\tdisable ramdomness" << endl;
 		cout << "  -s\tstart with sound disabled" << endl;
@@ -2349,7 +2354,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		cout << "  -Uusername\tstart as user 'username'" << endl;
 		exit( 0 );
 	}
-	if ( _fullscreen )
+	if ( fullscreen )
 		setScreenResolution( SCREEN_W, SCREEN_H );
 
 	if ( _trainMode )
@@ -2373,7 +2378,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 #endif
 	int X, Y, W, H;
 	Fl::screen_xywh( X, Y, W, H );
-	if ( _fullscreen )
+	if ( fullscreen )
 	{
 		// NOTE: normally window must not be resizable, but for fullscreen()
 		//       to work it seems necessary sometimes. So we set the resizable
@@ -2381,8 +2386,13 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		//       large screen we cannot cope with.
 		if ( W == (int)SCREEN_W && H == (int)SCREEN_H )
 			resizable( this );
+		else
+		{
+			cerr << "Failed to set resolution to " << SCREEN_W << "x"<< SCREEN_H << endl;
+			fullscreen = false;
+		}
 	}
-	else
+	else if ( !_no_position )
 	{
 		// try to center on current screen
 		position( ( W - w() ) / 2, ( H - h() ) / 2 );
@@ -2409,8 +2419,8 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	Fl::visual( FL_DOUBLE | FL_RGB );
 	show();
 
-	if ( _fullscreen )
-		fullscreen();
+	if ( fullscreen )
+		Inherited::fullscreen();
 
 	if ( _hide_cursor )
 	{
@@ -4731,7 +4741,7 @@ void FltWin::toggleFullscreen()
 {
 	static int ox = 0;
 	static int oy = 0;
-	if ( _fullscreen )
+	if ( fullscreen_active() )
 	{
 		fullscreen_off( ox, oy, SCREEN_W, SCREEN_H );
 		size_range( SCREEN_W, SCREEN_H, SCREEN_W, SCREEN_H );	// disable resizing
@@ -4749,8 +4759,10 @@ void FltWin::toggleFullscreen()
 			size_range( SCREEN_W, SCREEN_H );
 		}
 		fullscreen();
+		{
+			cerr << "Failed to set fullscreen!" << endl;
+		}
 	}
-	_fullscreen = !_fullscreen;
 }
 
 void FltWin::toggleSound() const
