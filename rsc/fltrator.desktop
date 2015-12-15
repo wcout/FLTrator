@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=FLTrator
+Comment=Retro scrolling arcade game
+Exec=fltrator
+Icon=fltrator2
+Terminal=false
+Categories=Game;
