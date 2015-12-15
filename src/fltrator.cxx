@@ -2355,7 +2355,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		exit( 0 );
 	}
 	if ( fullscreen )
-		setScreenResolution( SCREEN_W, SCREEN_H );
+		fullscreen = setScreenResolution( SCREEN_W, SCREEN_H );
 
 	if ( _trainMode )
 		_enable_boss_key = true; 	// otherwise no exit!
@@ -2380,6 +2380,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	Fl::screen_xywh( X, Y, W, H );
 	if ( fullscreen )
 	{
+#if 0
 		// NOTE: normally window must not be resizable, but for fullscreen()
 		//       to work it seems necessary sometimes. So we set the resizable
 		//       bit only when resolution matches in order not to end in a
@@ -2391,6 +2392,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 			cerr << "Failed to set resolution to " << SCREEN_W << "x"<< SCREEN_H << endl;
 			fullscreen = false;
 		}
+#endif
 	}
 	else if ( !_no_position )
 	{
@@ -4751,16 +4753,30 @@ void FltWin::toggleFullscreen()
 	{
 		ox = x();
 		oy = y();
-		setScreenResolution( SCREEN_W, SCREEN_H );
-		int X, Y, W, H;
-		Fl::screen_xywh( X, Y, W, H );
-		if ( W == (int)SCREEN_W && H == (int)SCREEN_H )
+		if ( setScreenResolution( SCREEN_W, SCREEN_H ) )
 		{
-			size_range( SCREEN_W, SCREEN_H );
+#if 0
+			int X, Y, W, H;
+			Fl::screen_xywh( X, Y, W, H );
+			if ( W == (int)SCREEN_W && H == (int)SCREEN_H )
+			{
+				size_range( SCREEN_W, SCREEN_H );
+#endif
+				fullscreen();
+#if 0
+				if ( !fullscreen_active() )
+				{
+					cerr << "Failed to set fullscreen!" << endl;
+				}
+			}
+#endif
 		}
-		fullscreen();
+		else
 		{
-			cerr << "Failed to set fullscreen!" << endl;
+			int X, Y, W, H;
+			Fl::screen_xywh( X, Y, W, H );
+			cerr << "Failed to set resolution to " << SCREEN_W << "x"<< SCREEN_H <<
+				" ( is: " << W << "x" << H << ")" << endl;
 		}
 	}
 }

@@ -96,12 +96,14 @@ static bool xrandr_set_screen( int mode_, int W_ = 0 , int H_ = 0 )
 	}
 	if ( mode >= 0 && mode < num_sizes )
 	{
-		success = XRRSetScreenConfigAndRate( dpy, conf, root, mode, RR_Rotate_0,
+		cout << "Set screen mode " << mode << endl;
+		success = !XRRSetScreenConfigAndRate( dpy, conf, root, mode, RR_Rotate_0,
 			possible_frequencies[mode][0], CurrentTime );
 	}
 
 	// EXIT
 	XCloseDisplay( dpy );
+	cout << "success = " << success << endl;
 	return success;
 }
 #endif // HAVE_XRANDR
