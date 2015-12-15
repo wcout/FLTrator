@@ -2354,8 +2354,6 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		cout << "  -Uusername\tstart as user 'username'" << endl;
 		exit( 0 );
 	}
-	if ( fullscreen )
-		fullscreen = setScreenResolution( SCREEN_W, SCREEN_H );
 
 	if ( _trainMode )
 		_enable_boss_key = true; 	// otherwise no exit!
@@ -2378,22 +2376,15 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 #endif
 	int X, Y, W, H;
 	Fl::screen_xywh( X, Y, W, H );
+
+	// NOTE: normally window must not be resizable, but for fullscreen()
+	//       to work it seems necessary sometimes. So we set the resizable
+	//       bit, but at the same limit the screen size, in order not to end in a
+	//       large screen we cannot cope with.
+	resizable( this );
+	size_range( SCREEN_W, SCREEN_H, SCREEN_W, SCREEN_H );	// disable resizing
 	if ( fullscreen )
-	{
-#if 0
-		// NOTE: normally window must not be resizable, but for fullscreen()
-		//       to work it seems necessary sometimes. So we set the resizable
-		//       bit only when resolution matches in order not to end in a
-		//       large screen we cannot cope with.
-		if ( W == (int)SCREEN_W && H == (int)SCREEN_H )
-			resizable( this );
-		else
-		{
-			cerr << "Failed to set resolution to " << SCREEN_W << "x"<< SCREEN_H << endl;
-			fullscreen = false;
-		}
-#endif
-	}
+		toggleFullscreen();
 	else if ( !_no_position )
 	{
 		// try to center on current screen
@@ -4745,8 +4736,8 @@ void FltWin::toggleFullscreen()
 	static int oy = 0;
 	if ( fullscreen_active() )
 	{
-		fullscreen_off( ox, oy, SCREEN_W, SCREEN_H );
 		size_range( SCREEN_W, SCREEN_H, SCREEN_W, SCREEN_H );	// disable resizing
+		fullscreen_off( ox, oy, SCREEN_W, SCREEN_H );
 		restoreScreenResolution();
 	}
 	else
@@ -4755,21 +4746,9 @@ void FltWin::toggleFullscreen()
 		oy = y();
 		if ( setScreenResolution( SCREEN_W, SCREEN_H ) )
 		{
-#if 0
-			int X, Y, W, H;
-			Fl::screen_xywh( X, Y, W, H );
-			if ( W == (int)SCREEN_W && H == (int)SCREEN_H )
-			{
-				size_range( SCREEN_W, SCREEN_H );
-#endif
-				fullscreen();
-#if 0
-				if ( !fullscreen_active() )
-				{
-					cerr << "Failed to set fullscreen!" << endl;
-				}
-			}
-#endif
+			size_range( SCREEN_W, SCREEN_H );
+			fullscreen();
+			_enable_boss_key = true;
 		}
 		else
 		{
@@ -5238,6 +5217,7 @@ void FltWin::onUpdate()
 int FltWin::handle( int e_ )
 //-------------------------------------------------------------------------------
 {
+#define F10_KEY 0xffc7
 	static bool ignore_space = false;
 	static int repeated_right = -1;
 
@@ -5390,7 +5370,7 @@ int FltWin::handle( int e_ )
 	{
 		toggleBgSound();
 	}
-	if ( e_ == FL_KEYUP && 0xffc7/*F10*/ == c )
+	if ( e_ == FL_KEYUP && F10_KEY == c && ( _state != LEVEL || G_paused ) )
 	{
 		toggleFullscreen();
 	}
@@ -5438,7 +5418,8 @@ int FltWin::handle( int e_ )
 	}
 	if ( e_ == FL_KEYDOWN )
 	{
-		setPaused( false );
+		if ( F10_KEY != c )
+			setPaused( false );
 		if ( KEY_LEFT == c )
 			_left = true;
 		else if ( KEY_RIGHT == c )
