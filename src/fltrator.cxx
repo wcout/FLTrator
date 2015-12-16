@@ -14,9 +14,24 @@
 // See the GNU General Public License for more details:
 // http://www.gnu.org/licenses/.
 //
+
+// We like to use Fl_Image::RGB_scaling and Fl_Window::default_icon(Fl_RGB_Image *)
+// which are available from FLTK 1.3.3 on.
+
 #define VERSION "1.7-dev"
 
 #include <FL/Fl.H>
+#include <FL/Enumerations.H>
+
+#define FLTK_HAS_NEW_FUNCTIONS FL_MAJOR_VERSION > 1 || \
+    (FL_MAJOR_VERSION == 1 && \
+    ((FL_MINOR_VERSION == 3 && FL_PATCH_VERSION >= 3) || FL_MINOR_VERSION > 3))
+
+#if !(FLTK_HAS_NEW_FUNCTIONS)
+#define NO_PREBUILD_LANDSCAPE
+#pragma message( "!FLTK_HAS_NEW_FUNCTIONS" )
+#endif
+
 #include <FL/Fl_Double_Window.H>
 #include <FL/Fl_Shared_Image.H>
 #include <FL/Fl_GIF_Image.H>
@@ -44,11 +59,6 @@
 #include <cstring>
 #include <cassert>
 
-// We like to use Fl_Image::RGB_scaling and Fl_Window::default_icon(Fl_RGB_Image *)
-// which are available from FLTK 1.3.3 on.
-#define FLTK_HAS_NEW_FUNCTIONS FL_MAJOR_VERSION > 1 || \
-    (FL_MAJOR_VERSION == 1 && \
-    ((FL_MINOR_VERSION == 3 && FL_PATCH_VERSION >= 3) || FL_MINOR_VERSION > 3))
 
 #ifdef WIN32
 #include <mmsystem.h>
@@ -1143,6 +1153,7 @@ void Object::update()
 }
 
 #if !defined(FLTK_USES_XRENDER) && !defined(WIN32)
+#if FLTK_HAS_NEW_FUNCTIONS
 static void clipImage( int& x_, int& y_, int& w_, int &h_, int& ox_, int& oy_,
                        int W_, int H_ )
 //-------------------------------------------------------------------------------
@@ -1170,6 +1181,7 @@ static void clipImage( int& x_, int& y_, int& w_, int &h_, int& ox_, int& oy_,
 		h_ -= ( ( y_ + h_ ) - H_ );
 	}
 }
+#endif
 #endif
 
 /*virtual*/
@@ -2052,7 +2064,8 @@ private:
 
 	void setUser();
 	void resetUser();
-	void toggleFullscreen();
+	bool toggleFullscreen();
+	bool setFullscreen( bool fullscreen_ );
 	void toggleShip( bool prev_ = false );
 	void toggleUser( bool prev_ = false );
 
@@ -2374,22 +2387,8 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	Fl_RGB_Image icon( (Fl_Pixmap *)_spaceship->image() );
 	Fl_Window::default_icon( &icon );
 #endif
-	int X, Y, W, H;
-	Fl::screen_xywh( X, Y, W, H );
 
-	// NOTE: normally window must not be resizable, but for fullscreen()
-	//       to work it seems necessary sometimes. So we set the resizable
-	//       bit, but at the same limit the screen size, in order not to end in a
-	//       large screen we cannot cope with.
-	resizable( this );
-	size_range( SCREEN_W, SCREEN_H, SCREEN_W, SCREEN_H );	// disable resizing
-	if ( fullscreen )
-		toggleFullscreen();
-	else if ( !_no_position )
-	{
-		// try to center on current screen
-		position( ( W - w() ) / 2, ( H - h() ) / 2 );
-	}
+	setFullscreen( fullscreen );
 
 	string cfgName( "fltrator" );
 	if ( _internal_levels )
@@ -2412,8 +2411,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	Fl::visual( FL_DOUBLE | FL_RGB );
 	show();
 
-	if ( fullscreen )
-		Inherited::fullscreen();
+	setFullscreen( fullscreen );
 
 	if ( _hide_cursor )
 	{
@@ -4729,35 +4727,67 @@ void FltWin::toggleBgSound() const
 	}
 }
 
-void FltWin::toggleFullscreen()
+bool FltWin::setFullscreen( bool fullscreen_ )
 //-------------------------------------------------------------------------------
 {
 	static int ox = 0;
 	static int oy = 0;
-	if ( fullscreen_active() )
+	int X, Y, W, H;
+	bool isFull = fullscreen_active();
+
+	if ( fullscreen_ )
 	{
-		size_range( SCREEN_W, SCREEN_H, SCREEN_W, SCREEN_H );	// disable resizing
-		fullscreen_off( ox, oy, SCREEN_W, SCREEN_H );
-		restoreScreenResolution();
+		// switch to fullscreen
+		if ( !isFull )
+		{
+			ox = x();
+			oy = y();
+			hide();
+			if ( setScreenResolution( SCREEN_W, SCREEN_H ) )
+			{
+				fullscreen();
+				_enable_boss_key = true;
+			}
+			else
+			{
+				Fl::check();	// neccessary for FLTK to register screen res. change!
+				Fl::screen_xywh( X, Y, W, H );
+				cerr << "Failed to set resolution to " << SCREEN_W << "x"<< SCREEN_H <<
+					" ( is: " << W << "x" << H << ")" << endl;
+			}
+			show();
+		}
 	}
 	else
 	{
-		ox = x();
-		oy = y();
-		if ( setScreenResolution( SCREEN_W, SCREEN_H ) )
+		// switch to normal screen
+		if ( isFull )
 		{
-			size_range( SCREEN_W, SCREEN_H );
-			fullscreen();
-			_enable_boss_key = true;
+			hide();
+			restoreScreenResolution();
+			fullscreen_off();
+			show();
 		}
-		else
+		if ( !_no_position )
 		{
-			int X, Y, W, H;
-			Fl::screen_xywh( X, Y, W, H );
-			cerr << "Failed to set resolution to " << SCREEN_W << "x"<< SCREEN_H <<
-				" ( is: " << W << "x" << H << ")" << endl;
+			if ( ox == 0 && oy == 0 )
+			{
+				// try to center on current screen
+				Fl::check();	// neccessary for FLTK to register screen res. change!
+				Fl::screen_xywh( X, Y, W, H );
+				ox = ( W - w() ) / 2;
+				oy = ( H - h() ) / 2;
+			}
+			position( ox, oy );
 		}
 	}
+	return fullscreen_active();
+}
+
+bool FltWin::toggleFullscreen()
+//-------------------------------------------------------------------------------
+{
+	return setFullscreen( !fullscreen_active() );
 }
 
 void FltWin::toggleSound() const
