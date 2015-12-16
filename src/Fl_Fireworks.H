@@ -1,7 +1,7 @@
 //
 // Fl_Fireworks
 //
-// Copyright 2015 Christian Grabner.
+// Copyright 2015-2016 Christian Grabner.
 //
 // This file is part of FLTrator.
 //

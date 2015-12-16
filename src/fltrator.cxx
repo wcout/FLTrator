@@ -1,5 +1,5 @@
 //
-// Copyright 2015 Christian Grabner.
+// Copyright 2015-2016 Christian Grabner.
 //
 // This file is part of FLTrator.
 //
@@ -4745,17 +4745,18 @@ bool FltWin::setFullscreen( bool fullscreen_ )
 			hide();
 			if ( setScreenResolution( SCREEN_W, SCREEN_H ) )
 			{
+				Fl::check();	// X11: neccessary for FLTK to register screen res. change!
 				fullscreen();
 				_enable_boss_key = true;
 			}
 			else
 			{
-				Fl::check();	// neccessary for FLTK to register screen res. change!
 				Fl::screen_xywh( X, Y, W, H );
 				cerr << "Failed to set resolution to " << SCREEN_W << "x"<< SCREEN_H <<
 					" ( is: " << W << "x" << H << ")" << endl;
 			}
 			show();
+			size( SCREEN_W, SCREEN_H );	// WIN32: without window becomes size of screen!
 		}
 	}
 	else
@@ -4765,6 +4766,7 @@ bool FltWin::setFullscreen( bool fullscreen_ )
 		{
 			hide();
 			restoreScreenResolution();
+			Fl::check();	// X11: neccessary for FLTK to register screen res. change!
 			fullscreen_off();
 			show();
 		}
@@ -4773,12 +4775,11 @@ bool FltWin::setFullscreen( bool fullscreen_ )
 			if ( ox == 0 && oy == 0 )
 			{
 				// try to center on current screen
-				Fl::check();	// neccessary for FLTK to register screen res. change!
 				Fl::screen_xywh( X, Y, W, H );
 				ox = ( W - w() ) / 2;
 				oy = ( H - h() ) / 2;
 			}
-			position( ox, oy );
+			resize( ox, oy, SCREEN_W, SCREEN_H );
 		}
 	}
 	return fullscreen_active();
@@ -5602,7 +5603,22 @@ public:
 		_text( 0 )
 	{
 		callback( cb_fireworks );
-		(_text = new AnimText( 0, win_.h(), win_.w(), "CG\n© 2015\n\nproudly presents...",
+		string yearStr;
+		time_t t = time( NULL );
+		struct tm *tmp;
+		tmp = localtime( &t );
+		if ( t )
+		{
+			char buf[20];
+			if ( strftime( buf, sizeof(buf), "%Y", tmp ) )
+				yearStr = buf;
+		}
+		string crYearStr( "2015" );
+		if ( yearStr > crYearStr )
+			crYearStr += ( "-" + yearStr );
+		ostringstream welcome;
+		welcome << "CG\n© " << crYearStr << "\n\nproudly presents...";
+		(_text = new AnimText( 0, win_.h(), win_.w(), welcome.str().c_str(),
 			FL_GRAY, FL_RED, 50, 40, false ))->start();
 		while ( Fl::first_window() && win_.children() )
 #ifndef WIN32

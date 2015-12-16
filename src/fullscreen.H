@@ -28,8 +28,11 @@ BOOL RestoreScreenResolution(VOID)
 	if(bPrevSet)
 	{
 		DBG(( "RestoreScreenResolution" ));
-		bPrevSet = FALSE;
-		return (ChangeDisplaySettingsEx(NULL, &devPrevMode, NULL, 0, NULL) == DISP_CHANGE_SUCCESSFUL);
+		if (ChangeDisplaySettingsEx(NULL, &devPrevMode, NULL, 0, NULL) == DISP_CHANGE_SUCCESSFUL)
+		{
+			bPrevSet = FALSE;
+			return TRUE;
+		}
 	}
 	return FALSE;
 }
@@ -124,7 +127,7 @@ static bool restoreScreenResolution()
 #elif HAVE_XRANDR
 	if ( prevMode != -1 )
 	{
-		bool success =xrandr_set_screen( prevMode );
+		bool success = xrandr_set_screen( prevMode );
 		if ( success )
 			prevMode = -1;
 		return success;
