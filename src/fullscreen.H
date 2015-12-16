@@ -124,8 +124,10 @@ static bool restoreScreenResolution()
 #elif HAVE_XRANDR
 	if ( prevMode != -1 )
 	{
-		return xrandr_set_screen( prevMode );
-		prevMode = -1;
+		bool success =xrandr_set_screen( prevMode );
+		if ( success )
+			prevMode = -1;
+		return success;
 	}
 	return false;
 #else
