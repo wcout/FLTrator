@@ -150,7 +150,7 @@ target: all
 	strip $(TARGET_PATH)/$(TARGET1)
 	strip $(TARGET_PATH)/$(TARGET2)
 	strip $(TARGET_PATH)/$(TARGET3)
-	find images -name "*.gif" | while read file; do \
+	cd ..; find images -name "*.gif" | while read file; do \
 	dest=$(TARGET_PATH)/"$$file"; \
 	destd=`dirname "$$dest"`; \
 	mkdir -p "$$destd"; \
