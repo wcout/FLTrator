@@ -18,7 +18,7 @@
 // We like to use Fl_Image::RGB_scaling and Fl_Window::default_icon(Fl_RGB_Image *)
 // which are available from FLTK 1.3.3 on.
 
-#define VERSION "1.7-dev"
+#define VERSION "2.0"
 
 #ifdef WIN32
 // needed for mingw 4.6 to accept AttachConsole()
