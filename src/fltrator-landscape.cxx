@@ -14,6 +14,12 @@
 // See the GNU General Public License for more details:
 // http://www.gnu.org/licenses/.
 //
+
+#ifdef WIN32
+// needed for mingw 4.6 to accept AttachConsole()
+#define _WIN32_WINNT 0x0501
+#endif
+
 #include <cstdio>
 #include <cstdlib>
 #include <unistd.h>

@@ -49,8 +49,8 @@ OBJ3=\
 INCLUDE=-I$(ROOT)/include -I.
 
 LDFLAGS=
-LDLIBS=`$(FLTK_CONFIG) --use-images --ldstaticflags` -static-libgcc -static-libstdc++ -static -lwinmm
-LDLIBSCPP=-static-libgcc -static-libstdc++ -static -lwinmm
+LDLIBS=`$(FLTK_CONFIG) --use-images --ldstaticflags` -static -lgcc -static -lstdc++ -static -lwinmm
+LDLIBSCPP=-static -lgcc -static -lstdc++ -dynamic -static -lwinmm
 
 FLTKCXXFLAGS = `$(FLTK_CONFIG) --cxxflags`
 CXXDEFS+=-DUSE_FLTK_RUN=$(USE_FLTK_RUN)
