@@ -20,6 +20,11 @@
 
 #define VERSION "1.7-dev"
 
+#ifdef WIN32
+// needed for mingw 4.6 to accept AttachConsole()
+#define _WIN32_WINNT 0x0501
+#endif
+
 #include <FL/Fl.H>
 #include <FL/Enumerations.H>
 

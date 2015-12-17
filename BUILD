@@ -168,7 +168,7 @@ Download FLTK into some directory say: `~/fltk-1.3-mingw/`:
     cd ~/fltk-1.3-mingw
 
     make clean
-    ./configure --host=i686-w64-mingw32 --enable-cygwin=yes --enable-localjpeg=yes --enable-localzlib=yes --enable-localpng=yes
+    ./configure --host=i686-w64-mingw32 --enable-cygwin --enable-localjpeg  --enable-localpng --enable-localzlib
 
 *Note*: Use the mingw host you have installed on your machine in the `--host=...` switch
         (The above was mine under Ubuntu 14.04).
