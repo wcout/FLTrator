@@ -175,6 +175,7 @@ target: all
 	$(CP) -a "$$file" "$$dest"; \
 	done
 	$(CP) -a $(ROOT)/ATTRIBUTION $(TARGET_PATH)/.
+	$(CP) -a $(ROOT)/README.html $(TARGET_PATH)/.
 	$(CP) -a $(ROOT)/levels/L_*.txt $(TARGET_PATH)/levels/.
 	$(CP) -a $(ROOT)/rsc $(TARGET_PATH)
 	$(CP) -a *.ico $(TARGET_PATH)
