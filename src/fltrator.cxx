@@ -46,6 +46,7 @@
 #include <FL/Fl_Preferences.H>
 #include <FL/filename.H>
 #include <FL/fl_draw.H>
+#include <FL/fl_ask.H>
 #include <string>
 #include <vector>
 #include <cstdio>
@@ -239,6 +240,15 @@ static const string& homeDir()
 #endif
 			home = home_path;
 			home += "fltrator/";
+			if ( access( (home + "wav").c_str(), R_OK ) == 0  &&
+			     access( (home + "levels").c_str(), R_OK ) == 0 &&
+			     access( (home + "images").c_str(), R_OK ) == 0 )
+				;
+			else
+			{
+				fl_message( "%s", "Required resources not in place!\nAborting..." );
+				exit( -1 );
+			}
 		}
 	}
 	return home;
