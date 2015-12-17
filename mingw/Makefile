@@ -34,6 +34,7 @@ FLTK_CONFIG=$(FLTK_DIR)fltk-config
 # change path as required...
 INSTALL_PATH=$(HOME)/Downloads/$(APPLICATION)
 RSC_PATH=$(INSTALL_PATH)
+TARGET_ROOT=$(HOME)
 
 SRC=$(ROOT)/src
 
@@ -72,7 +73,10 @@ TARGET2=$(LANDSCAPE).exe
 
 TARGET3=playsound.exe
 
-.PHONY: clean all
+export TARGET_NAME=$(APPLICATION)-win32
+export TARGET_PATH=$(TARGET_ROOT)/$(TARGET_NAME)
+
+.PHONY: clean all target
 
 all:: $(TARGET1) $(TARGET2) $(TARGET3)
 
@@ -131,6 +135,51 @@ install: all
 	$(CP) -a ../ATTRIBUTION $(RSC_PATH)/.
 	$(CP) -a ../README $(RSC_PATH)/.
 	$(CP) -a ../levels/L_*.txt $(RSC_PATH)/levels/.
+
+target: all
+	@echo TARGET_ROOT $(TARGET_ROOT)
+	@echo make target $(TARGET_PATH)
+	mkdir -p $(TARGET_PATH)
+	mkdir -p $(TARGET_PATH)/images
+	mkdir -p $(TARGET_PATH)/wav
+	mkdir -p $(TARGET_PATH)/levels
+	mkdir -p $(TARGET_PATH)/bgsound
+	$(CP) -f $(TARGET1) $(TARGET_PATH)
+	$(CP) -f $(TARGET2) $(TARGET_PATH)
+	$(CP) -f $(TARGET3) $(TARGET_PATH)
+	strip $(TARGET_PATH)/$(TARGET1)
+	strip $(TARGET_PATH)/$(TARGET2)
+	strip $(TARGET_PATH)/$(TARGET3)
+	find images -name "*.gif" | while read file; do \
+	dest=$(TARGET_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	cd ..; find wav -name "*.wav" | while read file; do \
+	dest=$(TARGET_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	cd ..; find bgsound -name "*.wav" | while read file; do \
+	dest=$(TARGET_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	cd ..; find demo -name "*.txt" | while read file; do \
+	dest=$(TARGET_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	$(CP) -a $(ROOT)/ATTRIBUTION $(TARGET_PATH)/.
+	$(CP) -a $(ROOT)/levels/L_*.txt $(TARGET_PATH)/levels/.
+	$(CP) -a $(ROOT)/rsc $(TARGET_PATH)
+	$(CP) -a *.ico $(TARGET_PATH)
+	tar -C $(TARGET_ROOT) -cvzf $(TARGET_PATH).tgz $(TARGET_NAME)
+	cd $(TARGET_ROOT) && sha1sum $(TARGET_NAME).tgz > sha1sum.txt && md5sum $(TARGET_NAME).tgz > md5sum.txt
 
 clean::
 	$(RM) -f $(ALL) *.o *.res core makedepend depend *~
