@@ -12,6 +12,7 @@ usage()
 	echo "   --disable-fltk-run"
 	echo "   --enable-slow-cpu"
 	echo "   --disable-slow-cpu (default)"
+	echo "   --disable-xrandr"
 	echo "   --with-fltk-dir=FLTK_DIR (default empty, means use installed version)"
 }
 
@@ -30,6 +31,7 @@ destwrite()
 USE_FLTK_RUN=1
 HAVE_SLOW_CPU=0
 FLTK_DIR=""
+HAVE_XRANDR=1
 
 rm -f $LOG
 
@@ -53,6 +55,9 @@ while [ "$1" != "" ]; do
 				;;
 		--disable-slow-cpu )
 				HAVE_SLOW_CPU=0
+				;;
+		--disable-xrandr )
+				HAVE_XRANDR=0
 				;;
 		--with-fltk-dir )
 				FLTK_DIR=$VALUE
@@ -103,6 +108,16 @@ log "FLTK 1.3 or above needed"
 exit 1
 fi
 
+if [ $HAVE_XRANDR = "1" ]; then
+if [ ! -e "/usr/include/X11/extensions/Xrandr.h" ]; then
+	HAVE_XRANDR=0
+	log "No fullscreen support (install libxrandr-dev package if required)"
+else
+	log "xrandr will be used for switching to fullscreen."
+fi
+fi
+
+
 destwrite "# $DEST created by $0"
 log "FLTK_DIR=\"$FLTK_DIR\""
 if [ "$FLTK_DIR" != "" ]; then
@@ -112,6 +127,19 @@ destwrite "FLTK_DIR="
 fi
 destwrite "USE_FLTK_RUN=$USE_FLTK_RUN"
 destwrite "HAVE_SLOW_CPU=$HAVE_SLOW_CPU"
+if [ "$HAVE_XRANDR" = "1" ]; then
+destwrite "HAVE_XRANDR=1"
+fi
+
+APLAY_HAVE_PIDFILE=`man aplay | grep "process-id-file"`
+if [ "$APLAY_HAVE_PIDFILE" != "" ]; then
+destwrite "APLAY_HAVE_PIDFILE=1"
+fi
+
+FLTK_USES_XRENDER=`$fltk_config --ldflags | grep "Xrender"`
+if [ "$FLTK_USES_XRENDER" != "" ]; then
+destwrite "FLTK_USES_XRENDER=1"
+fi
 
 cat Makefile.in >>$DEST
 log "$DEST written successfully."

@@ -2,11 +2,13 @@
 export ROOT?=$(PWD)
 APPLICATION=fltrator
 LANDSCAPE=fltrator-landscape
+PLAYSOUND=playsound
 
 FLTK_CONFIG=$(FLTK_DIR)fltk-config
 
 RSC_PATH=$(HOME)/.$(APPLICATION)
 INSTALL_PATH=$(HOME)/bin
+TARGET_ROOT=$(HOME)
 
 SRC=$(ROOT)/src
 
@@ -16,15 +18,38 @@ OBJ1=\
 OBJ2=\
 	$(LANDSCAPE).o
 
+OBJ3=\
+	$(PLAYSOUND).o
+
 INCLUDE=-I$(ROOT)/include -I.
 
-LDFLAGS=
-LDLIBS=`$(FLTK_CONFIG) --use-images --ldstaticflags`
+LDFLAGS=`$(FLTK_CONFIG) --use-images --ldstaticflags`
+ifdef HAVE_XRANDR
+LDLIBS+=-lXrandr
+endif
+
+export INSTALL_PATH_CHECK=$(shell echo $$PATH | grep '$(INSTALL_PATH)')
+ifeq "$(INSTALL_PATH_CHECK)" ""
+WARNING="\n\n**** Make sure '$(INSTALL_PATH)' is included in your path! ****\n\n"
+endif
 
 FLTKCXXFLAGS = `$(FLTK_CONFIG) --cxxflags`
 CXXDEFS+=-DUSE_FLTK_RUN=$(USE_FLTK_RUN)
 CXXDEFS+=-DHAVE_SLOW_CPU=$(HAVE_SLOW_CPU)
-CXXFLAGS+=$(CXXDEFS) -g -Wall --pedantic $(INCLUDE) $(FLTKCXXFLAGS)
+
+ifdef HAVE_XRANDR
+CXXDEFS+=-DHAVE_XRANDR
+endif
+
+ifdef APLAY_HAVE_PIDFILE
+CXXDEFS+=-DAPLAY_HAVE_PIDFILE
+endif
+
+ifdef FLTK_USES_XRENDER
+CXXDEFS+=-DFLTK_USES_XRENDER
+endif
+
+CXXFLAGS+=$(CXXDEFS) -g -Wall -pipe --pedantic $(INCLUDE) $(FLTKCXXFLAGS)
 #OPT=
 OPT=-O3 -DNDEBUG
 
@@ -40,18 +65,26 @@ TARGET1=$(APPLICATION)
 
 TARGET2=$(LANDSCAPE)
 
+TARGET3=$(PLAYSOUND)
+
+export TARGET_NAME=$(TARGET1)-$(shell ./$(TARGET1) --version)
+export TARGET_PATH=$(TARGET_ROOT)/$(TARGET_NAME)
+
+.PHONY: clean all target
+
+all:: $(TARGET1) $(TARGET2) $(TARGET3)
+
 $(TARGET1): depend $(OBJ1)
 	@echo Linking $@...
-	$(CXX) -o $@ $(LDFLAGS) $(OBJ1) $(LDLIBS) -lrt
+	$(CXX) -o $@  $(OBJ1) $(LDFLAGS) $(LDLIBS) -lrt
 
 $(TARGET2): depend $(OBJ2)
 	@echo Linking $@...
-	$(CXX) -o $@ $(LDFLAGS) $(OBJ2) $(LDLIBS)
+	$(CXX) -o $@  $(OBJ2) $(LDFLAGS) $(LDLIBS)
 
-
-.PHONY: clean all
-
-all:: $(TARGET1) $(TARGET2)
+$(TARGET3): depend $(OBJ3)
+	@echo Linking $@...
+	$(CXX) -o $@  $(OBJ3) $(LDFLAGS)
 
 %.o: $(SRC)/%.cxx
 	@echo Compiling $@...
@@ -63,12 +96,37 @@ install: all
 	mkdir -p $(RSC_PATH)/images
 	mkdir -p $(RSC_PATH)/wav
 	mkdir -p $(RSC_PATH)/levels
+	mkdir -p $(RSC_PATH)/bgsound
 	$(CP) -f $(ROOT)/$(TARGET1) $(INSTALL_PATH)
 	$(CP) -f $(ROOT)/$(TARGET2) $(INSTALL_PATH)
-	$(CP) -a $(ROOT)/images/*.gif $(RSC_PATH)/images/.
-	$(CP) -a $(ROOT)/wav/*.wav $(RSC_PATH)/wav/.
+	$(CP) -f $(ROOT)/$(TARGET3) $(INSTALL_PATH)
+	find images -name "*.gif" | while read file; do \
+	dest=$(RSC_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	find wav -name "*.wav" | while read file; do \
+	dest=$(RSC_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	find bgsound -name "*.wav" | while read file; do \
+	dest=$(RSC_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	find demo -name "*.txt" | while read file; do \
+	dest=$(RSC_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
 	$(CP) -a $(ROOT)/ATTRIBUTION $(RSC_PATH)/.
 	$(CP) -a $(ROOT)/levels/L_*.txt $(RSC_PATH)/levels/.
+	@echo $(WARNING)
 
 uninstall:
 	@echo uninstalling..
@@ -77,12 +135,58 @@ uninstall:
 	rm -rf $(RSC_PATH)
 
 clean::
-	$(RM) -f $(ALL) *.o core makedepend depend *~
+	$(RM) -f *.o core makedepend depend *~
 	$(RM) -f $(TARGET1)
 	$(RM) -f $(TARGET2)
+	$(RM) -f $(TARGET3)
 
 distclean:: clean
 	$(RM) -f config.log Makefile
+	find . -name "*.orig" -delete
+
+target: all
+	@echo TARGET_ROOT $(TARGET_ROOT)
+	@echo make target $(TARGET_PATH)
+	mkdir -p $(TARGET_PATH)
+	mkdir -p $(TARGET_PATH)/images
+	mkdir -p $(TARGET_PATH)/wav
+	mkdir -p $(TARGET_PATH)/levels
+	mkdir -p $(TARGET_PATH)/bgsound
+	$(CP) -f $(ROOT)/$(TARGET1) $(TARGET_PATH)
+	$(CP) -f $(ROOT)/$(TARGET2) $(TARGET_PATH)
+	$(CP) -f $(ROOT)/$(TARGET3) $(TARGET_PATH)
+	strip $(TARGET_PATH)/$(TARGET1)
+	strip $(TARGET_PATH)/$(TARGET2)
+	strip $(TARGET_PATH)/$(TARGET3)
+	find images -name "*.gif" | while read file; do \
+	dest=$(TARGET_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	find wav -name "*.wav" | while read file; do \
+	dest=$(TARGET_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	find bgsound -name "*.wav" | while read file; do \
+	dest=$(TARGET_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	find demo -name "*.txt" | while read file; do \
+	dest=$(TARGET_PATH)/"$$file"; \
+	destd=`dirname "$$dest"`; \
+	mkdir -p "$$destd"; \
+	$(CP) -a "$$file" "$$dest"; \
+	done
+	$(CP) -a $(ROOT)/ATTRIBUTION $(TARGET_PATH)/.
+	$(CP) -a $(ROOT)/levels/L_*.txt $(TARGET_PATH)/levels/.
+	$(CP) -a $(ROOT)/rsc $(TARGET_PATH)
+	tar -C $(TARGET_ROOT) -cvzf $(TARGET_PATH).tgz $(TARGET_NAME)
+	cd $(TARGET_ROOT) && sha1sum $(TARGET_NAME).tgz > sha1sum.txt && md5sum $(TARGET_NAME).tgz > md5sum.txt
 
 depend: $(SRC)/*.cxx
 	@echo Make dependencies..

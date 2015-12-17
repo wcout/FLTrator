@@ -1,0 +1,6 @@
+Put your background music files in *.wav format into this folder.
+FLTRator will pick a random file when starting a level.
+
+To use a specific sound for a specific level put the file (or link it)
+to the directory `wav/{level}/` under the name `bgsound.wav`
+e.g. `wav/3/bgsound.wav` for level 3.
