@@ -1,3 +1,28 @@
+- Fullscreen Linux/WIN32(new!)
+	- integrate switching code into main program
+- WIN32: much tuning and testing for more playabilty/speed
+- Background sound (Linux/WIN32)
+	- Play a random file from bgsound folder or a specific one for a level
+   - Interface to use own soundplayer
+- Mouse/touchscreen control for ship
+- Keyset for lefthanded players
+- new 'Phaser' object
+	- that emits a deadly vertical beam at irregular intervals
+- Each level can have different graphics/sounds
+- Once finished each level gets harder next time for the same player
+- Demo mode replays finished levels
+	- (data for first 3 levels "pre-played" included).
+- Cleaned up title menu
+- Added some 'gimmicks'
+   - fireworks display ("just for fun")
+	- menu sound
+	- 'blend in' effect for menu/game screen
+- Improve/fix collision detection
+- Improved end screen
+- Speedup of level rendering
+
+---
+
 Changes in V1.6
 ===============
 
