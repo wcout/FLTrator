@@ -150,7 +150,7 @@ target: all
 	strip $(TARGET_PATH)/$(TARGET1)
 	strip $(TARGET_PATH)/$(TARGET2)
 	strip $(TARGET_PATH)/$(TARGET3)
-	find images -name "*.gif" | while read file; do \
+	cd ..; find images -name "*.gif" | while read file; do \
 	dest=$(TARGET_PATH)/"$$file"; \
 	destd=`dirname "$$dest"`; \
 	mkdir -p "$$destd"; \
@@ -175,11 +175,12 @@ target: all
 	$(CP) -a "$$file" "$$dest"; \
 	done
 	$(CP) -a $(ROOT)/ATTRIBUTION $(TARGET_PATH)/.
+	$(CP) -a $(ROOT)/README.html $(TARGET_PATH)/.
 	$(CP) -a $(ROOT)/levels/L_*.txt $(TARGET_PATH)/levels/.
 	$(CP) -a $(ROOT)/rsc $(TARGET_PATH)
 	$(CP) -a *.ico $(TARGET_PATH)
-	tar -C $(TARGET_ROOT) -cvzf $(TARGET_PATH).tgz $(TARGET_NAME)
-	cd $(TARGET_ROOT) && sha1sum $(TARGET_NAME).tgz > sha1sum.txt && md5sum $(TARGET_NAME).tgz > md5sum.txt
+	cd $(TARGET_ROOT) && zip -r $(TARGET_PATH).zip $(TARGET_NAME)
+	cd $(TARGET_ROOT) && sha1sum $(TARGET_NAME).zip > sha1sum.txt && md5sum $(TARGET_NAME).zip > md5sum.txt
 
 clean::
 	$(RM) -f $(ALL) *.o *.res core makedepend depend *~
