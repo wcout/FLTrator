@@ -1,3 +1,6 @@
+Changes in V2.0
+===============
+
 - Fullscreen Linux/WIN32(new!)
 	- integrate switching code into main program
 - WIN32: much tuning and testing for more playabilty/speed
@@ -14,7 +17,7 @@
 	- (data for first 3 levels "pre-played" included).
 - Cleaned up title menu
 - Added some 'gimmicks'
-   - fireworks display ("just for fun")
+	- fireworks display ("just for fun")
 	- menu sound
 	- 'blend in' effect for menu/game screen
 - Improve/fix collision detection
