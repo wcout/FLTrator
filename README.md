@@ -47,7 +47,7 @@ by creating steep hills, tight gaps or tunnels,..
 
 The other part are the objects, that can be put into the landscape:
 
-### Rockets ![(image of rocket)](images/rocket.gif)
+### Rockets
    - Can be shot at with missiles and bombs.
    - Always destroy ship at collision.
    - Get more dangerous with each level.
@@ -58,22 +58,22 @@ The other part are the objects, that can be put into the landscape:
    - Always destroy ship at collision.
    - Trigger rocket launch if not destroyed early.
 
-### Drops ![(image of drop)](images/drop.gif)
+### Drops
    - Are nasty.
    - Can be "evaporated" with missiles.
    - Only destroy ship when they hit it fully, otherwise do no harm, and are just deflected.
    - Get more dangerous with each level.
 
-### Badies ![(image of bady)](images/bady.gif)
+### Badies
    - Are also nasty as they block the way.
    - Can be attacked with missiles, but it needs up to 5 hits to succeed.
    - Are always deadly when touched.
 
-### Phasers ![(image of phaser)](images/phaser.gif) ![(image of active phaser)](images/phaser_active.gif)
+### Phasers
    - Emit deadly vertical beams at random intervals (hint: they turn red when fully charged).
    - Can be destroyed with missiles and bombs.
 
-### Clouds ![(image of cloud)](images/cloud.gif)
+### Clouds
    - Do no harm, except that the ship gets invisible when passing through.
    - Can not be destroyed.
 
