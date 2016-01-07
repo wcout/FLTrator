@@ -12,7 +12,7 @@ landscape with hostile rockets and other obstacles.
 
 It is loosely inspired by a game called 'Penetrator', which was an arcade game from 1983(!)
 on the Sinclair ZX Spectrum. (I always found it a nearly perfect made game both from a
-technical and playabilty point of view, considering it had to fit in only 48k of ram).
+technical and playability point of view, considering it had to fit in only 48k of ram).
 
 That's also the reason for the name: it is written using **FLTK** - the
 **F**ast-**L**ight-**T**oolkit, so **FLT** + Pene**trator** => **FLTrator**.
@@ -47,7 +47,7 @@ by creating steep hills, tight gaps or tunnels,..
 
 The other part are the objects, that can be put into the landscape:
 
-### Rockets
+### Rockets ![(image of rocket)](screenshots/rocket.gif)
    - Can be shot at with missiles and bombs.
    - Always destroy ship at collision.
    - Get more dangerous with each level.
@@ -58,22 +58,22 @@ The other part are the objects, that can be put into the landscape:
    - Always destroy ship at collision.
    - Trigger rocket launch if not destroyed early.
 
-### Drops
+### Drops ![(image of drop)](screenshots/drop.gif)
    - Are nasty.
    - Can be "evaporated" with missiles.
    - Only destroy ship when they hit it fully, otherwise do no harm, and are just deflected.
    - Get more dangerous with each level.
 
-### Badies
+### Badies ![(image of bady)](screenshots/bady.gif)
    - Are also nasty as they block the way.
    - Can be attacked with missiles, but it needs up to 5 hits to succeed.
    - Are always deadly when touched.
 
-### Phasers
+### Phasers ![(image of phaser)](screenshots/phaser.gif) ![(image of active phaser)](screenshots/phaser_active.gif)
    - Emit deadly vertical beams at random intervals (hint: they turn red when fully charged).
    - Can be destroyed with missiles and bombs.
 
-### Clouds
+### Clouds ![(image of cloud)](screenshots/cloud.gif)
    - Do no harm, except that the ship gets invisible when passing through.
    - Can not be destroyed.
 
@@ -117,7 +117,7 @@ Licence
 
 The game code is licensed under *GPL 3* or later.
 
-FLTrator uses images from:
+*FLTrator* uses images from:
 
    [Clipartlord](http://www.clipartlord.com)
 
@@ -129,7 +129,7 @@ licence.
 
 See `ATTRIBUTION` file for files with Creative Commons licence.
 
-FLTrator also uses sound files (`.wav`) from:
+*FLTrator* also uses sound files (`.wav`) from:
 
    [Soundbible](http:///www.soundbible.com)
 
@@ -189,8 +189,8 @@ If you don't hear sound please make sure, that this program is installed
 on your system and plays sounds from the command line.
 
 Under Windows I wrote an interfacing program `playsound.exe`, that wraps the Windows
-PlaySound() function. FLTrator calls this program to output sound.
-It has to be in the path somewhere (or in the same path as fltrator).
+`PlaySound()` function. *FLTrator* calls this program to output sound.
+It has to be in the path somewhere (or in the same path as `fltrator.exe`).
 
 You can add your own background sounds by putting them as `.wav` files into the `bgsound`
 folder. From there they will be picked randomly. Or if you want a level to play a specific
@@ -208,7 +208,8 @@ It also runs faster and more smooth I believe.
 So I dug out some instructions how to change resolution under Linux using Xrandr
 and and also for Windows and integrated it everything into the program.
 
-Use F10 to toggle fullscreen when in title menu or in paused state.
+Use `F10` to toggle fullscreen when in title menu or in paused state.
+Or start with `-f` to immediately go fullscreen.
 
 [Tested to work under Ubuntu 12.04 and 14.04, Windows 7]
 
@@ -217,7 +218,7 @@ Use F10 to toggle fullscreen when in title menu or in paused state.
 Performance issues
 ------------------
 
-On older hardware or on a Windows system FLTrator's default framerate of 200 fps
+On older hardware or on a Windows system *FLTrator*'s default framerate of 200 fps
 may be too high.
 
 You can change the frame rate in runtime:
