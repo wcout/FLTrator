@@ -44,7 +44,8 @@
 using namespace std;
 
 static const unsigned MAX_LEVEL = 10;
-static const int MAX_SCREENS = 10;
+static const int MAX_SCREENS = 15;
+static const int DEF_SCREENS = 10;
 static const int SCREEN_W = 800;
 static const int SCREEN_H = 600;
 
@@ -293,7 +294,41 @@ public:
 	unsigned outline_width;
 	Fl_Color outline_color_sky;
 	Fl_Color outline_color_ground;
+	vector<Fl_Color> alt_bg_colors;
+	vector<Fl_Color> alt_ground_colors;
+	vector<Fl_Color> alt_sky_colors;
 };
+
+static bool readColors( ifstream& f_, Fl_Color& c_, vector<Fl_Color>& alt_ )
+//-------------------------------------------------------------------------------
+{
+	string line;
+	getline( f_, line );
+	if ( line.empty() )
+		getline( f_, line );
+	stringstream is;
+	is << line;
+	is >> c_;
+	while ( !is.fail() )
+	{
+		Fl_Color c;
+		is >> c;
+		if ( !is.fail() )
+			alt_.push_back( c );
+	}
+	return f_.good();
+}
+
+static bool writeColors( ofstream& f_, Fl_Color c_, vector<Fl_Color> alt_ )
+//-------------------------------------------------------------------------------
+{
+	ostringstream os;
+	os << c_;
+	for ( size_t i = 0; i < alt_.size(); i++ )
+		os << " " << alt_[i];
+	f_ << os.str() << endl;
+	return f_.good();
+}
 
 //--------------------------------------------------------------------------
 class LS
@@ -307,7 +342,7 @@ public:
 		if ( loaded_ ) *loaded_ = false;
 		// Note: When W_ = 0 and a file is read in
 		// it's size is used and there is no expansion.
-		size_t W = W_ ? W_ : MAX_SCREENS * SCREEN_W;
+		size_t W = W_ ? W_ : DEF_SCREENS * SCREEN_W;
 		if ( f_ )
 		{
 			ifstream f( f_ );
@@ -325,9 +360,9 @@ public:
 					f >> _ls.outline_color_ground;
 					f >> _ls.outline_color_sky;
 				}
-				f >> _ls.bg_color;
-				f >> _ls.ground_color;
-				f >> _ls.sky_color;
+				readColors( f, _ls.bg_color, _ls.alt_bg_colors );
+				readColors( f, _ls.ground_color, _ls.alt_ground_colors );
+				readColors( f, _ls.sky_color, _ls.alt_sky_colors );
 
 				while ( f.good() )
 				{
@@ -337,7 +372,7 @@ public:
 					f >> g;
 					f >> o;
 					if ( !f.good() ) break;
-					if ( size() < W ) // access data is ignored!
+					if ( size() < W || ( !W_ && size() < MAX_SCREENS * SCREEN_W ) ) // access data is ignored!
 						_ls.push_back( LSPoint( g, s, o ) );
 					if ( o & O_COLOR_CHANGE )
 					{
@@ -430,6 +465,9 @@ public:
 	Fl_Color bg_color() const { return _ls.bg_color; }
 	Fl_Color ground_color() const { return _ls.ground_color; }
 	Fl_Color sky_color() const { return _ls.sky_color; }
+	vector<Fl_Color> alt_bg_colors() const { return _ls.alt_bg_colors; }
+	vector<Fl_Color> alt_ground_colors() const { return _ls.alt_ground_colors; }
+	vector<Fl_Color> alt_sky_colors() const { return _ls.alt_sky_colors; }
 	void bg_color( Fl_Color bg_color_ ) { _ls.bg_color = bg_color_; }
 	void ground_color( Fl_Color ground_color_ ) { _ls.ground_color = ground_color_; }
 	void sky_color( Fl_Color sky_color_ ) { _ls.sky_color = sky_color_; }
@@ -563,6 +601,7 @@ public:
 	void onSaveAs();
 	void onXoff();
 	bool changed() const { return _changed; }
+	void changed( bool changed_ );
 	bool dont_save() const { return _dont_save; }
 	void update_zoom( int x_, int y_ );
 private:
@@ -658,6 +697,7 @@ int ZoomWindow::handle( int e_ )
 	int key = Fl::event_key();
 	if ( e_ == FL_KEYDOWN  && ( key == FL_Escape  || key == 'z' ) )
 	{
+		Fl::event_key( 0 );
 		close();
 		return 1;
 	}
@@ -946,6 +986,16 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_zoom = new ZoomWindow( 11 );
 }
 
+void LSEditor::changed( bool changed_ )
+//--------------------------------------------------------------------------
+{
+	if ( _changed != changed_ )
+	{
+		_changed = changed_;
+		setTitle();
+	}
+}
+
 void LSEditor::hide()
 //--------------------------------------------------------------------------
 {
@@ -1160,12 +1210,16 @@ int LSEditor::handle( int e_ )
 				redraw();
 			}
 
-			if ( 'z' == key )
+			if ( 'z' == key || ( _zoom && _zoom->shown() && FL_Escape == key ) )
 			{
+				Fl::event_key( 0 );
 				if ( _zoom )
 				{
 					if ( _zoom->shown() )
+					{
 						_zoom->close();
+						return 1;	// do not propagate ESC
+					}
 					else
 					{
 						_zoom->show();
@@ -1336,7 +1390,7 @@ int LSEditor::handle( int e_ )
 					else
 						_ls->setSky( _xoff + X, Y );
 
-					_changed = true;
+					changed( true );
 				}
 				xo = x;
 				if ( _scrollLock || Fl::event_shift() )
@@ -1423,8 +1477,7 @@ void LSEditor::onLoad( int level_/*= 0*/ )
 			imgPath.level( level_ );
 			reloadImages();
 		}
-		_changed = false;
-		setTitle();
+		changed( false );
 	}
 	redraw();
 }
@@ -1467,7 +1520,7 @@ void LSEditor::placeObject( int obj_, int x_, int y_ )
 	{
 		_ls->setObject( obj_, X, true );
 	}
-	_changed = true;
+	changed( true );
 	redraw();
 }
 
@@ -1511,9 +1564,10 @@ void LSEditor::save()
 	f << _ls->outline_color_ground() << endl;
 	f << _ls->outline_color_sky() << endl;
 
-	f << _ls->bg_color() << endl;
-	f << _ls->ground_color() << endl;
-	f << _ls->sky_color() << endl;
+	writeColors( f, _ls->bg_color(), _ls->alt_bg_colors() );
+	writeColors( f, _ls->ground_color(), _ls->alt_ground_colors() );
+	writeColors( f, _ls->sky_color(), _ls->alt_sky_colors() );
+
 	for ( size_t i = 0; i < _ls->size(); i++ )
 	{
 		f << _ls->sky( i ) << " " << _ls->ground( i ) << " " << _ls->object( i );
@@ -1528,8 +1582,7 @@ void LSEditor::save()
 	}
 	// write ini section
 	f << _ls->iniSection();
-	_changed = false;
-	setTitle();
+	changed( false );
 }
 
 int LSEditor::searchObject( int obj_, int x_, int y_ )
@@ -1659,6 +1712,7 @@ void LSEditor::selectColor( int x_, int y_ )
 			_ls->bg_color( bg_color );
 		}
 		redraw();
+		changed( true );
 	}
 }
 
@@ -1727,8 +1781,11 @@ int main( int argc_, const char *argv_[] )
 	LSEditor editor( argc_, argv_ );
 	cout << "ready!" << endl;
 	Fl::run();
-	if ( editor.dont_save() || Fl::event_key() == FL_Escape )
-		cout << "not saved." << endl;
-	else
-		editor.save();
+	if ( editor.changed() )
+	{
+		if ( editor.dont_save() || Fl::event_key() == FL_Escape )
+			cout << "not saved." << endl;
+		else
+			editor.save();
+	}
 }

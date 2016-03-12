@@ -1,5 +1,5 @@
 # specify path to FLTK 1.3-x (mingw compiled)
-FLTK_DIR=../../fltk-1.3-mingw32/
+FLTK_DIR=../../fltk-1.3.x-r10957/
 USE_FLTK_RUN=0
 HAVE_SLOW_CPU=0
 
@@ -139,7 +139,8 @@ install: all
 target: all
 	@echo TARGET_ROOT $(TARGET_ROOT)
 	@echo make target $(TARGET_PATH)
-	mkdir -p $(TARGET_PATH)
+	@if [ "$(TARGET_PATH)" == "" ]; then echo "TARGET_PATH not set" && exit 1; fi
+	mkdir -p $(TARGET_PATH) &&	cd $(TARGET_PATH) && rm -rf *
 	mkdir -p $(TARGET_PATH)/images
 	mkdir -p $(TARGET_PATH)/wav
 	mkdir -p $(TARGET_PATH)/levels
@@ -175,7 +176,7 @@ target: all
 	$(CP) -a "$$file" "$$dest"; \
 	done
 	$(CP) -a $(ROOT)/ATTRIBUTION $(TARGET_PATH)/.
-	$(CP) -a $(ROOT)/README.html $(TARGET_PATH)/.
+	$(CP) -a $(ROOT)/README.md $(TARGET_PATH)/.
 	$(CP) -a $(ROOT)/levels/L_*.txt $(TARGET_PATH)/levels/.
 	$(CP) -a $(ROOT)/rsc $(TARGET_PATH)
 	$(CP) -a *.ico $(TARGET_PATH)

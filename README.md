@@ -1,7 +1,7 @@
-<p align="right">18/12/2015</p>
+<p align="right">19/01/2016</p>
 
 
-Welcome to FLTrator - a FLTK retro arcade game!
+Welcome to FLTrator (a FLTK retro arcade game)!
 ===============================================
 
 Introduction
@@ -147,11 +147,34 @@ See `ATTRIBUTION` file for files with Creative Commons licence.
 Resume
 ------
 
+To answer the initial question, wheater it's possible to write a game just
+using FLTK: **yes, it's possible**, but probably only if it's such a simple game
+as this one is and if you have already some experience with FLTK's principles.
+
+FLTK has a very simple, yet powerful event handling and drawing system, a lot of
+useful image handling methods - and it is really **FAST**.
+
+Also most real work had nothing to do with the gameplay (this was finished
+quite early - except the necessary performance tuning), but writing the
+framework "around" the game and designing the levels.
+
+Initially I had much trouble to get the game running decently on Windows mostly
+because of timer and sound woes.
+
+Sound generally is an issue, that probably will want you to use a dedicated library
+soon. I have put some effort into sticking with 'aplay' on Linux and an
+"aplay-emulation" for WIN32, which after all do the job quite well.
+
+But in the first place I had much fun writing it and learned a lot during
+this time (probably also, that I'm not of the game writer type :)).
+
+So there it is, it's done - and become quite cute, I think.
+
 Although I won't probably make huge changes to the game, if you have any easy to
 implement ideas for improvement or find bugs, please report them to me.
 
 
-Have fun with the game!
+Have fun with **FLTrator**!
 
 **Curious**: Can you finish _all ten_ levels?
 
@@ -202,7 +225,7 @@ under the name `bgsound.wav` e.g. `wav/3/bgsound.wav` for level 3.
 Running fullscreen
 ------------------
 
-Running FLTrator in fullscreen on a big monitor is really a great pleasure!
+Running *FLTrator* in fullscreen on a big monitor is really a great pleasure!
 It also runs faster and more smooth I believe.
 
 So I dug out some instructions how to change resolution under Linux using Xrandr
@@ -234,3 +257,26 @@ Of course lower values will decrease the smoothness of the scrolling.
 If you found your best rate, you can put it in the command line:
 
     -Rfps  e.g. -R40
+
+There's also a command line switch that sets the frame rate to 40 and disables all
+unneccessary screen effects:
+
+    -S (start with settings for a slow computer).
+
+Your best combination of command line switches for a slow computer:
+
+    -Scpsb
+
+
+### Fast Machine?
+
+If on the other hand you have a **fast** (any recent!) computer you should use:
+
+    -F  (start with settings for a fast computer)
+
+This also enables the **experimental background drawing** of a second scroll plane within
+some levels (Don't hold your breath though - nothing really spectacalar .. but nice!)
+
+    -FF (start with settings for very fast computer)
+
+This also turns on gradient drawing of landscape.

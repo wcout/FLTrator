@@ -220,5 +220,5 @@ If you found your best rate, you can put it in the command line:
 
     -Rfps  e.g. -R40
 
-Note for Windows: You will get 100 and 200 FPS only, if you didn't compile with
-the 'HAVE_SLOW_CPU' option.
+**Note for Windows**: You will get 100 and 200 FPS only, if you didn't compile with
+the `HAVE_SLOW_CPU` option.
