@@ -69,7 +69,8 @@ private:
 			_X( -1 ),
 			_Y( -1 ),
 			_exploded( false ),
-			_started( false )
+			_started( false ),
+			_explosion_type( - 1 )
 		{
 			DBG(( "Fl_Firework_Rocket %p", this ));
 			box( FL_NO_BOX );
@@ -88,11 +89,12 @@ private:
 			y( y() + 2 * _dy );
 			if ( y() > _explode_h )	// explode height reached?
 			{
-				if ( !_r && !_exploded )
+				if ( _r % 8 == 0 && _r <= 64 && !_exploded )
 				{
-					explode();
+					explode( _explosion_type );
 					((Fl_Fireworks *)window())->explodeColor( _explode_color );
-					window()->do_callback( window(), 2 );
+					if ( !_r )
+						window()->do_callback( window(), 2 );
 				}
 				if ( _r < _explosion_radius )
 					_r += 4;
@@ -147,10 +149,17 @@ private:
 					p.end_y = ( p.r + len ) * sin( p.angle * M_PI / 180.0 ) + center_y_;
 
 					p.valid = true;
+					if ( p.r < p.end_r / 2 )
+					{
+						if ( p.speed > 0.4 )
+							p.speed += p.dot ? -0.2 : 0.2;
+					}
+					else
+					{
+						if ( p.speed > 0.4 )
+							p.speed -= p.dot ? -0.2 : 0.2;
+					}
 					p.r += p.speed;
-					if ( p.dot && p.speed > 1 )
-						p.speed -= 0.3;
-
 					done = false;
 				}
 				else
@@ -223,7 +232,7 @@ private:
 			_Y = -1;
 			_dy = random() % 3 + 3;
 			_dx = (random() % (_dy - 2)) + 1;
-			_explosion_radius = h() * ( 4 + random() % 2 );
+			_explosion_radius = h() * ( 6 + random() % 4 );
 			_exploded = false;
 			_started = false;
 			_multicolor = h() >= 50;
@@ -233,18 +242,21 @@ private:
 			DBG(( "%p _explode_h: %d _angle: %f, dx: %d dy:%d",
 				this, _explode_h, _angle, _dx, _dy ));
 		}
-		void explode()
+		void explode( int explosion_type_ = -1 )
 		{
-			bool dot( random() % 4 == 0 );
-			int particles = ( w() * h() * ( 2 * dot + 1 ) ) / 16;
+			_explosion_type = explosion_type_ < 0 ? ( random() % 4 == 0 ) : explosion_type_;
+			bool dot = _explosion_type == 1;
+			int particles = explosion_type_ <  0 ? ( w() * h() * ( 2 * dot + 1 ) ) / 16 :
+				( w() * h() * ( 2 * dot + 1 ) ) / 32;
 			DBG(( "create %d particles, dot=%d", particles, dot ));
 			for ( int i = 0; i < particles; i++ )
 			{
+				int speed = dot ? random() % 10 + 1 : random() % 5 + 3;
 				_particles.push_back( Fl_Firework_Particle( _explosion_radius * ( dot + 1 ),
 					random() % 360,
-					( dot ? random() % 10 + 1  : random() % 5 + 3 ),
+					speed,
 					_explode_color,
-					( dot ? random() % 5 + 1 : random() % 50 + 10 ), _multicolor ) );
+					( dot ? random() % 5 + 1 : speed * 10 ), _multicolor ) );
 			}
 		}
 
@@ -261,6 +273,7 @@ private:
 		bool _multicolor;
 		bool _started;
 		std::vector <Fl_Firework_Particle> _particles;
+		int _explosion_type;
 	};
 
 public:

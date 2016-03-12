@@ -1,5 +1,5 @@
 # specify path to FLTK 1.3-x (mingw compiled)
-FLTK_DIR=../../fltk-1.3.x-r10957/
+FLTK_DIR=../../fltk-1.3-mingw32/
 USE_FLTK_RUN=0
 HAVE_SLOW_CPU=0
 
@@ -56,7 +56,7 @@ LDLIBSCPP=-static -lgcc -static -lstdc++ -dynamic -static -lwinmm
 FLTKCXXFLAGS = `$(FLTK_CONFIG) --cxxflags`
 CXXDEFS+=-DUSE_FLTK_RUN=$(USE_FLTK_RUN)
 CXXDEFS+=-DHAVE_SLOW_CPU=$(HAVE_SLOW_CPU)
-CXXFLAGS+=$(CXXDEFS) -g -Wall --pedantic $(INCLUDE) $(FLTKCXXFLAGS)
+CXXFLAGS+=$(CXXDEFS) -g -Wall -pedantic $(INCLUDE) $(FLTKCXXFLAGS)
 #OPT=
 OPT=-O3 -DNDEBUG
 
@@ -133,13 +133,14 @@ install: all
 	$(CP) -a ../bgsound/README $(RSC_PATH)/bgsound/.
 	$(CP) -a ../demo/*.txt $(RSC_PATH)/demo/.
 	$(CP) -a ../ATTRIBUTION $(RSC_PATH)/.
-	$(CP) -a ../README $(RSC_PATH)/.
+	$(CP) -a ../README.md $(RSC_PATH)/.
 	$(CP) -a ../levels/L_*.txt $(RSC_PATH)/levels/.
 
 target: all
 	@echo TARGET_ROOT $(TARGET_ROOT)
 	@echo make target $(TARGET_PATH)
-	@if [ "$(TARGET_PATH)" == "" ]; then echo "TARGET_PATH not set" && exit 1; fi
+	@if [ "$(TARGET_PATH)" = "" ]; then echo "TARGET_PATH not set" && exit 1; fi
+	@if [ "$(TARGET_PATH)" = "/" ]; then echo "Invalid TARGET_PATH" && exit 1; fi
 	mkdir -p $(TARGET_PATH) &&	cd $(TARGET_PATH) && rm -rf *
 	mkdir -p $(TARGET_PATH)/images
 	mkdir -p $(TARGET_PATH)/wav

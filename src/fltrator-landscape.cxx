@@ -70,7 +70,9 @@ In EDIT mode draw the ground by dragging mouse\n \
 with left button or the sky with right button.\n \
 Set 'Scroll Lock' to move the view automatically.\n \
 Use 'Shift' to set single points.\n \
-Use 'Ctrl' to draw horizontal lines.\n\n \
+Use 'Shift-Ctrl' to draw line from last point.\n \
+Use 'Ctrl' to draw horizontal lines.\n \
+Undo drawings with 'Bsp' or 'Del'.\n\n \
 Double click on landscape to select colors for\n \
 ground/land/sky (with 'Ctrl': outline colors).\n \
 Show/hide a magnifier window with 'z'.\n \
@@ -115,7 +117,7 @@ static string asString( int n_ )
 	return os.str();
 }
 
-static string mkPath( const string& dir_, const string sub_ = "",
+static string mkPath( const string& dir_, const string& sub_ = "",
 	const string& file_ = "" )
 //-------------------------------------------------------------------------------
 {
@@ -148,7 +150,7 @@ public:
 		return mkPath( _baseDir, "", file_ + _ext );
 	}
 	void level( size_t level_ ) { _level = level_; }
-	void ext( const string ext_ )
+	void ext( const string& ext_ )
 	{
 		_ext = ext_;
 		if ( _ext.size() )
@@ -208,9 +210,28 @@ public:
 			{
 				p++;
 				int frames = atoi( p );
-				if ( frames )
+				if ( frames > 1 )
 				{
 					_w = _image->w() / frames;
+				}
+			}
+			else
+			{
+				// Try to read gif comment field for keywords 'frames', 'delay'.
+				// Note: for now just search in the first 1024 bytes of the file...
+				ifstream ifs( imgPath.get( imageName_ ).c_str(), ios::binary );
+				char buf[1024];
+				memset( buf, 0, sizeof( buf ) );
+				ifs.read( buf, sizeof( buf ) );
+				string s( buf, sizeof( buf ) );
+				size_t pos = s.find( "frames=" );
+				if ( pos != string::npos )
+				{
+					int frames = atoi( &s.c_str()[pos + 7] );
+					if ( frames > 1 )
+					{
+						_w = _image->w() / frames;
+					}
 				}
 			}
 		}
@@ -408,12 +429,16 @@ public:
 	void setGround( int x_, int g_ )
 	{
 		if ( x_ >= 0 && x_ < (int)size() )
+		{
 			_ls[ x_ ].ground = g_;
+		}
 	}
 	void setSky( int x_, int s_ )
 	{
 		if ( x_ >= 0 && x_ < (int)size() )
+		{
 			_ls[ x_ ].sky = s_;
+		}
 	}
 	void setRocket( int x_, bool set_ )
 	{
@@ -567,6 +592,19 @@ public:
 };
 
 //--------------------------------------------------------------------------
+struct UndoEntry
+//--------------------------------------------------------------------------
+{
+	UndoEntry( int type_, int xoff_, int value_ ) :
+		type( type_ ), xoff( xoff_ ) { value.push_back( value_ ); }
+	UndoEntry( int type_, int xoff_, vector<int>& value_ ) :
+		type( type_ ), xoff( xoff_ ), value( value_ ) {}
+	int type;
+	int xoff;
+	vector<int> value;
+};
+
+//--------------------------------------------------------------------------
 class LSEditor : public Fl_Double_Window
 //--------------------------------------------------------------------------
 {
@@ -579,6 +617,7 @@ public:
 	};
 	LSEditor( int argc_ = 0, const char *argv_[] = 0 );
 	void hide();
+	void drawLine( int x0_, int y0_, int x1_, int y1_, bool ground_ );
 	void draw();
 	int handle( int e_ );
 	void gotoXPos( size_t xpos_ );
@@ -593,6 +632,9 @@ public:
 		Fl_Color& sky_color_, Fl_Color& bg_color_, Fl_Color& ground_color_ );
 	void selectColor( int x_, int y_ );
 	void setTitle();
+	void undo();
+	void undoPush( int type_, int xoff_, int value_ );
+	void undoPush( int type_, int xoff_, vector<int>& value_ );
 	void xoff( int xoff_ ) { _xoff = xoff_; }
 	int xoff() const { return _xoff; }
 	void onLoad( int level_ = 0 );
@@ -626,13 +668,14 @@ private:
 	Fl_Image *_phaser;
 	int _objType;
 	bool _scrollLock;
-	int _curr_x;
-	int _curr_y;
+	int _last_x;
+	int _last_y;
 	bool _changed;
 	Fl_Menu_Bar *_menu;
 	Slider *_slider;
 	bool _menu_shown;
 	bool _dont_save;
+	vector<UndoEntry> _undoStack;
 };
 
 
@@ -790,7 +833,7 @@ int PreviewWindow::handle( int e_ )
 	int mode = Fl::event_clicks() > 0;
 	int c = Fl::event_key();
 	if ( ( e_ == FL_KEYDOWN || e_ == FL_KEYUP ) && c == FL_Escape )
-		// get rid of ecape key closing window
+		// get rid of escape key closing window
 		return 1;
 
 	switch ( e_ )
@@ -799,7 +842,7 @@ int PreviewWindow::handle( int e_ )
 			if ( mode )
 			{
 				Fl_Window *win = Fl::first_window();
-				while ( win && !dynamic_cast<LSEditor *>( win ) )
+				while ( win && win == this /*!dynamic_cast<LSEditor *>( win )*/ )
 					win = Fl::next_window( win );
 				if ( win )
 					((LSEditor *)win)->gotoXPos( (int)(x * Scale) );
@@ -824,8 +867,8 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_cumulus( 0 ),
 	_objType( 1 ),
 	_scrollLock( false ),
-	_curr_x( 0 ),
-	_curr_y( 0 ),
+	_last_x( -1 ),
+	_last_y( -1 ),
 	_changed( false ),
 	_menu( 0 ),
 	_slider( 0 ),
@@ -926,7 +969,7 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	objects.push_back( Object( O_DROP, "drop.gif", "Drop" ) );
 	objects.push_back( Object( O_BADY, "bady.gif", "Badguy" ) );
 	objects.push_back( Object( O_CUMULUS, "cumulus.gif", "Good Cloud" ) );
-	objects.push_back( Object( O_RADAR, "radar_00014_0200.gif", "Radar" ) );
+	objects.push_back( Object( O_RADAR, "radar.gif", "Radar" ) );
 	objects.push_back( Object( O_PHASER, "phaser.gif", "Phaser" ) );
 	objects.push_back( Object( O_COLOR_CHANGE, string(), "Color Change Marker" ) );
 	objects.back().w( 3 );
@@ -1011,6 +1054,7 @@ void LSEditor::draw()
 {
 	Inherited::draw();
 	int H = SCREEN_H;
+	fl_push_clip( 0, 0, w(), SCREEN_H );
 
 	Fl_Color bg_color( _ls->bg_color() );
 	Fl_Color sky_color( _ls->sky_color() );
@@ -1070,8 +1114,9 @@ void LSEditor::draw()
 		if ( _ls->hasBady( i ) )
 		{
 			int S = _ls->sky( i );
-			if ( _bady )
-				_bady->draw( i - _xoff - _bady->w() / 2, S  );
+			Object *o = objects.find( O_BADY );
+			if ( o )
+				o->image()->draw( i - _xoff - _bady->w() / 2, S, o->w(), o->h()  );
 		}
 		if ( _ls->hasCumulus( i ) )
 		{
@@ -1101,16 +1146,7 @@ void LSEditor::draw()
 			fl_line_style( 0 );
 		}
 	}
-#if 0
-	// temp. deavtivated till needed (keyboard drawing)
-	if ( _mode == EDIT_LANDSCAPE )
-	{
-		fl_color( FL_RED );
-		fl_circle( _curr_x, _curr_y, 2 );
-		fl_line( _curr_x - 5, _curr_y - 5, _curr_x + 6, _curr_y + 6 );
-		fl_line( _curr_x + 5, _curr_y - 5, _curr_x - 6, _curr_y + 6 );
-	}
-#endif
+	fl_pop_clip();
 	Inherited::draw_children();
 }
 
@@ -1160,6 +1196,44 @@ void LSEditor::update_zoom( int x_, int y_ )
 	delete[] screen;
 }
 
+void LSEditor::drawLine( int x0_, int y0_, int x1_, int y1_, bool ground_ )
+//--------------------------------------------------------------------------
+{
+	if ( x1_ < x0_ )
+	{
+		int x = x0_;
+		int y = y0_;
+		x0_ = x1_;
+		y0_ = y1_;
+		x1_ = x;
+		y1_ = y;
+	}
+	int dx = x1_ - x0_;
+	int dy = y1_ - y0_;
+	if ( ground_ )
+	{
+		vector<int> undo;
+		for ( int x = 0; x < dx; x++ )
+		{
+			int y = y0_ + ( (double)dy / dx ) * x;
+			undo.push_back( _ls->ground( x0_ + x ) );
+			_ls->setGround( x0_ + x, SCREEN_H - y );
+		}
+		undoPush( 0, x0_, undo );
+	}
+	else
+	{
+		vector<int> undo;
+		for ( int x = 0; x < dx; x++ )
+		{
+			int y = y0_ + ( (double)dy / dx ) * x;
+			undo.push_back( _ls->sky( x0_ + x ) );
+			_ls->setSky( x0_ + x, y );
+		}
+		undoPush( 1, x0_, undo );
+	}
+}
+
 int LSEditor::handle( int e_ )
 //--------------------------------------------------------------------------
 {
@@ -1182,6 +1256,7 @@ int LSEditor::handle( int e_ )
 			if ( 0xffbe == key ) // F1
 			{
 				fl_alert( "%s", HelpText );
+				return 1;
 			}
 			if ( 0xffc7 == key ) // F10
 			{
@@ -1285,6 +1360,11 @@ int LSEditor::handle( int e_ )
 				redraw();
 			}
 
+			if ( FL_Delete == key || FL_BackSpace == key )
+			{
+				undo();
+			}
+
 			setTitle();
 			break;
 		}
@@ -1343,15 +1423,30 @@ int LSEditor::handle( int e_ )
 				// single click
 				if ( _mode == EDIT_LANDSCAPE )
 				{
-					_curr_x = x;
-					_curr_y = y;
 					if ( Fl::event_shift() )
 					{
+						if ( Fl::event_ctrl() && _last_x >= 0 )
+						{
+							// draw line from last position to current position
+							drawLine( _last_x, _last_y, _xoff + x, y, ground );
+							_last_x = _xoff + x;
+							_last_y = y;
+							redraw();
+							break;
+						}
+						_last_x = _xoff + x;
+						_last_y = y;
 						// pixel mode for fine adjustments
 						if ( ground )
+						{
+							undoPush( 0, _xoff + x, _ls->ground( _xoff + x ) );
 							_ls->setGround( _xoff + x, SCREEN_H - y );
+						}
 						else
+						{
+							undoPush( 1, _xoff + x, _ls->sky( _xoff + x ) );
 							_ls->setSky( _xoff + x, y );
+						}
 
 						redraw();
 					}
@@ -1383,14 +1478,25 @@ int LSEditor::handle( int e_ )
 						x1 = xo;
 				}
 				int Y = snap_to_y != -1 ? snap_to_y : y;
+				vector<int> value;
 				for ( int X = x0; X < x1; X++ )
 				{
 					if ( ground )
+					{
+						value.push_back( _ls->ground( _xoff + X ) );
 						_ls->setGround( _xoff + X, SCREEN_H - Y );
+					}
 					else
+					{
+						value.push_back( _ls->sky( _xoff + X ) );
 						_ls->setSky( _xoff + X, Y );
+					}
 
 					changed( true );
+				}
+				if ( value.size() )
+				{
+					undoPush( !ground, _xoff + x0, value );
 				}
 				xo = x;
 				if ( _scrollLock || Fl::event_shift() )
@@ -1767,6 +1873,49 @@ void LSEditor::setTitle()
 		os << "                SCROLL";
 	t += " - " + os.str();
 	copy_label( t.c_str() );
+}
+
+void LSEditor::undo()
+//--------------------------------------------------------------------------
+{
+	if ( _undoStack.size() )
+	{
+		UndoEntry u = _undoStack.back();
+		_undoStack.pop_back();
+		int x = u.xoff;
+		if ( x > _xoff + SCREEN_W - SCREEN_W / 6 || x < _xoff )
+			_xoff = x - SCREEN_W / 2;
+		if ( _xoff < 0 )
+			_xoff = 0;
+		for ( size_t i = 0; i < u.value.size(); i++ )
+		{
+			if ( u.type == 0 )
+				_ls->setGround( x + i, u.value[i] );
+			else if ( u.type == 1 )
+				_ls->setSky( x + i, u.value[i] );
+		}
+		redraw();
+	}
+	else
+	{
+		fl_alert( "Nothing (more) to undo." );
+	}
+}
+
+void LSEditor::undoPush( int type_, int xoff_, int value_ )
+//--------------------------------------------------------------------------
+{
+	_undoStack.push_back( UndoEntry( type_, xoff_, value_ ) );
+	while ( (int)_undoStack.size() > SCREEN_W )
+		_undoStack.erase( _undoStack.begin() );
+}
+
+void LSEditor::undoPush( int type_, int xoff_, vector<int>& value_ )
+//--------------------------------------------------------------------------
+{
+	_undoStack.push_back( UndoEntry( type_, xoff_, value_ ) );
+	while ( (int)_undoStack.size() > SCREEN_W )
+		_undoStack.erase( _undoStack.begin() );
 }
 
 #ifdef WIN32

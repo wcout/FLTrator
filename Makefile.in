@@ -49,7 +49,7 @@ ifdef FLTK_USES_XRENDER
 CXXDEFS+=-DFLTK_USES_XRENDER
 endif
 
-CXXFLAGS+=$(CXXDEFS) -g -Wall -pipe --pedantic $(INCLUDE) $(FLTKCXXFLAGS)
+CXXFLAGS+=$(CXXDEFS) -g -Wall -pipe -pedantic $(INCLUDE) $(FLTKCXXFLAGS)
 #OPT=
 OPT=-O3 -DNDEBUG
 
@@ -147,7 +147,8 @@ distclean:: clean
 target: all
 	@echo TARGET_ROOT $(TARGET_ROOT)
 	@echo make target $(TARGET_PATH)
-	@if [ "$(TARGET_PATH)" == "" ]; then echo "TARGET_PATH not set" && exit 1; fi
+	@if [ "$(TARGET_PATH)" = "" ]; then echo "TARGET_PATH not set" && exit 1; fi
+	@if [ "$(TARGET_PATH)" = "/" ]; then echo "Invalid TARGET_PATH" && exit 1; fi
 	mkdir -p $(TARGET_PATH) &&	cd $(TARGET_PATH) && rm -rf *
 	mkdir -p $(TARGET_PATH)/images
 	mkdir -p $(TARGET_PATH)/wav

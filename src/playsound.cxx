@@ -70,7 +70,7 @@ void playSound( const char *file_, const char *pidFileName_ )
 	}
 	PlaySound( file_, NULL, SND_FILENAME | SND_SYNC | SND_NOSTOP );
 #else
-	unsigned long pid = fork();
+	pid_t pid = fork();
 	if ( pid < 0 )
 	{
 		perror( "fork" );
@@ -98,7 +98,7 @@ void playSound( const char *file_, const char *pidFileName_ )
 		if ( f )
 		{
 			char buf[100];
-			snprintf( buf, sizeof(buf), "%lu", pid );
+			snprintf( buf, sizeof(buf), "%u", pid );
 			fwrite( buf, strlen(buf), 1, f );
 			fclose( f );
 		}
