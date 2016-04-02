@@ -1,3 +1,32 @@
+Changes in V2.2
+===============
+
+- More gimmicks (explosions, animations)
+- Basic joystick support for Linux version
+- Better internal levels
+- Landscape Editor: Undo
+- Minor bugfixes
+
+Changes in V2.1
+===============
+
+- Experimental ship acceleration/stall indicator
+  (only when started with -F).
+- Experimental background scroll plane with mountains or starfield
+  (only when started with -F).
+- Graphical remaining ships/progress display
+  (only when started with -F).
+- Put a gradient on landscape and background
+  (only when started with -F or -FF).
+- Add an option to runtime correct the frame rate (mainly useful on WIN32)
+- First time setup of speed (when started with no parameters)
+- Go automatically fullscreen when screen size is already 800x600
+- Better window title
+- Improved internal levels
+- Install signal handler to trap crashes or cancelation (with ^C or by taskmanager)
+  (restores screen mode and stops sound).
+- Minor bugfixes
+
 Changes in V2.0
 ===============
 
