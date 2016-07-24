@@ -6,10 +6,16 @@ namespace Random
 static uint32_t v = 1;
 static uint32_t u = 2;
 
-static void Srand( unsigned seed_ )
+static void Srand( uint32_t seed_ )
 {
 	v = seed_;
 	u = seed_ + 1;
+}
+
+static void Srand( uint32_t seed_, uint32_t seed2_ )
+{
+	v = seed_;
+	u = seed2_;
 }
 
 static uint32_t Rand()
@@ -19,7 +25,13 @@ static uint32_t Rand()
 	return ( v << 16 ) + u;
 }
 
-static void pSrand( unsigned seed_ )
+static uint32_t Seed( uint32_t& seed2_ )
+{
+	seed2_ = u;
+	return v;
+}
+
+static void pSrand( uint32_t seed_ )
 {
 	srand( seed_ );
 }

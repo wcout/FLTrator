@@ -58,7 +58,7 @@ public:
 
 	Joystick();
 	~Joystick();
-	int open(  const std::string& device_ = JOYSTICK1_DEVICE_NAME );
+	int open(  const char *device_ = NULL );
 	void close();
 	virtual void onEvent() {}
 	int update();

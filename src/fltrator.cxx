@@ -14,7 +14,7 @@
 // See the GNU General Public License for more details:
 // http://www.gnu.org/licenses/.
 //
-#define VERSION "2.2"
+#define VERSION "2.3r"
 
 #ifdef WIN32
 // needed for mingw 4.6 to accept AttachConsole()
@@ -47,9 +47,11 @@
 #include <FL/fl_ask.H>
 #include <string>
 #include <vector>
+#include <map>
 #include <cstdio>
 #include <cstdlib>
 #include <cstdarg>
+#include <cctype>
 #if ( defined APPLE ) || ( defined __linux__ ) || ( defined __MING32__ )
 #include <unistd.h>
 #include <sys/types.h>
@@ -86,10 +88,16 @@
 static const unsigned MAX_LEVEL = 10;
 static const unsigned MAX_LEVEL_REPEAT = 3;
 
-static const unsigned SCREEN_W = 800;
-static const unsigned SCREEN_H = 600;
+static const unsigned SCREEN_NORMAL_W = 800;
+static const unsigned SCREEN_NORMAL_H = 600;
+
+static unsigned SCREEN_W = SCREEN_NORMAL_W;
+static unsigned SCREEN_H = SCREEN_NORMAL_H;
 
 static const int TIMER_CALLBACK = 9999;
+
+
+#define nbrOfItems( a ) ( sizeof( a ) / sizeof( a[0] ) )
 
 struct KeySet
 {
@@ -112,7 +120,7 @@ static const Fl_Color multicolors[] = {
 };
 
 static const Fl_Color drop_explosion_color[] = { fl_rgb_color( 66, 189, 216 ) };
-static Fl_Color radar_explosion[] = { fl_rgb_color( 153, 204, 255 ), fl_rgb_color( 204, 153, 255 ),
+static const Fl_Color radar_explosion[] = { fl_rgb_color( 153, 204, 255 ), fl_rgb_color( 204, 153, 255 ),
                                       fl_rgb_color( 255, 204, 0 ) };
 
 #ifdef WIN32
@@ -161,6 +169,17 @@ static bool G_leftHanded = false;
 
 
 static unsigned _DX = DX;
+static double _DDX = DX;	// floating scroll offset
+
+#ifdef NO_MULTIRES
+#define SCALE_X 1
+#define SCALE_Y 1
+#define _YF     1
+#else
+static double SCALE_X = (double)SCREEN_W / 800;
+static double SCALE_Y = (double)SCREEN_H / 600;
+static double _YF = 1.;		// ratio screen ratio/original screen ratio
+#endif
 
 #define KEY_LEFT   KEYSET[G_leftHanded].left
 #define KEY_RIGHT  KEYSET[G_leftHanded].right
@@ -173,6 +192,7 @@ using namespace std;
 #include "fullscreen.H"
 #include "joystick.cxx"
 #include "fl_joystick.cxx"
+#include "resize_image.cxx"
 
 //-------------------------------------------------------------------------------
 enum ObjectType
@@ -192,6 +212,62 @@ enum ObjectType
 	O_SHIP = 1 << 18,
 	O_EXPLOSION = 1 << 19
 };
+
+#ifndef NO_MULTIRES
+static void flt_font( int f_, int s_ ) { fl_font( f_, lround( SCALE_X * s_ ) ); }
+
+static bool setupScreenSize( int W_, int H_ )
+//-------------------------------------------------------------------------------
+{
+	if ( W_ >= 320 && W_ <= 1920 && H_ >= W_ / 2 && H_ <= 1200 && W_ >= H_ )
+	{
+//		cout << "W x H = " << W << " x " << H << endl;
+		SCREEN_W = W_;
+		SCREEN_H = H_;
+		SCALE_X = (double)SCREEN_W / 800;
+		SCALE_Y = (double)SCREEN_H / 600;
+//		cout << "SCALE_X: " << SCALE_X << endl;
+//		cout << "SCALE_Y: " << SCALE_Y << endl;
+		return true;
+	}
+	return false;
+}
+
+static bool setupScreenSize( const string& cmd_, int& W_, int& H_ )
+//-------------------------------------------------------------------------------
+{
+	W_ = 0;
+	H_ = 0;
+	int W = 0;
+	int H = 0;
+	if ( cmd_.empty() )
+	{
+		int x, y;
+		Fl::screen_work_area( x, y, W, H );
+	}
+	else if ( cmd_ == "f" )
+	{
+		int x, y;
+		Fl::screen_xywh( x, y, W, H );
+	}
+	else
+	{
+		W = atol( cmd_.c_str() );
+		size_t pos = cmd_.find_first_of( "xX,/" );
+		if ( pos != string::npos )
+			H = atol( cmd_.substr( pos + 1 ).c_str() );
+	}
+	if ( setupScreenSize( W, H ) )
+	{
+		W_ = W;
+		H_ = H;
+		return true;
+	}
+	return false;
+}
+#else
+#define flt_font( f_, s_ ) fl_font( f_, s_ )
+#endif
 
 static void setup( int fps_, bool have_slow_cpu_, bool use_fltk_run_  = true )
 //-------------------------------------------------------------------------------
@@ -231,10 +307,22 @@ static void setup( int fps_, bool have_slow_cpu_, bool use_fltk_run_  = true )
 #endif
 	_USE_FLTK_RUN = use_fltk_run_;
 
-	FRAMES = 1. / FPS;
-	DX = 200 / FPS;
-	SCORE_STEP = (int)( 200. / (double)DX ) * DX;
-	_DX = DX;
+	while ( 1 )
+	{
+		FRAMES = 1. / FPS;
+		DX = 200 / FPS;
+		SCORE_STEP = (int)( 200. / (double)DX ) * DX;
+		_DDX = SCALE_X * ( 200. / FPS );
+		_DX = lround( _DDX );
+		if ( _DX ) break;
+		FPS /= 2;
+	}
+	SCORE_STEP = lround( SCALE_X * SCORE_STEP );
+#ifndef NO_MULTIRES
+	double ro = (double)SCREEN_NORMAL_W / SCREEN_NORMAL_H;
+	double r =  (double)SCREEN_W / SCREEN_H;
+	_YF = ro / r;
+#endif
 }
 
 static const string& homeDir()
@@ -273,16 +361,17 @@ static const string& homeDir()
 	return home;
 }
 
-static string asString( int n_ )
+static string asString( long n_ )
 //-------------------------------------------------------------------------------
 {
-	ostringstream os;
+	static ostringstream os;
+	os.str( "" );
 	os << n_;
 	return os.str();
 }
 
 static string mkPath( const string& dir_, const string& sub_ = "",
-	const string& file_ = "" )
+                      const string& file_ = "" )
 //-------------------------------------------------------------------------------
 {
 	string dir( dir_ );
@@ -437,13 +526,13 @@ private:
 	string _ext;
 };
 
-static string levelPath( const string& file_ )
+static string levelPath( const string& file_ = "" )
 //-------------------------------------------------------------------------------
 {
 	return mkPath( "levels", "", file_ );
 }
 
-static string demoPath( const string& file_ )
+static string demoPath( const string& file_ = "" )
 //-------------------------------------------------------------------------------
 {
 	return mkPath( "demo", "", file_ );
@@ -459,6 +548,23 @@ static int rangedValue( int value_, int min_, int max_ )
 	if ( min_ > max_ )
 	{
 		int t = min_;
+		min_ = max_;
+		max_ = t;
+	}
+	if ( v < min_ )
+		v = min_;
+	if ( v > max_ )
+		v = max_;
+	return v;
+}
+
+static int rangedValue( double value_, double min_, double max_ )
+//-------------------------------------------------------------------------------
+{
+	double v( value_ );
+	if ( min_ > max_ )
+	{
+		double t = min_;
 		min_ = max_;
 		max_ = t;
 	}
@@ -577,18 +683,20 @@ class Cfg : public Fl_Preferences
 public:
 	struct User
 	{
-		User() : score( 0 ), level( 0 ), completed( 0 ) {}
+		User() : score( 0 ), level( 0 ), completed( 0 ), ship( -1 ) {}
 		string name;
 		int score;
 		int level;
 		int completed;
+		int ship;
 	};
 	Cfg( const char *vendor_, const char *appl_ );
 	void load();
 	void writeUser( const string& user_,
 	                int score_ = -1,
 	                int level_ = -1,
-	                int completed_ = 0 );
+	                int completed_ = 0,
+	                int ship_ = -1 );
 	const User& readUser( const string& user_ );
 	const User& readUser( User& user_ );
 	const User& writeUser( User& user_ );
@@ -636,7 +744,8 @@ void Cfg::load()
 		user.get( "score", e.score, 0 );
 		user.get( "level", e.level, 0 );
 		user.get( "completed", e.completed, 0 );
-//		printf(" entry: '%s' %d %d %d\n", e.name.c_str(), e.score, e.level, e.completed );
+		user.get( "ship", e.ship, -1 );
+//		printf(" entry: '%s' %d %d %d %d\n", e.name.c_str(), e.score, e.level, e.completed, e.ship);
 		bool inserted = false;
 		for ( size_t j = 0; j < _users.size(); j++ )
 		{
@@ -670,7 +779,8 @@ void Cfg::load()
 void Cfg::writeUser( const string& user_,
 	                  int score_/* = -1*/,
 	                  int level_/* = -1*/,
-	                  int completed_/* = 0*/ )
+	                  int completed_/* = 0*/,
+                     int ship_/* =-1*/ )
 //-------------------------------------------------------------------------------
 {
 	set( "last_user", user_.c_str() );
@@ -680,6 +790,8 @@ void Cfg::writeUser( const string& user_,
 	if ( level_ >= 0 )
 		user.set( "level", (int)level_ );
 	user.set( "completed", completed_ );
+	if ( ship_ >= 0 )
+		user.set( "ship", ship_ );
 	load();
 }
 
@@ -708,7 +820,7 @@ const User& Cfg::readUser( User& user_ )
 const User& Cfg::writeUser( User& user_ )
 //-------------------------------------------------------------------------------
 {
-	writeUser( user_.name, user_.score, user_.level, user_.completed );
+	writeUser( user_.name, user_.score, user_.level, user_.completed, user_.ship );
 	return readUser( user_ );
 }
 
@@ -742,7 +854,7 @@ class Audio
 {
 public:
 	static Audio *instance( bool create_ = true );
-	bool play( const char *file_, bool bg_ = false );
+	bool play( const char *file_, bool bg_ = false, bool repeat_ = true );
 	bool disabled() const { return _disabled; }
 	bool bg_disabled() const { return hasBgSound() ? _bg_disabled : true; }
 	bool enabled() const { return !_disabled; }
@@ -758,17 +870,19 @@ public:
 #endif
 	}
 	void disable( bool disable_ = true ) { _disabled = disable_; }
-	void enable() { disable( false ); }
+	void enable() { disable( false ); bg_disable( false ); }
 	void bg_disable( bool disable_ = true ) { _bg_disabled = disable_; }
 	void cmd( const string& cmd_ );
 	string cmd( bool bg_ = false ) const { return bg_ ? _bgPlayCmd : _playCmd; }
 	string ext() const { return _ext; }
+	void noExplosions( bool no_explosions_ = true ) { _no_explosions = no_explosions_; }
 	void stop_bg();
 	void check( bool killOnly = false );
 	void shutdown();
 private:
 	Audio();
 	~Audio();
+	bool allowed( const string& f_ ) const;
 	void stop( const string& pidfile_ );
 	bool kill_sound( const string& pidfile_ );
 	static bool terminate_player( pid_t pid_, const string& pidfile_ );
@@ -781,6 +895,8 @@ private:
 	string _bgpidfile;
 	vector<string> _retry_bgpidfile;
 	string _bgsound;
+	bool _repeat;
+	bool _no_explosions;
 };
 
 //-------------------------------------------------------------------------------
@@ -820,7 +936,9 @@ static string bgPidFileName( int id_ )
 Audio::Audio() :
 	_disabled( false ),
 	_bg_disabled( false),
-	_id( 0 )
+	_id( 0 ),
+	_repeat( false ),
+	_no_explosions( false )
 //-------------------------------------------------------------------------------
 {
 	cmd( string() );
@@ -840,8 +958,8 @@ Audio::~Audio()
 	{
 		cerr << "Waiting to stop " << _retry_bgpidfile.size() << " bgsound(s)" << endl;
 #ifndef WIN32
-//		 NOTE: WIN32 has no sleep(sec) - it has Sleep(msec).
-//	          But anyway this waiting makes only sense for aplay (Linux).
+//		NOTE: WIN32 has no sleep(sec) - it has Sleep(msec).
+//		      But anyway this waiting makes only sense for aplay (Linux).
 		sleep( 1 );
 #endif
 		check( true );
@@ -968,12 +1086,20 @@ Audio *Audio::instance( bool create_/* = true*/)
 	return inst;
 }
 
-bool Audio::play( const char *file_, bool bg_/* = false*/ )
+bool Audio::allowed( const string& f_ ) const
+//-------------------------------------------------------------------------------
+{
+	if ( _no_explosions && f_.find( "x_" ) == 0 )
+		return false;
+	return true;
+}
+
+bool Audio::play( const char *file_, bool bg_/* = false*/, bool repeat_/* = true*/ )
 //-------------------------------------------------------------------------------
 {
 	int ret = 0;
 	bool disabled( ( bg_ && _bg_disabled ) || ( !bg_ && _disabled ) );
-	if ( !disabled && file_ )
+	if ( !disabled && file_ && allowed( file_ ) )
 	{
 		string file( file_ );
 		string cmd( bg_ ? _bgPlayCmd : _playCmd );
@@ -984,6 +1110,7 @@ bool Audio::play( const char *file_, bool bg_/* = false*/ )
 			stop_bg();
 			_bgpidfile = bgPidFileName( ++_id );
 			_bgsound = file;
+			_repeat = repeat_;
 		}
 
 		size_t pos = cmd.find( "%f" );
@@ -1075,7 +1202,7 @@ bool Audio::kill_sound( const string& pidfile_ )
 	}
 	else
 	{
-		//	pidfile not yet created or already gone
+		// pidfile not yet created or already gone
 		success = false;
 	}
 	return success;
@@ -1114,8 +1241,15 @@ void Audio::check( bool killOnly_/* = false*/ )
 		ifstream ifs( _bgpidfile.c_str() );
 		if ( ifs.fail() )
 		{
-//			printf( "restart bgsound '%s' '%s'\n", _bgpidfile.c_str(), _bgsound.c_str() );
-			play( _bgsound.c_str(), true );
+			if ( _repeat )
+			{
+//				printf( "restart bgsound '%s' '%s'\n", _bgpidfile.c_str(), _bgsound.c_str() );
+				play( _bgsound.c_str(), true );
+			}
+			else
+			{
+				_bgpidfile.erase();
+			}
 		}
 	}
 }
@@ -1157,21 +1291,40 @@ class FltImage
 //-------------------------------------------------------------------------------
 {
 public:
+	struct ImageInfo
+	{
+		ImageInfo() : valid( false ), image( 0 ), imageForDrawing( 0 ),
+		              orig_image( 0 ), origImageForDrawing( 0 ),
+		              frames( 0 ), timeout( 0. ) {}
+		bool valid;
+		Fl_Shared_Image *image;
+		Fl_RGB_Image *imageForDrawing;
+		Fl_Shared_Image *orig_image;
+		Fl_RGB_Image *origImageForDrawing;
+		int frames;
+		double timeout;
+	};
+
 	FltImage() :
 		_image( 0 ),
 		_imageForDrawing( 0 ),
+		_orig_image( 0 ),
+		_origImageForDrawing( 0 ),
 		_animate_timeout( 0. ),
 		_frames( 0 ),
 		_ox( 0 ),
 		_w( 0 ),
-		_h( 0 )
+		_h( 0 ),
+		_orig_w( 0 ),
+		_orig_h( 0 )
 	{
 	}
 	~FltImage()
 	{
-		if ( _image )
-			_image->release();
-		delete _imageForDrawing;
+//		if ( _image )
+//			_image->release();
+//		delete _imageForDrawing;
+//		delete _origImageForDrawing;
 	}
 	void nextFrame()
 	{
@@ -1198,67 +1351,120 @@ public:
 	}
 	Fl_Image *get( const char *image_ )
 	{
-		Fl_Shared_Image *image = Fl_Shared_Image::get( image_ );
-		if ( image && image->count() )
+		ImageInfo ii = _icache[ image_ ];
+		if ( !ii.valid )
 		{
-			if ( _image )
-				_image->release();
-			_image = image;
-			delete _imageForDrawing;
-			_imageForDrawing = 0;
-#if FLTK_HAS_NEW_FUNCTIONS
-			_imageForDrawing = new Fl_RGB_Image( (Fl_Pixmap *)_image );
-#endif
-			_animate_timeout = 0.;
-			_ox = 0;
-			int frames = 1;
-			_h = _image->h();
-			_w = _image->w();
-			const char *p = strstr( image_, "_" );
-			if ( p && isdigit( p[1] ) )
+			Fl_Shared_Image *image = Fl_Shared_Image::get( image_ );
+			if ( image && image->count() )
 			{
-				// extract frames/delay from image name 'name_<frames>_<delay>.gif' ...
-				p++;
-				frames = atoi( p );
-				p = strstr( p, "_" );
-				if ( p )
+				// check for "animated" image
+				ii.frames = 1;
+				const char *p = strstr( image_, "_" );
+				if ( p && isdigit( p[1] ) )
 				{
+					// extract frames/delay from image name 'name_<frames>_<delay>.gif' ...
 					p++;
-					_animate_timeout = (double)atoi( p ) / 1000;
-				}
-			}
-			else
-			{
-				// Try to read gif comment field for keywords 'frames', 'delay'.
-				// Note: for now just search in the first 1024 bytes of the file...
-				ifstream ifs( image_, ios::binary );
-				char buf[1024];
-				memset( buf, 0, sizeof( buf ) );
-				ifs.read( buf, sizeof( buf ) );
-				string s( buf, sizeof( buf ) );
-				size_t pos = s.find( "frames=" );
-				if ( pos != string::npos )
-					frames = atoi( &s.c_str()[pos + 7] );
-				if ( frames > 1 )
-				{
-					/*size_t*/ pos = s.find( "delay=" );
-					if ( pos != string::npos )
+					ii.frames = atoi( p );
+					p = strstr( p, "_" );
+					if ( p )
 					{
-						double timeout = (double)atoi( &s.c_str()[pos + 6] ) / 1000;
-						if ( timeout >= 0.05 )
-							_animate_timeout = (double)atoi( &s.c_str()[pos + 6] ) / 1000;
+						p++;
+						ii.timeout = (double)atoi( p ) / 1000;
 					}
 				}
+				else
+				{
+					// Try to read gif comment field for keywords 'frames', 'delay'.
+					// Note: for now just search in the first 1024 bytes of the file...
+					ifstream ifs( image_, ios::binary );
+					char buf[1024];
+					memset( buf, 0, sizeof( buf ) );
+					ifs.read( buf, sizeof( buf ) );
+					string s( buf, sizeof( buf ) );
+					size_t pos = s.find( "frames=" );
+					if ( pos != string::npos )
+						ii.frames = atoi( &s.c_str()[pos + 7] );
+					if ( ii.frames > 1 )
+					{
+						/*size_t*/ pos = s.find( "delay=" );
+						if ( pos != string::npos )
+							ii.timeout = (double)atoi( &s.c_str()[pos + 6] ) / 1000;
+					}
+				}
+				if ( ii.frames < 0 )
+					ii.frames = 1;
+				if ( ii.timeout && ii.timeout < 0.05 )
+					ii.timeout = 0.05;
+
+				// Correct scaling for animated images
+#if FLTK_HAS_NEW_FUNCTIONS
+				Fl_Image::RGB_scaling( FL_RGB_SCALING_BILINEAR );
+#endif
+				ii.orig_image = image;
+				ii.origImageForDrawing = 0;
+				int w = image->w();
+				int h = image->h();
+				if ( ii.frames > 0 )
+				{
+					w /= ii.frames;
+					_orig_w = w;
+					w = lround( SCALE_X * w );
+				}
+				else
+					w = lround( SCALE_X * w );
+				h = lround( SCALE_Y * h );
+
+				// Scale pixmap image
+				image = Fl_Shared_Image::get( image_, w * ii.frames, h );
+				assert( image );
+
+				// NOTE: we don't release images, so they stay cached
+				//       within Fl_Shared_Image
+//				if ( _image )
+//					_image->release();
+				ii.image = image;
+//				delete _imageForDrawing;
+//				_imageForDrawing = 0;
+//				delete _origImageForDrawing;
+//				_origImageForDrawing = 0;
+#if FLTK_HAS_NEW_FUNCTIONS
+				// NOTE: Also the images used for drawing will only
+				//       be converted once from Pixmap to RGB.
+				Fl_RGB_Image *rgb = new Fl_RGB_Image( (Fl_Pixmap *)ii.orig_image );
+				assert( rgb );
+				ii.origImageForDrawing = rgb;
+//				ii.imageForDrawing = (Fl_RGB_Image *)rgb->copy( image->w(), image->h() );
+				ii.imageForDrawing = (Fl_RGB_Image *)fl_copy_image( rgb, image->w(), image->h() );
+#endif
+
+				// save image information to cache
+				ii.valid = true;
+				_icache[ image_ ] = ii;
 			}
-			if ( frames > 1 )
-				_w = _image->w() / frames;
 		}
-		return this->image();
+
+		_ox = 0;
+		_animate_timeout = ii.timeout;
+		_frames = ii.frames;
+		_image = ii.image;
+		_imageForDrawing = ii.imageForDrawing;
+		_orig_image = ii.orig_image;
+		_origImageForDrawing = ii.origImageForDrawing;
+		_h = _image ? _image->h() : 0;
+		_w = _image ? _image->w() : 0;
+		if ( _frames > 1 )
+			_w = _image->w() / _frames;
+		_orig_h = _orig_image ? _orig_image->h() : 0;
+		_orig_w = _orig_image ? _orig_image->w() : 0;
+		if ( _frames > 1 )
+			_orig_w = _orig_image->w() / _frames;
+
+		return _image;
 	}
 	bool isTransparent( size_t x_, size_t y_ ) const
 	{
 		// valid only for pixmaps!
-		x_ += _ox;	// for animated images use the current frame
+		x_ += _ox; // for animated images use the current frame
 		assert( (int)x_ < _image->w() && (int)y_ < _image->h() );
 		return _image->data()[y_ + 2][x_] == ' ';
 	}
@@ -1268,17 +1474,34 @@ public:
 		return _imageForDrawing ? (Fl_Image *)_imageForDrawing : (Fl_Image *)_image;
 	}
 	Fl_Image *image() const { return (Fl_Image *)_image; }
+	Fl_Image *origDrawImage() const
+	{
+		return _origImageForDrawing ? (Fl_Image *)_origImageForDrawing : (Fl_Image *)_orig_image;
+	}
+	string name() const { return _image ? _image->name() : ""; }
 	int w() const { return _w; }
 	int h() const { return _h; }
+	int orig_w() const { return _orig_w; }
+	int orig_h() const { return _orig_h; }
+	static void uncache() { _icache.clear(); }
 private:
 	Fl_Shared_Image *_image;
 	Fl_RGB_Image *_imageForDrawing;
+	Fl_Shared_Image *_orig_image;
+	Fl_RGB_Image *_origImageForDrawing;
 	double _animate_timeout;
 	int _frames;
 	int _ox;
 	int _w;
 	int _h;
+	int _orig_w;
+	int _orig_h;
+protected:
+	static map<string, ImageInfo> _icache;
 };
+
+/*static*/
+map<string, FltImage::ImageInfo> FltImage::_icache;
 
 //-------------------------------------------------------------------------------
 class Object
@@ -1299,6 +1522,7 @@ public:
 	void timeout( double timeout_ ) { _timeout = timeout_; }
 	virtual const char* start_sound() const { return 0; }
 	virtual const char* image_started() const { return 0; }
+	virtual void init() {}
 	void start( size_t speed_ = 1 );
 	virtual void update();
 	virtual void draw();
@@ -1306,13 +1530,13 @@ public:
 	bool nostart() const { return _nostart; }
 	void nostart( bool nostart_) { _nostart = nostart_; }
 
-	void x( int x_ ) { _x = x_ + _w / 2; }
-	void y( int y_ ) { _y = y_ + _h / 2; }
+	void x( int x_ ) { _x = x_ + _w / 2; _X = _x; }
+	void y( int y_ ) { _y = y_ + _h / 2; _Y = _y; }
 	int x() const { return _x - _w / 2; }	// left x
 	int y() const { return _y - _h / 2; }	// top y
 
-	void cx( int cx_ ) { _x = cx_; }
-	void cy( int cy_ ) { _y = cy_; }
+	void cx( int cx_ ) { _x = cx_; _X = cx_; }
+	void cy( int cy_ ) { _y = cy_; _Y = cy_; }
 	int cx() const { return _x; }	// center x
 	int cy() const { return _y; }	// center y
 
@@ -1324,6 +1548,8 @@ public:
 	void speed( unsigned speed_ ) { _speed = speed_; }
 	const Rect rect() const { return Rect( x(), y(), w(), h() ); }
 	Fl_Image *image() const { return _image.drawImage(); }
+	Fl_Image *origImage() const { return _image.origDrawImage(); }
+	const FltImage& flt_image() const { return _image; }
 	ObjectType o() const { return _o; }
 	const bool isType( ObjectType o_ ) const { return _o == o_; }
 	void onExplosionEnd();
@@ -1337,6 +1563,8 @@ public:
 	void data1( long data1_ ) { _data1 = data1_; }
 	void data2( long data2_ ) { _data2 = data2_; }
 	double animate_timeout() const { return _image.animate_timeout(); }
+	void dxRange( int dxRange_ ) { _dxRange = dxRange_; }
+	int dxRange() const { return _dxRange; }
 private:
 	void _explode( double to_ = 0. );
 	virtual bool onHit() { return false; }
@@ -1347,7 +1575,9 @@ protected:
 	ObjectType _o;
 	int _x, _y;
 	int _w, _h;
+	double _X, _Y;
 	unsigned _speed;
+	int _dxRange;
 	unsigned _state;
 	long _data1;
 	long _data2;
@@ -1371,7 +1601,10 @@ Object::Object( ObjectType o_, int x_, int y_,
 	_y( y_ ),
 	_w( w_ ),
 	_h( h_ ),
+	_X( x_ ),
+	_Y( y_ ),
 	_speed( 1 ),
+	_dxRange( 0 ),
 	_state( 0 ),
 	_data1( 0 ),
 	_data2( 0 ),
@@ -1473,10 +1706,11 @@ void Object::image( const char *image_ )
 void Object::start( size_t speed_/* = 1*/ )
 //-------------------------------------------------------------------------------
 {
+	_speed = speed_;
+	init();	// give derived object's a chance to initialise something before start
 	const char *img = image_started();
 	if ( img )
 		image( img );
-	_speed = speed_;
 	Fl::add_timeout( timeout(), cb_update, this );
 	Audio::instance()->play( start_sound() );
 	_state = 1;
@@ -1510,9 +1744,9 @@ void Object::draw()
 void Object::draw_collision() const
 //-------------------------------------------------------------------------------
 {
-	int pts = w() * h() / 20;
-	int sz = pts / 30;
+	int sz = ( w() > h() ? w() : h() ) / 10;
 	++sz &= ~1;
+	int pts = w() * h() / sz / sz * 20;
 	for ( int i = 0; i < pts; i++ )
 	{
 		unsigned X = Random::pRand() % w();
@@ -1600,7 +1834,7 @@ public:
 	{
 	}
 	bool lifted() const { return started(); }
-	virtual const char *start_sound() const { return "launch"; }
+	virtual const char *start_sound() const { return "x_launch"; }
 	virtual const char* image_started() const { return "rocket_launched.gif"; }
 	virtual void update()
 	{
@@ -1610,7 +1844,9 @@ public:
 			size_t delta = ( 1 + _state / 10 ) * _speed;
 			if ( delta > 12 )
 				delta = 12;
-			_y -= delta;
+			_y -= ceil( SCALE_Y * delta );
+			if ( dxRange() )
+				_x += ceil( SCALE_X * rangedRandom( -dxRange(), dxRange() ) );
 		}
 		Inherited::update();
 	}
@@ -1623,7 +1859,7 @@ class Radar : public Object
 	typedef Object Inherited;
 public:
 	Radar( int x_ = 0, int y_ = 0) :
-		Inherited( O_RADAR, x_, y_, "radar.gif" /* "radar_00014_0200.gif" */ )
+		Inherited( O_RADAR, x_, y_, "radar.gif" )
 	{
 	}
 	bool defunct() const { return hits() > 1; }
@@ -1642,25 +1878,29 @@ class Drop : public Object
 	typedef Object Inherited;
 public:
 	Drop( int x_ = 0, int y_ = 0) :
-		Inherited( O_DROP, x_, y_, "drop.gif" )
+		Inherited( O_DROP, x_, y_, "drop.gif" ),
+		_dx( 0 )
 	{
+	}
+	virtual void init()
+	{
+		if ( dxRange() )
+			_dx = rangedRandom( -dxRange(), dxRange() );
 	}
 	bool dropped() const { return started(); }
 	virtual const char *start_sound() const { return "drop"; }
-	virtual bool onHit()
-	{
-		// TODO: other image?
-		return false;
-	}
 	virtual void update()
 	{
 		if ( G_paused ) return;
 		size_t delta = ( 1 + _state / 10 ) * _speed;
 		if ( delta > 12 )
 			delta = 12;
-		_y += delta;
+		_y += ceil( SCALE_Y * delta );
+		_x += ceil( SCALE_X * _dx );
 		Inherited::update();
 	}
+private:
+	int _dx;
 };
 
 //-------------------------------------------------------------------------------
@@ -1677,7 +1917,7 @@ public:
 	}
 	bool moving() const { return started(); }
 	virtual const char *start_sound() const { return "bady"; }
-	void turn() { _up = !_up; }
+	void turn()	{ _up = !_up; }
 	bool turned() const { return _up; }
 	void stamina( int stamina_ ) { _stamina = stamina_; }
 	virtual bool onHit()
@@ -1692,7 +1932,12 @@ public:
 		size_t delta = _speed;
 		if ( delta > 12 )
 			delta = 12;
-		_y = _up ? _y - delta : _y + delta;
+		if (_up )
+			_y -= ceil( SCALE_Y * delta );
+		else
+			_y += ceil( SCALE_Y * delta );
+		if ( dxRange() )
+			_x += lround( SCALE_X * rangedRandom( -dxRange(), dxRange() ) );
 		Inherited::update();
 	}
 private:
@@ -1719,9 +1964,10 @@ public:
 		if ( G_paused ) return;
 		Inherited::update();
 		size_t delta = _speed;
-		if ( delta > 12 )
-			delta = 12;
-		_y = _up ? _y - delta : _y + delta;
+		if (_up )
+			_y -= ceil( SCALE_Y * delta );
+		else
+			_y += ceil( SCALE_Y * delta );
 	}
 private:
 	bool _up;
@@ -1733,28 +1979,28 @@ class Missile : public Object
 {
 	typedef Object Inherited;
 public:
-	Missile( int x_, int y_ ) :
-		Object( O_MISSILE, x_, y_, 0, 20, 3 ),
+	Missile( int x_, int y_, Fl_Color color_ = FL_WHITE ) :
+		Object( O_MISSILE, x_, y_, 0, ceil( 20. * SCALE_X ), ceil( 3. * SCALE_Y ) ),
 		_ox( x_ ),
-		_oy( y_ )
+		_color( color_ )
 	{
 		update();
 	}
-	virtual const char *start_sound() const { return "missile"; }
+	virtual const char *start_sound() const { return "x_missile"; }
 	virtual void update()
 	{
 		if ( G_paused ) return;
 		Inherited::update();
-		_x += 15;
+		_x += lround( SCALE_X * 15 );
 	}
 	int dx() const { return _x - _ox; }
-	bool exhausted() const { return dx() > 450; }
+	bool exhausted() const { return dx() > lround( SCALE_X * 450 ); }
 	virtual void draw()
 	{
-		Fl_Color c( FL_WHITE );
-		if ( dx() > 250 )
+		Fl_Color c( _color );
+		if ( dx() > lround( SCALE_X * 250 ) )
 			c = fl_darker( c );
-		if ( dx() > 350 )
+		if ( dx() > lround( SCALE_X * 350 ) )
 			c = fl_darker( c );
 		fl_rectf( x(), y(), w(), h(), c );
 #ifdef DEBUG_COLLISION
@@ -1765,7 +2011,7 @@ public:
 	}
 private:
 	int _ox;
-	int _oy;
+	Fl_Color _color;
 };
 
 //-------------------------------------------------------------------------------
@@ -1776,23 +2022,23 @@ class Bomb : public Object
 public:
 	Bomb( int x_, int y_ ) :
 		Inherited( O_BOMB, x_, y_, "bomb.gif" ),
-		_dy( 10 )
+		_dy( lround( SCALE_Y * 10 ) )
 	{
 		update();
 	}
-	virtual const char *start_sound() const { return "bomb_f"; }
+	virtual const char *start_sound() const { return "x_bomb_f"; }
 	virtual void update()
 	{
 		if ( G_paused ) return;
 		_y += _dy;
 		if ( _state < 5 )
-			_x += 16;
+			_x += lround( SCALE_X * 16 );
 		else if ( _state > 15 )
-			_x -= 5;
-		_x -= 3;
-		_x -= ( _speed / 30 );
+			_x -= lround( SCALE_X * 5 );
+		_x -= lround( SCALE_X * 3 );
+		_x -= ( lround( SCALE_X * (_speed / 30 ) ) );
 		if ( _state % 2)
-			_dy++;
+			_dy += lround( SCALE_Y * 1 );
 		_speed /= 2;
 		Inherited::update();
 	}
@@ -1811,7 +2057,8 @@ public:
 		Inherited( O_PHASER, x_, y_, "phaser.gif" ),
 		_max_height( -1 ),
 		_bg_color( FL_GREEN ),
-		_disabled( false )
+		_disabled( false ),
+		_dx( 0 )
 	{
 		_state = Random::Rand() % 400;
 	}
@@ -1819,6 +2066,19 @@ public:
 	{
 		if ( G_paused ) return;
 		Inherited::update();
+		int state = _state % 40;
+		if ( _disabled )
+			state = 0;
+		if ( state == 0 )
+		{
+			image( "phaser.gif" );
+			if ( dxRange() )
+				_dx = rangedRandom( -dxRange(), dxRange() );
+		}
+		else if ( state == 20 )
+			image( "phaser_active.gif" );
+		else if ( state == 36 )
+			Audio::instance()->play( "phaser" );
 	}
 	void max_height( int max_height_ )
 	{
@@ -1836,19 +2096,11 @@ public:
 	{
 		Inherited::draw();
 		int state = _state % 40;
-		if ( _disabled )
-			state = 0;
-		if ( state == 0 )
-			image( "phaser.gif" );
-		if ( state == 20 )
-			image( "phaser_active.gif" );
 		if ( state >= 36 )
 		{
-			if ( state == 36 )
-				Audio::instance()->play( "phaser" );
 			fl_color( fl_contrast( FL_BLUE, _bg_color ) );
-			fl_line_style( FL_SOLID, 3 );
-			fl_line( cx(), y(), cx(), _max_height );
+			fl_line_style( FL_SOLID, lround( SCALE_Y * 3 ) );
+			fl_line( cx(), y(), cx() + lround( SCALE_X * _dx ), _max_height );
 			fl_line_style( 0 );
 		}
 	}
@@ -1856,6 +2108,7 @@ private:
 	int _max_height;
 	Fl_Color _bg_color;
 	bool _disabled;
+	int _dx;
 };
 
 //-------------------------------------------------------------------------------
@@ -1877,6 +2130,8 @@ class Explosion : public Object
 			end_r -= ( Random::pRand() % (int)end_r / 4 );
 			r = start_r + Random::pRand() % std::min( len, 5 );
 			dot = len <= 5;
+			len = ceil( SCALE_Y * len );
+			speed *= SCALE_Y;
 		}
 		double start_r;
 		double end_r;
@@ -1912,10 +2167,8 @@ public:
 	Explosion( int x_, int y_, ExplosionType type_ = STRIKE,
 		        double strength_ = 1., const Fl_Color * colors_ = 0, int nColors_ = 0 ) :
 		Object( O_EXPLOSION, x_, y_, 0, 200, 200 ),
-		_ox( x_ ),
-		_oy( y_ ),
 		_type( type_ ),
-		_radius( w() * strength_ ),
+		_radius( ceil( SCALE_Y * w() * strength_ ) ),
 		_colors( colors_ ? colors_ : multicolors ),
 		_nColors( colors_ ? nColors_ : sizeof( multicolors ) / sizeof( multicolors[0] ) ),
 		_done( false )
@@ -1924,7 +2177,7 @@ public:
 		update();
 	}
 	virtual const char *start_sound() const
-		{ return ( _radius < w() ? "explode1" : "explode2" ); }
+		{ return ( _radius < w() ? "x_explode1" : "x_explode2" ); }
 	virtual void update()
 	{
 		if ( G_paused ) return;
@@ -1938,7 +2191,7 @@ public:
 		for ( size_t i = 0; i < p_.size(); i++ )
 		{
 			Particle& p = p_[i];
-			if ( p.r < p.end_r )
+			if ( p.r < p.end_r && p.speed > 0.4 )
 			{
 				p.beg_x = p.r * cos( p.angle * M_PI / 180.0 ) + cx();
 				p.beg_y = p.r * sin( p.angle * M_PI / 180.0 ) + cy();
@@ -1993,7 +2246,7 @@ public:
 			}
 			else
 			{
-				fl_line_style( FL_SOLID, 3 );
+				fl_line_style( FL_SOLID, ceil( 3. * SCALE_Y ) );
 				fl_line( p.beg_x, p.beg_y, p.end_x, p.end_y );
 				fl_line_style( 0 );
 			}
@@ -2004,7 +2257,8 @@ public:
 		// create particles
 		bool dot = ( ( _type & 0xffff ) == DOT );
 		bool fallout = ( _type & FALLOUT );
-		int particles = ( _radius * _radius ) / ( init_ ? 200 : 400 ) ;
+		int r = lround( _radius / SCALE_Y );
+		int particles = ( r * r ) / ( init_ ? 200 : 400 ) ;
 		for ( int i = 0; i < particles; i++ )
 		{
 			int speed = fallout ? Random::pRand() % 10 + 1 : Random::pRand() % 5 + 3;
@@ -2019,8 +2273,6 @@ public:
 	}
 	bool done() const { return _done; }
 private:
-	int _ox;
-	int _oy;
 	std::vector <Particle> _particles;
 	ExplosionType _type;
 	int _radius;
@@ -2033,7 +2285,7 @@ private:
 class AnimText : public Object
 //-------------------------------------------------------------------------------
 {
-// Note: This is just a quick impl. for showing an amimated level name
+// Note: This is just a quick impl. for showing an animated level name
 //       and should probably be made more flexible. Also the text drawing
 //       could be combined with the FltWin::drawText().
 	typedef Object Inherited;
@@ -2064,21 +2316,22 @@ public:
 	{
 		if ( _done )
 			return;
-		fl_font( FL_HELVETICA_BOLD_ITALIC, _sz );
+		flt_font( FL_HELVETICA_BOLD_ITALIC, _sz );
 		int W = 0;
 		int H = 0;
 		fl_measure( _text.c_str(), W, H, 1 );
 		fl_color( _bgColor );
-		fl_draw( _text.c_str(), _x + 2, _y + 2, _w, H, FL_ALIGN_CENTER, 0, 1 );
+		fl_draw( _text.c_str(), _x + ceil( SCALE_Y * 2 ), _y + ceil( SCALE_Y * 2 ), _w, H, FL_ALIGN_CENTER, 0, 1 );
 		fl_color( _color );
 		fl_draw( _text.c_str(), _x, _y, _w, H, FL_ALIGN_CENTER, 0, 1 );
 		if ( W > _w - 30 )
-			_hold = 1;
+			_maxSize = _sz;
 	}
 	virtual void update()
 	{
 		if ( G_paused ) return;
 		Inherited::update();
+		if ( _done ) return;
 		if ( _up )
 		{
 			if ( !_hold )
@@ -2112,6 +2365,7 @@ public:
 	}
 	bool done() const { return _done; }
 	virtual double timeout() const { return started() ? 0.02 : 0.02; }
+	const char *text() const { return _text.c_str(); }
 private:
 	string _text;
 	Fl_Color _color;
@@ -2120,7 +2374,6 @@ private:
 	int _minSize;
 	bool _once;
 	int _sz;
-	unsigned char _g;
 	bool _up;
 	int _hold;
 	bool _done;
@@ -2141,10 +2394,15 @@ public:
 		int h;
 	};
 
-	ImageAnimation( Fl_Image *image_, int frames_ ) :
+	ImageAnimation( const FltImage &image_,
+		             double duration_ = 1.0,
+	                bool hq_ = true,
+	                int frames_ = 0 ) :
 		_done( true ),
-		_frames( frames_ ),
-		_src( 0 ),
+		_set( false ),
+		_duration( duration_ > 0. ? duration_ : 1.0 ),
+		_hq( hq_ ),
+		_frames( frames_ > 0 ? frames_ : ( hq_ ? 30 : 15 ) ),
 		_x0( 0 ),
 		_y0( 0 ),
 		_x1( 0 ),
@@ -2153,34 +2411,27 @@ public:
 		_scaley0( 1. ),
 		_scalex1( 1. ),
 		_scaley1( 1. ),
-		_type( 0 ),
 		_frame( 0 ),
 		_x( 0 ),
 		_y( 0 ),
 		_image( 0 )
 	{
-		if ( _frames > 0 )
-		{
-			if ( image_ )
-				_src = image_->copy();
-		}
+		_src.get( image_.name().c_str() );
 	}
 	void setMoveFrom( int x_, int y_ )
 	{
-		_x0 = x_ + _src->w() / 2;
-		_y0 = y_ + _src->h() / 2;
+		_x0 = x_ + _src.w() / 2;
+		_y0 = y_ + _src.h() / 2;
 	}
 	void setMoveTo( int x_, int y_ )
 	{
-		_x1 = x_ + _src->w() / 2;
-		_y1 = y_ + _src->h() / 2;
+		_x1 = x_ + _src.w() / 2;
+		_y1 = y_ + _src.h() / 2;
 	}
 	void setSizeMoveFromTo( int x0_, int y0_, int x1_, int y1_,
 	                        double scalex0_, double scaley0_,
 	                        double scalex1_, double scaley1_ )
 	{
-//		cout << "setSizeMoveFromTo: " << x0_ << "/" << y0_ << " ==> " << x1_ << "/" << y1_
-//		     << " " << scalex0_ << "/" << scaley0_ << " : " << _scalex1 << "/" << _scaley1 << endl;
 		_x0 = x0_;
 		_x1 = x1_;
 		_y0 = y0_;
@@ -2189,7 +2440,7 @@ public:
 		_scaley0 = scaley0_;
 		_scalex1 = scalex1_;
 		_scaley1 = scaley1_;
-		_type = 1;
+		_set = true;
 	}
 	void setSizeMoveFromTo( int x0_, int y0_, int x1_, int y1_,
                            double scale0_, double scale1_ )
@@ -2198,10 +2449,10 @@ public:
 	}
 	void setSizeMoveFromTo( const Rect& r0_, const Rect& r1_ )
 	{
-		double scalex0 = (double)r0_.w / _src->w();
-		double scaley0 = (double)r0_.h / _src->h();
-		double scalex1 = (double)r1_.w / _src->w();
-		double scaley1 = (double)r1_.h / _src->h();
+		double scalex0 = (double)r0_.w / _src.orig_w();
+		double scaley0 = (double)r0_.h / _src.orig_h();
+		double scalex1 = (double)r1_.w / _src.orig_w();
+		double scaley1 = (double)r1_.h / _src.orig_h();
 		setSizeMoveFromTo( r0_.x + r0_.w / 2, r0_.y + r0_.h / 2,
                          r1_.x + r1_.w / 2, r1_.y + r1_.h / 2,
                          scalex0, scaley0, scalex1, scaley1 );
@@ -2211,7 +2462,6 @@ public:
 		stop();
 		for ( size_t i = 0; i < _cache.size(); i++ )
 			delete _cache[ i ];
-		delete _src;
 	}
 	void draw()
 	{
@@ -2222,24 +2472,25 @@ public:
 	{
 		stop();
 		_frame = 0;
-		_done = !_type;
+		_done = !_set;
 		if ( !_done )
-			Fl::add_timeout( 1. / 30, cb_update, this );
+			Fl::add_timeout( _duration / _frames, cb_update, this );
 		return _done;
 	}
 	bool stop()
 	{
 		Fl::remove_timeout( cb_update, this );
 		_done = true;
+		if ( _image )
+			_image->uncache();
 		_image = 0;
 		return _done;
 	}
 	void update()
 	{
-		if ( _frame > _frames )
+		if ( _frame >= _frames )
 		{
-			_done = true;
-			_image = 0;
+			stop();
 		}
 		else
 		{
@@ -2247,16 +2498,16 @@ public:
 			int dy = _y1 - _y0;
 			_x = _x0 + ceil( ((double)dx / _frames) * _frame );
 			_y = _y0 + ceil( ((double)dy / _frames) * _frame );
-			if ( (int)_cache.size() < _frames + 1 )
+			if ( (int)_cache.size() <= _frame )	// not all frames cached yet
 			{
 				double scalex = ( ( _scalex1 - _scalex0 ) / _frames ) * _frame + _scalex0;
 				double scaley = ( ( _scaley1 - _scaley0 ) / _frames ) * _frame + _scaley0;
 #if FLTK_HAS_NEW_FUNCTIONS
-				Fl_Image::RGB_scaling( FL_RGB_SCALING_BILINEAR );
+				Fl_Image::RGB_scaling( _hq ? FL_RGB_SCALING_BILINEAR : FL_RGB_SCALING_NEAREST );
 #endif
-				_image = _src->copy( _src->w() * scalex, _src->h() * scaley );
+//				_image = _src.origDrawImage()->copy( _src.orig_w() * scalex, _src.orig_h() * scaley );
+				_image = fl_copy_image( _src.origDrawImage(), _src.orig_w() * scalex, _src.orig_h() * scaley );
 				_cache.push_back( _image );
-//				cout << _frame << ": " <<_x << " " << _y << " " << scalex << "/" << scaley  << endl;
 			}
 			else
 			{
@@ -2266,17 +2517,21 @@ public:
 		}
 	}
 	bool done() const { return _done; }
-	const Fl_Image *src() const { return _src; }
+	const FltImage& src() const { return _src; }
 private:
 	static void cb_update( void *d_ )
 	{
-		((ImageAnimation *)d_)->update();
-		Fl::repeat_timeout( 1. / 30, cb_update, d_ );
+		ImageAnimation *this_ptr = (ImageAnimation *)d_;
+		this_ptr->update();
+		Fl::repeat_timeout( this_ptr->_duration / this_ptr->_frames, cb_update, d_ );
 	}
 private:
 	bool _done;
+	bool _set;
+	double _duration;
+	bool _hq;
 	int _frames;
-	Fl_Image *_src;
+	FltImage _src;
 	int _x0;
 	int _y0;
 	int _x1;
@@ -2285,7 +2540,6 @@ private:
 	double _scaley0;
 	double _scalex1;
 	double _scaley1;
-	int _type;
 	int _frame;
 	int _x;
 	int _y;
@@ -2299,8 +2553,8 @@ class TerrainPoint
 {
 public:
 	TerrainPoint( int ground_level_, int sky_level_ = -1, int object_ = 0 ) :
-		_ground_level( ground_level_ ),
-		_sky_level( sky_level_ ),
+		_ground_level( lround( (double)ground_level_ * SCALE_Y ) ),
+		_sky_level( lround( (double)sky_level_ * SCALE_Y ) ),
 		_object( object_ )
 	{
 	}
@@ -2421,7 +2675,7 @@ public:
 	vector<Fl_Color> alt_bg_colors;
 	vector<Fl_Color> alt_ground_colors;
 	vector<Fl_Color> alt_sky_colors;
-	unsigned  ls_outline_width;
+	unsigned ls_outline_width;
 	Fl_Color outline_color_sky;
 	Fl_Color outline_color_ground;
 	unsigned long flags;
@@ -2439,13 +2693,16 @@ class Spaceship : public Object
 {
 	typedef Object Inherited;
 public:
-	Spaceship( int x_, int y_, int W_, int H_, bool alt_ = false, bool effects_ = false ) :
-		Inherited( O_SHIP, x_, y_, alt_ ? "pene.gif" : "spaceship.gif" ),
+	Spaceship( int x_, int y_, int W_, int H_, int ship_ = 0, bool effects_ = false ) :
+		Inherited( O_SHIP, x_, y_,	((string)"spaceship" + asString( ship_ ) + ".gif").c_str() ),
 		_W( W_ ),
 		_H( H_ ),
 		_effects( effects_ ),
 		_missilePos( missilePos() ),
 		_bombPos( bombPos() ),
+		_bombXOffset( lround( SCALE_Y * 10 ) ),
+		_explosionColor( FL_CYAN ),
+		_missileColor( FL_WHITE ),
 		_accel( 0 ),
 		_decel( 0 )
 	{
@@ -2457,7 +2714,8 @@ public:
 		if ( _x > 0 )
 		{
 			_decel = 2;
-			_x -= _DX;
+			_X -= _DDX;
+			_x = lround( _X );
 		}
 	}
 	void right()
@@ -2465,18 +2723,25 @@ public:
 		if ( _x < _W / 2 )
 		{
 			_accel = 3;
-			_x += _DX;
+			_X += _DDX;
+			_x = lround( _X );
 		}
 	}
 	void up()
 	{
 		if ( _y > _h / 2 )
-			_y -= _DX;
+		{
+			_Y -= _DDX * _YF;
+			_y = lround( _Y );
+		}
 	}
 	void down()
 	{
 		if ( _y < _H )
-			_y += _DX;
+		{
+			_Y += _DDX * _YF;
+			_y = lround( _Y );
+		}
 	}
 	virtual void draw()
 	{
@@ -2484,22 +2749,28 @@ public:
 		if ( _effects && ( _accel || _decel ) && !G_paused )
 		{
 			fl_color( _accel > _decel ? FL_GRAY : FL_DARK_MAGENTA );
-			fl_line_style( FL_DASH, 1 );
-			int y0 = y() + 20;
-			int l = 20;
+			fl_line_style( FL_DASH, lround( SCALE_Y * 1 ) );
+			int y0 = y() + SCALE_Y * 20;
+			int l = SCALE_X * 20; 
 			int x0 = x() + Random::pRand() % 3;
-			while ( y0 < y() + h() - 10 )
+			while ( y0 < y() + h() - SCALE_Y * 10 )
 			{
 				fl_xyline( x0, y0, x0 + l );
-				y0 += 8;
-				x0 += 2;
-				l += 8;
+				y0 += SCALE_Y * 8;
+				x0 += SCALE_X * 2;
+				l += SCALE_X * 8;
 			}
 			fl_line_style( 0 );
 		}
 	}
 	const Point& missilePoint() const { return _missilePos; }
 	const Point& bombPoint() const { return _bombPos; }
+	int bombXOffset() const { return _bombXOffset; }
+	void bombXOffset( int bombXOffset_ ) { _bombXOffset = bombXOffset_; }
+	Fl_Color explosionColor() const { return _explosionColor; }
+	void explosionColor( Fl_Color explosionColor_ ) { _explosionColor = explosionColor_; }
+	Fl_Color missileColor() const { return _missileColor; }
+	void missileColor( Fl_Color missileColor_ ) { _missileColor = missileColor_; }
 protected:
 	virtual void update()
 	{
@@ -2550,6 +2821,9 @@ private:
 	bool _effects;
 	Point _missilePos;
 	Point _bombPos;
+	int _bombXOffset;
+	Fl_Color _explosionColor;
+	Fl_Color _missileColor;
 	int _accel;
 	int _decel;
 };
@@ -2559,13 +2833,19 @@ struct DemoDataItem
 //-------------------------------------------------------------------------------
 {
 	DemoDataItem() :
-		sx( 0 ), sy( 0 ), bomb( false ), missile( false ) {}
-	DemoDataItem( int sx_, int sy_, bool bomb_, bool missile_ ) :
-		sx( sx_ ), sy( sy_ ), bomb( bomb_ ), missile( missile_ ) {}
+		sx( 0 ), sy( 0 ), bomb( false ), missile( false ),
+		seed( 0 ), seed2( 0 ), seed_set( false ) {}
+	DemoDataItem( int sx_, int sy_, bool bomb_, bool missile_,
+	              uint32_t seed_, uint32_t seed2_ ) :
+		sx( sx_ ), sy( sy_ ), bomb( bomb_ ), missile( missile_ ),
+		seed( seed_ ), seed2( seed2_ ), seed_set( true ) {}
 	int sx;
 	int sy;
 	bool bomb;
 	bool missile;
+	uint32_t seed;
+	uint32_t seed2;
+	bool seed_set;
 };
 
 //-------------------------------------------------------------------------------
@@ -2573,7 +2853,7 @@ class DemoData
 //-------------------------------------------------------------------------------
 {
 public:
-	DemoData() : _seed( 1 ), _alternate_ship( false ), _user_completed( false ) {}
+	DemoData() : _seed( 1 ), _ship( 0 ), _user_completed( 0 ), _classic( false ) {}
 	void setShip( unsigned index_, int sx_, int sy_ )
 	{
 		while ( _data.size() <= index_ )
@@ -2593,23 +2873,38 @@ public:
 			_data.push_back( DemoDataItem() );
 		_data[ index_ ].missile = true;
 	}
-	void set( unsigned index_, int sx_, int sy_, bool bomb_, bool missile_ )
+	void setSeed( unsigned index_, uint32_t seed_, uint32_t seed2_ )
 	{
-		DemoDataItem item( sx_, sy_, bomb_, missile_ );
+		while ( _data.size() <= index_ )
+			_data.push_back( DemoDataItem() );
+		if ( _data[ index_ ].seed_set )
+			return;
+		_data[ index_ ].seed = seed_;
+		_data[ index_ ].seed2 = seed2_;
+		_data[ index_ ].seed_set = true;
+	}
+	void set( unsigned index_, int sx_, int sy_, bool bomb_, bool missile_,
+	          uint32_t seed_, uint32_t seed2_ )
+	{
+		DemoDataItem item( sx_, sy_, bomb_, missile_, seed_, seed2_ );
 		while ( _data.size() <= index_ )
 			_data.push_back( item );
 	}
-	void seed( unsigned seed_ )
+	void seed( uint32_t seed_ )
 	{
 		_seed = seed_;
 	}
-	void alternate_ship( unsigned alternate_ship_ )
+	void ship( unsigned ship_ )
 	{
-		_alternate_ship = alternate_ship_;
+		_ship = ship_;
 	}
 	void user_completed( unsigned user_completed_ )
 	{
 		_user_completed = user_completed_;
+	}
+	void classic( bool classic_ )
+	{
+		_classic = classic_;
 	}
 	bool getShip( unsigned index_, int &sx_, int &sy_ ) const
 	{
@@ -2639,7 +2934,8 @@ public:
 		}
 		return false;
 	}
-	bool get( unsigned index_, int &sx_, int &sy_, bool& bomb_, bool& missile_ ) const
+	bool get( unsigned index_, int &sx_, int &sy_, bool& bomb_, bool& missile_,
+	          uint32_t& seed_, uint32_t& seed2_ ) const
 	{
 		if ( _data.size() > index_ )
 		{
@@ -2647,25 +2943,34 @@ public:
 			sy_ = _data[ index_ ].sy;
 			bomb_ = _data[ index_ ].bomb;
 			missile_ = _data[ index_ ].missile;
+			seed_ = _data[ index_ ].seed;
+			seed2_ = _data[ index_ ].seed2;
 			return true;
 		}
 		return false;
 	}
-	unsigned seed() const
+	uint32_t seed() const
 	{
 		return _seed;
 	}
-	bool alternate_ship() const
+	unsigned ship() const
 	{
-		return _alternate_ship;
+		return _ship;
 	}
-	bool user_completed() const
+	unsigned user_completed() const
 	{
 		return _user_completed;
+	}
+	bool classic() const
+	{
+		return _classic;
 	}
 	void clear()
 	{
 		_seed = 1;
+		_ship = 0;
+		_user_completed = 0;
+		_classic = false;
 		_data.clear();
 	}
 	size_t size() const
@@ -2673,10 +2978,73 @@ public:
 		return _data.size();
 	}
 private:
-	unsigned int _seed;
-	bool _alternate_ship;
-	bool _user_completed;
+	uint32_t _seed;
+	unsigned _ship;
+	unsigned _user_completed;
+	bool _classic;
 	vector<DemoDataItem> _data;
+};
+
+//-------------------------------------------------------------------------------
+class IniParameter : public map<string, string>
+//-------------------------------------------------------------------------------
+{
+public:
+	IniParameter() : _found( false ) {}
+	int value( const string& id_ ) { return strtol( at( id_ ).c_str(), NULL, 0 ); }
+	double dvalue( const string& id_ ) { return atof( at( id_ ).c_str() ); }
+	int value( const string& id_, int min_, int max_, int default_ )
+	{
+		_found = false;
+		if ( id_.empty() )
+			return default_;
+
+		if ( find( id_ ) == end() )
+			return default_;
+
+		_found = true;
+		int value = rangedValue( this->value( id_ ), min_, max_ );
+//		printf( "'%s' = %d\n", id_.c_str(), value_ );
+
+		return value;
+	}
+	double value( const string& id_, double min_, double max_, double default_ )
+	{
+		_found = false;
+		if ( id_.empty() )
+			return default_;
+
+		if ( find( id_ ) == end() )
+			return default_;
+
+		_found = true;
+		double value = rangedValue( this->dvalue( id_ ), min_, max_ );
+//		printf( "'%s' = %f\n", id_.c_str(), value_ );
+
+		return value;
+	}
+	const char* value( const string& id_, size_t max_, const char *default_ )
+	{
+		_found = false;
+		if ( id_.empty() )
+			return default_;
+
+		if ( find( id_ ) == end() )
+			return default_;
+
+		_found = true;
+		static string value;
+		value = at( id_ );
+		if ( value.size() > max_ )
+			value.erase( max_ );
+//		printf( "'%s' = '%s'\n", id_.c_str(), value_.c_str() );
+
+		return value.c_str();
+	}
+	bool found() const { return _found; }
+	void found( bool found_ ) { _found = found_; }
+private:
+	bool _found;
 };
 
 //-------------------------------------------------------------------------------
@@ -2702,7 +3070,7 @@ public:
 	FltWin( int argc_ = 0, const char *argv_[] = 0 );
 	int run();
 	bool trainMode() const { return _trainMode; }
-	bool isFullscreen() const { return fullscreen_active(); }
+	bool isFullscreen() const { return fullscreen_active() || !border(); }
 	bool gimmicks() const { return _gimmicks; }
 private:
 	void add_score( unsigned score_ );
@@ -2712,18 +3080,19 @@ private:
 
 	State changeState( State toState_ = NEXT_STATE, bool force_ = false );
 
-	bool iniValue( const string& id_,
-	               int &value_, int min_, int max_, int default_ );
-	bool iniValue( const string& id_,
-	               string& value_, size_t max_, const string& default_ );
+	int iniValue( const string& id_, int min_, int max_, int default_ );
+	double iniValue( const string& id_, double min_, double max_, double default_ );
+	const char *iniValue( const string& id_, size_t max_, const char* default_ );
 	void init_parameter();
-	bool loadLevel( int level_, string& levelFileName_ );
-	bool validDemoData( unsigned level_ = 0 ) const;
+	bool loadDefaultIniParameter();
+	bool loadTranslations();
+	bool loadLevel( unsigned level_, string& levelFileName_ );
+	bool validDemoData( unsigned level_ = 0 );
 	unsigned pickRandomDemoLevel( unsigned minLevel_ = 0, unsigned maxLevel_ = 0 );
 	string demoFileName( unsigned  level_ = 0 ) const;
-	bool loadDemoData();
-	bool saveDemoData();
-	bool collision( const Object& o_, int w_, int h_ );
+	bool loadDemoData( unsigned level_ = 0, bool dryrun_ = false );
+	bool saveDemoData() const;
+	bool collision( const Object& o_, int w_, int h_ ) const;
 
 	void create_explosion( int x_, int y_, Explosion::ExplosionType type_,
 		                    double strength_ = 1.0, const Fl_Color *colors_ = 0, int nColors = 0 );
@@ -2744,27 +3113,32 @@ private:
 #endif
 	bool create_terrain();
 	void create_level();
+	bool revert_level();
 
-	void draw_badies();
-	void draw_bombs();
-	void draw_cumuluses();
-	void draw_drops();
-	void draw_explosions();
-	void draw_missiles();
-	void draw_phasers();
-	void draw_radars();
-	void draw_rockets();
-	void draw_objects( bool pre_ );
+	void draw_badies() const;
+	void draw_bombs() const;
+	void draw_cumuluses() const;
+	void draw_drops() const;
+	void draw_explosions() const;
+	void draw_missiles() const;
+	void draw_phasers() const;
+	void draw_radars() const;
+	void draw_rockets() const;
+	void draw_objects( bool pre_ ) const;
 
 	int drawText( int x_, int y_, const char *text_, size_t sz_, Fl_Color c_, ... ) const;
+	int drawTextBlock( int x_, int y_, const char *text_, size_t sz_, int line_height_, Fl_Color c_, ... ) const;
 	int drawTable( int w_, int y_, const char *text_, size_t sz_, Fl_Color c_, ... ) const;
 	void draw_score();
 	void draw_scores();
 	void draw_title();
 	void draw_shaded_landscape( int xoff_, int W_ );
+	void draw_outline( int xoff_, int W_, int outline_width_,
+	                   Fl_Color outline_color_sky_, Fl_Color outline_color_ground ) const;
 	void draw_landscape( int xoff_, int W_ );
-	bool draw_decoration();
+	bool draw_decoration() const;
 	void draw();
+	void do_draw();
 
 	string firstTimeSetup();
 
@@ -2797,6 +3171,7 @@ private:
 	void onUpdate();
 	void onUpdateDemo();
 
+	void setIcon();
 	void setTitle();
 	void setUser();
 	void resetUser();
@@ -2814,8 +3189,12 @@ private:
 	static void cb_update( void *d_ );
 	State state() const { return _state; }
 	State last_state() const { return _last_state; }
-	bool alternate_ship() const { return _state == DEMO ? _demoData.alternate_ship() : _alternate_ship; }
-	bool user_completed() const { return _state == DEMO ? _demoData.user_completed() : _user.completed; }
+	int ship() const	{ return _state == DEMO ? _demoData.ship() :	( _user.ship < 0  ? _ship : _user.ship );	}
+	bool classic() const { return _state == DEMO ? _demoData.classic() : _classic; }
+	unsigned user_completed() const { return _state == DEMO ? _demoData.user_completed() : _user.completed; }
+	unsigned endLevel() const { return reversLevel() ? 1 : MAX_LEVEL; }
+	bool reversLevel() const { return _internal_levels ? false : ( user_completed() % 2 != 0 ); }
+	int levelIncrement() const { return reversLevel() ? -1 : 1; }
 
 	void setPaused( bool paused_ );
 	void toggleBgSound() const;
@@ -2823,6 +3202,20 @@ private:
 	void togglePaused();
 	void setBgSoundFile();
 	void startBgSound() const;
+#ifdef NO_MULTIRES
+#define flt_draw( buf_, n_, x_, y_ ) fl_draw( buf_, n_, x_, y_ )
+#else
+	void flt_draw( const char* buf_, int n_, int x_, int y_ )
+	{
+		x_ = lround( SCALE_X * x_ );
+		y_ = lround( SCALE_Y * y_ );
+		if ( x_ < 0 )
+			x_ = w() + x_;
+		if ( y_ < 0 )
+			y_ = h() + y_;
+		fl_draw( buf_, n_, x_, y_ );
+	}
+#endif
 protected:
 	Terrain T;
 	Terrain TBG;
@@ -2843,6 +3236,7 @@ protected:
 	int _rocket_max_start_dist;
 	int _rocket_min_start_dist;
 	int _rocket_var_start_dist;
+	int _rocket_dx_range;
 
 	int _drop_start_prob;
 	int _drop_min_start_speed;
@@ -2850,31 +3244,35 @@ protected:
 	int _drop_max_start_dist;
 	int _drop_min_start_dist;
 	int _drop_var_start_dist;
+	int _drop_dx_range;
 
 	int _bady_min_start_speed;
 	int _bady_max_start_speed;
-
 	int _bady_min_hits;
 	int _bady_max_hits;
+	int _bady_dx_range;
 
 	int _cumulus_min_start_speed;
 	int _cumulus_max_start_speed;
+
+	int _phaser_dx_range;
 private:
 	State _state;
 	State _last_state;
 	int _xoff;
-	int _ship_delay;
-	int _ship_voff;
-	int _ship_y;
+	int _draw_xoff;
+	int _xdelta;
+	double _dxoff;
+	int _final_xoff;
 	bool _left, _right, _up, _down;
-	bool _alternate_ship;
 	Spaceship *_spaceship;
-	Rocket _rocket;
-	Phaser _phaser;
-	Radar _radar;
-	Drop _drop;
-	Bady _bady;
-	Cumulus _cumulus;
+	int _ship;
+	Rocket& _rocket;
+	Phaser& _phaser;
+	Radar& _radar;
+	Drop& _drop;
+	Bady& _bady;
+	Cumulus& _cumulus;
 	bool _bomb_lock;
 	bool _collision;	// level ended with collision
 	bool _done;			// level ended by finishing
@@ -2882,6 +3280,7 @@ private:
 	unsigned _hiscore;
 	string _hiscore_user;
 	unsigned _first_level;
+	unsigned _end_level;
 	unsigned _level;
 	bool _completed;
 	unsigned _done_level;
@@ -2890,6 +3289,7 @@ private:
 	bool _cheatMode;
 	bool _trainMode;	// started with level specification
 	bool _mouseMode;
+	bool _joyMode;
 	bool _gimmicks;
 	int _effects;
 	bool _classic;
@@ -2907,20 +3307,117 @@ private:
 	bool _hide_cursor;
 	string _title;
 	string _level_name;
-	vector<string> _ini;	// ini section of level file
+	IniParameter _ini;	// ini section of level file
+	IniParameter _defaultIniParameter;
+	IniParameter _texts;
 	AnimText *_anim_text;
 	AnimText *_title_anim;
 	ImageAnimation *_zoomoutShip;
 	ImageAnimation *_zoominShip;
+	bool _disableKeys;
 	string _bgsound;
 	DemoData _demoData;
 	Fl_Image *_terrain;
 	User _user;
 	static Waiter _waiter;
 	Fl_Joystick _joystick;
+	bool _showFirework;
+	string _lang;
+	unsigned _alpha_matte;
+	double _TO;
+	vector<int> _colorChangeList;
+	bool _exit_demo_on_collision; // set to true, if demo should end at collision
 };
 
 /*static*/ Waiter FltWin::_waiter;
+
+#include "Fl_Fireworks.H"
+//-------------------------------------------------------------------------------
+class Fireworks : public Fl_Fireworks
+//-------------------------------------------------------------------------------
+{
+typedef Fl_Fireworks Inherited;
+public:
+	Fireworks( Fl_Window& win_, const char *greeting_ = "", bool fullscreen_ = false ) :
+		Inherited( win_, fullscreen_ ? 20.0 : 10.0 ),
+		_text( 0 )
+	{
+		callback( cb_fireworks );
+		string yearStr;
+		time_t t = time( NULL );
+		struct tm *tmp;
+		tmp = localtime( &t );
+		if ( t )
+		{
+			char buf[20];
+			if ( strftime( buf, sizeof(buf), "%Y", tmp ) )
+				yearStr = buf;
+		}
+		string crYearStr( "2015" );
+		if ( yearStr > crYearStr )
+			crYearStr += ( "-" + yearStr );
+		ostringstream welcome;
+		welcome << "CG\n© " << crYearStr << "\n\n" << greeting_;
+		(_text = new AnimText( 0, win_.h(), win_.w(), welcome.str().c_str(),
+			FL_GRAY, FL_RED, 50, 40, false ))->start();
+		while ( Fl::first_window() && win_.children() && Fl::focus() == &win_ )
+#ifndef WIN32
+			Fl::wait( 0.0005 );
+#else
+			Fl::wait( 0.0 );
+#endif
+	}
+	~Fireworks()
+	{
+		delete _text;
+	}
+	void draw()
+	{
+		Inherited::draw();
+		_text->draw();
+	}
+	int handle( int e_ )
+	{
+		if ( e_ == FL_JOY_BUTTON_UP )
+			e_ = FL_RELEASE;
+		return Inherited::handle( e_ );
+	}
+	static void cb_fireworks( Fl_Widget *wgt_, long d_ )
+	{
+		Fireworks *f = (Fireworks *)wgt_;
+		static int flip = 0;
+		flip ^= 1;
+		switch ( d_ )
+		{
+			case -1:
+				if ( flip )
+				{
+					f->_text->y( f->_text->y() - f->scale_y() * 2 );
+					if ( f->_text->y() < f->scale_y() * 30 )
+						f->_text->y( f->h() );
+				}
+				break;
+			case 1:
+				Audio::instance()->play( "firework_start" );
+				break;
+			case 2:
+			{
+				static int flip = 0;
+				flip ^= 1;
+				Audio::instance()->play( "firework_explode" );
+				if ( flip )
+					f->_text->color( f->explodeColor() );
+				else
+					f->_text->bgColor( f->explodeColor() );
+				break;
+			}
+		}
+	}
+	double scale_x() const { return SCALE_X; }
+	double scale_y() const { return SCALE_Y; }
+private:
+	AnimText *_text;
+};
 
 //-------------------------------------------------------------------------------
 // class FltWin : public Fl_Double_Window
@@ -2930,15 +3427,26 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_state( START ),
 	_last_state( NO_STATE ),
 	_xoff( 0 ),
+	_draw_xoff( 0 ),
+	_xdelta( 0 ),
+	_dxoff( 0. ),
+	_final_xoff( 0 ),
 	_left( false), _right( false ), _up( false ), _down( false ),
-	_alternate_ship( false ),
 	_spaceship( 0 ),
+	_ship( 0 ),
+	_rocket( *new Rocket() ),
+	_phaser( *new Phaser() ),
+	_radar( *new Radar() ),
+	_drop( *new Drop() ),
+	_bady( *new Bady() ),
+	_cumulus( *new Cumulus() ),
 	_bomb_lock( false),
 	_collision( false ),
 	_done( false ),
 	_frame( 0 ),
 	_hiscore( 0 ),
 	_first_level( 1 ),
+	_end_level( MAX_LEVEL ),
 	_level( 0 ),
 	_completed( false ),
 	_done_level( 0 ),
@@ -2947,6 +3455,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_cheatMode( false ),
 	_trainMode( false ),
 	_mouseMode( false ),
+	_joyMode( false ),
 	_gimmicks( true ),
 	_effects( 0 ),
 	_classic( false ),
@@ -2965,7 +3474,12 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_title_anim( 0 ),
 	_zoomoutShip( 0 ),
 	_zoominShip( 0 ),
-	_terrain( 0 )
+	_disableKeys( false ),
+	_terrain( 0 ),
+	_showFirework( true ),
+	_alpha_matte( 0 ),
+	_TO( 0. ),
+	_exit_demo_on_collision( false )
 {
 	end();
 	_DX = DX;
@@ -2983,6 +3497,10 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_cfg = new Cfg( "CG", cfgName.c_str() );
 	char *value = 0;
 	int ret = _cfg->get( "defaultArgs", value, "" );
+
+	// set default spaceship image as icon
+	setIcon();
+
 	if ( !ret || Fl::get_key( FL_Control_L ) )
 	{
 		if ( argc <= 1 )
@@ -3068,6 +3586,25 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 			setup( atoi( arg.substr( 2 ).c_str() ), false, true );
 #endif
 		}
+#ifndef NO_MULTIRES
+		else if ( arg.find( "-W" ) == 0 )
+		{
+			int W, H;
+			if ( setupScreenSize( arg.substr( 2 ), W, H ) )
+			{
+				// TODO: leak
+				FltImage::uncache();
+				_rocket = *new Rocket();
+				_phaser = *new Phaser();
+				_radar = *new Radar();
+				_drop = *new Drop();
+				_bady = *new Bady();
+				_cumulus = *new Cumulus();
+				size( W, H );
+				setup( -1, false, false );
+			}
+		}
+#endif
 		else if ( arg[0] == '-' )
 		{
 			for ( size_t i = 1; i < arg.size(); i++ )
@@ -3075,7 +3612,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 				switch ( arg[i] )
 				{
 					case 'a':
-						_alternate_ship = true;
+						_ship = 1;
 						break;
 					case 'b':
 						Audio::instance()->bg_disable();
@@ -3107,6 +3644,9 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 					case 'i':
 						_internal_levels = true;
 						break;
+					case 'j':
+						_joyMode = true;
+						break;
 					case 'm':
 						_mouseMode = true;
 						break;
@@ -3133,6 +3673,9 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 						_gimmicks = false;
 						_effects = 0;
 						break;
+					case 'X':
+						Audio::instance()->noExplosions();
+						break;
 					default:
 						unknown_option += arg[i];
 						break;
@@ -3158,7 +3701,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		cout << "\tlevel      [1, 10] startlevel" << endl;
 		cout << "\tlevelfile  name of levelfile (for testing a new level)" << endl;
 		cout << "Options:" << endl;
-		cout << "  -a\tuser alternate (penetrator like) ship image" << endl;
+		cout << "  -a\tuse alternate (penetrator like) ship image" << endl;
 		cout << "  -b\tdisable background sound" << endl;
 		cout << "  -c\thide mouse cursor in window" << endl;
 		cout << "  -e\tenable Esc as boss key" << endl;
@@ -3168,6 +3711,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		cout << "  -i\tplay internal (auto-generated) levels" << endl;
 		cout << "  -l\tleft handed play" << endl;
 		cout << "  -n\treset user (only if startet with -U)" << endl;
+		cout << "  -j\tuse joystick for input" << endl;
 		cout << "  -m\tuse mouse for input" << endl;
 		cout << "  -o\tdo not position window" << endl;
 		cout << "  -p\tdisable pause on focus out" << endl;
@@ -3181,7 +3725,14 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		cout << "  -Rvalue\tset frame rate to 'value' fps [20,25,40,50,100,200]" << endl;
 		cout << "  -S\trun with settings for slow computer (turns off gimmicks/features)" << endl;
 		cout << "  -Uusername\tstart as user 'username'" << endl;
+#ifndef NO_MULTIRES
+		cout << "  -Wwidthxheight\tuse screen size width x height" << endl;
+		cout << "  -W\tuse whole screen work area as screen size" << endl;
+		cout << "  -Wf\tuse full screen area as screen size" << endl;
+#endif
+		cout << "  -X\tturn off explosion sounds (for a more chilled experience)" << endl;
 		cout << endl;
+		cout << "  --classic\tplay in classic look (same color for landscape/sky/ground + outline)" << endl;
 		cout << "  --help\tprint out this text and exit" << endl;
 		cout << "  --info\tprint out some runtime information and exit" << endl;
 		cout << "  --version\tprint out version  and exit" << endl;
@@ -3196,6 +3747,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		cout << "FPS           = " <<  FPS << endl;
 		cout << "Audio::cmd    = " << Audio::instance()->cmd() << endl;
 		cout << "Audio::bg_cmd = " << Audio::instance()->cmd( true ) << endl;
+		cout << "FLTK version  = " << Fl::version() << endl;
 #if FLTK_HAS_NEW_FUNCTIONS
 		cout << "FLTK_HAS_NEW_FUNCTIONS" << endl;
 #endif
@@ -3204,18 +3756,13 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 #endif
 		exit( EXIT_SUCCESS );
 	}
+	if ( _joyMode )
+		_joystick.attach();
 
 	if ( _trainMode )
 		_enable_boss_key = true; 	// otherwise no exit!
 	else
 		_levelFile.erase();
-
-	create_spaceship();
-
-	// set spaceship image as icon
-#if FLTK_HAS_NEW_FUNCTIONS
-	Fl_Window::default_icon( (Fl_RGB_Image *)_spaceship->image() );
-#endif
 
 	if ( _internal_levels )
 		cfgName += "_internal";	// don't mix internal levels with real levels
@@ -3227,12 +3774,30 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		_user.name = DEFAULT_USER;
 
 	if ( !_trainMode && !reset_user )
+	{
 		setUser();
+		_ship = _user.ship < 0 ? _ship : _user.ship;
+	}
+
+	create_spaceship();
+
+	// set current spaceship image as icon
+	setIcon();
 
 	_level = _first_level;
 	_hiscore = _cfg->hiscore();
 	_hiscore_user = _cfg->best().name;
 	wavPath.ext( Audio::instance()->ext() );
+
+	loadDefaultIniParameter();
+	_ini = _defaultIniParameter;	// TODO: why is neccessary to work first time?
+	_lang = _ini.value( "lang", 3, "" );	// TODO: really from ini?
+	loadTranslations();
+
+	Fl::set_font( FL_HELVETICA, _ini.value( "font", 50, " Verdana" ) );
+	Fl::set_font( FL_HELVETICA_BOLD_ITALIC, _ini.value( "ifont", 50, "PVerdana" ) );
+
+	fl_make_path( demoPath().c_str() );	// create demo path for sure
 
 	Fl::visual( FL_DOUBLE | FL_RGB );
 
@@ -3247,55 +3812,84 @@ void FltWin::onStateChange( State from_state_ )
 	switch ( _state )
 	{
 		case TITLE:
-			if ( !G_paused && _gimmicks && Fl::focus() == this &&
-		        last_state() != NO_STATE )
-				Audio::instance()->play( "menu" );
 			Audio::instance()->stop_bg();
+			if ( !G_paused && _gimmicks && Fl::focus() == this &&
+		        from_state_ != NO_STATE )
+			{
+				if ( !_trainMode && from_state_ != DEMO && _showFirework )
+				{
+					_showFirework = false;
+					_disableKeys = true;
+					Fireworks fireworks( *this, _texts.value( "greeting", 50,
+					                     "proudly presents..." ), isFullscreen() );
+					_disableKeys = false;
+				}
+				if ( shown() )
+					Audio::instance()->play( "menu" );
+			}
 			onTitleScreen();
 			break;
 		case SCORE:
 			Fl::remove_timeout( cb_demo, this );
+			_showFirework = true;
 			break;
 		case LEVEL:
-			onNextScreen( from_state_ != PAUSED );
+			onNextScreen( ( from_state_ != PAUSED || _done ) );
 			break;
 		case DEMO:
 			setPaused( false );
 			onDemo();
 			break;
 		case LEVEL_FAIL:
-			Audio::instance()->play( "ship_x" );
-			static Fl_Color spaceship_explode[] = { FL_WHITE, FL_CYAN, FL_WHITE  };
+			Audio::instance()->play( "x_ship" );
+			if ( _level_repeat + 1 > MAX_LEVEL_REPEAT )
+			{
+				Audio::instance()->play( "x_lost" );
+				_showFirework = true;
+			}
+			static Fl_Color spaceship_explode[] = { FL_WHITE, FL_CYAN };
+			spaceship_explode[1] = _spaceship->explosionColor();
 			create_explosion( _spaceship->cx(), _spaceship->cy(),
-				Explosion::MC_FALLOUT_STRIKE, 2.0, spaceship_explode, 2 );
+				Explosion::MC_FALLOUT_STRIKE, 2.0,
+				spaceship_explode, nbrOfItems( spaceship_explode ) );
 			Audio::instance()->stop_bg();
 		case LEVEL_DONE:
 		{
 			if ( _state == LEVEL_DONE )
 			{
-				Audio::instance()->play ( "done" );
 				Audio::instance()->stop_bg();
+				string done_sound( _level == _end_level ? "win" : "done" );
+				Audio::instance()->play( done_sound.c_str(), true, true ); // bgsound/once
 				_done_level = _level;
-				_first_level = _done_level + 1;
-				if ( _first_level > MAX_LEVEL )
-					_first_level = 1;
+				_first_level = _done_level + levelIncrement();
 				if ( !_trainMode )
 				{
-					_user.completed += _done_level == MAX_LEVEL;
+					_user.completed += _done_level == _end_level ;
+					if ( _done_level == _end_level )
+						_done_level = 0;
 					_user.level = _done_level;
 					_cfg->writeUser( _user );
 					_cfg->flush();
 				}
 			}
-			double TO = 2.0;
+			if ( _first_level > MAX_LEVEL || _first_level < 1 )
+			{
+				_first_level = reversLevel() ? MAX_LEVEL : 1;
+				_showFirework = true;
+			}
+			double TO = _defaultIniParameter.value( "wait_time_fail", 1.0, 5.0, 2.0 );
 			if ( _state == LEVEL_FAIL && _level_repeat + 1 > MAX_LEVEL_REPEAT )
 				TO *= 2;
-			if ( _state == LEVEL_DONE && _level == MAX_LEVEL )
+			if ( _state == LEVEL_DONE && _level == _end_level )
 				TO = 60.0;
+			_TO = TO;
 			Fl::add_timeout( TO, cb_paused, this );
 			changeState( PAUSED );
 			break;
 		}
+		case PAUSED:
+			_alpha_matte = 0;
+			break;
 		default:
 			break;
 	}
@@ -3359,7 +3953,6 @@ void FltWin::add_score( unsigned score_ )
 void FltWin::position_spaceship()
 //-------------------------------------------------------------------------------
 {
-//	int X = _state == DEMO ? w() / 2 : _spaceship->w() + 10;
 	int X = _spaceship->w() + 10;
 	int ground = T[X].ground_level();
 	int sky = T[X].sky_level();
@@ -3376,29 +3969,21 @@ void FltWin::addScrollinZone()
 	T[0].object( 0 ); // ensure there are no objects in scrollin zone!
 	for ( int i = 0; i < w() / 2; i++ )
 		T.insert( T.begin(), T[0] );
+	_final_xoff = T.size();
 }
 
 void FltWin::addScrolloutZone()
 //-------------------------------------------------------------------------------
 {
+	_final_xoff = T.size();
+	size_t minTerrainWidth = T.size() + w() + w() / 2;
 	T.push_back( T.back() );
 	T.back().object( 0 ); // ensure there are no objects in scrollout zone!
-	int xLastObject = T.size() - 1;
-	while ( xLastObject && ( !T[ xLastObject ].object() ||
-	        T[ xLastObject].object() == O_COLOR_CHANGE ) )
-		--xLastObject;
-	if ( xLastObject )
-		xLastObject += _bady.w() / 2;	// right edge of broadest enemy object
-	size_t minTerrainWidth = xLastObject + w() + 1;
-	for ( int i = 0; i < w() / 2 - 1; i++ )
-	{
-		if ( T.size() >= minTerrainWidth )
-			break;
+	while ( T.size() < minTerrainWidth )
 		T.push_back( T.back() );
-	}
 }
 
-bool FltWin::collision( const Object& o_, int w_, int h_ )
+bool FltWin::collision( const Object& o_, int w_, int h_ ) const
 //-------------------------------------------------------------------------------
 {
 	int xoff = 0;
@@ -3432,11 +4017,11 @@ bool FltWin::collision( const Object& o_, int w_, int h_ )
 	// background color r/g/b
 	unsigned char  R, G, B;
 	Fl::get_color( T.bg_color, R, G, B );
-//	printf( "check for BG-Color %X/%X/%X\n", R, G, B );
 
 #ifdef DEBUG_COLLISION
 	int xc = 0;
 	int yc = 0;
+	unsigned char xr, xg, xb = 0;
 #endif
 	for ( int y = 0; y < H; y++ ) // lines
 	{
@@ -3454,232 +4039,196 @@ bool FltWin::collision( const Object& o_, int w_, int h_ )
 #ifdef DEBUG_COLLISION
 				xc = x;
 				yc = y;
+				xr = r;
+				xg = g;
+				xb = b;
 #endif
 				break;
 			}
 		}
 		if ( collided ) break;
 	}
-	delete[] screen;
-#if DEBUG_COLLISION
+#ifdef DEBUG_COLLISION
 	if ( collided )
 	{
 		printf( "collision at %d + %d / %d + %d !\n", o_.x(), xc, o_.y(), yc  );
 		printf( "object %dx%d xoff=%d yoff=%d\n", o_.w(), o_.h(), xoff, yoff );
 		printf( "X=%d, Y=%d, W=%d, H=%d\n", X, Y, W, H );
+		printf( "r/g/b=%d/%d/%d\n", xr, xg, xb );
+		printf( "R/G/B=%d/%d/%d\n", R, G, B );
 	}
 #endif
+	delete[] screen;
+
 	return collided;
 } // collision
 
-bool FltWin::iniValue( const string& id_,
-                       int &value_, int min_, int max_, int default_ )
+int FltWin::iniValue( const string& id_,
+                      int min_, int max_, int default_ )
 //-------------------------------------------------------------------------------
 {
-	bool fromFile( false );
-	value_ = default_;
-
+	_ini.found( false );
 	if ( _internal_levels )
-		return fromFile;
-
-	if ( !_ini.size() )
-		return fromFile;
-
-	string line;
-	for ( size_t i = 0; i < _ini.size(); i++ )
-	{
-		line = _ini[ i ];
-		size_t pos;
-		pos = line.find( id_ );
-		if ( pos != string::npos )
-		{
-			pos += id_.size();
-			pos = line.find( "=", pos );
-			if ( pos != string::npos )
-			{
-				int value = atoi( line.substr( pos + 1 ).c_str() );
-				value_ = rangedValue( value, min_, max_ );
-//				printf( "%s = %d\n", id_.c_str(), value_ );
-				fromFile = true;
-				break;
-			}
-		}
-	}
-	return fromFile;
+		return default_;
+	return _ini.value( id_, min_, max_, default_ );
 }
 
-bool FltWin::iniValue( const string& id_,
-                       string& value_, size_t max_, const string& default_ )
+double FltWin::iniValue( const string& id_,
+                         double min_, double max_, double default_ )
 //-------------------------------------------------------------------------------
 {
-	bool fromFile( false );
-	value_ = default_;
-
+	_ini.found( false );
 	if ( _internal_levels )
-		return fromFile;
+		return default_;
+	return _ini.value( id_, min_, max_, default_ );
+}
 
-	if ( !_ini.size() )
-		return fromFile;
-
-	string line;
-	for ( size_t i = 0; i < _ini.size(); i++ )
-	{
-		line = _ini[ i ];
-		size_t pos;
-		pos = line.find( id_ );
-		if ( pos != string::npos )
-		{
-			pos += id_.size();
-			pos = line.find( "=", pos );
-			if ( pos != string::npos )
-			{
-				value_ = line.substr( pos + 1 );
-				if ( value_.size() > max_ )
-					value_.erase( max_ );
-//				printf( "%s = '%s'\n", id_.c_str(), value_.c_str() );
-				fromFile = true;
-				break;
-			}
-		}
-	}
-	return fromFile;
+const char* FltWin::iniValue( const string& id_,
+                              size_t max_, const char* default_ )
+//-------------------------------------------------------------------------------
+{
+	_ini.found( false );
+	if ( _internal_levels )
+		return default_;
+	return _ini.value( id_, max_, default_ );
 }
 
 void FltWin::init_parameter()
 //-------------------------------------------------------------------------------
 {
+	static const char level_name[] = "level_name";
+	static const char rocket_start_prob[] =  "rocket_start_prob";
+	static const char rocket_radar_start_prob[] = "rocket_radar_start_prob";
+	static const char rocket_start_speed[] = "rocket_start_speed";
+	static const char rocket_min_start_speed[] = "rocket_min_start_speed";
+	static const char rocket_max_start_speed[] = "rocket_max_start_speed";
+	static const char rocket_min_start_dist[] = "rocket_min_start_dist";
+	static const char rocket_max_start_dist[] = "rocket_max_start_dist";
+	static const char rocket_var_start_dist[] = "rocket_var_start_dist";
+	static const char rocket_dx_range[] = "rocket_dx_range";
+	static const char drop_start_prob[] = "drop_start_prob";
+	static const char drop_start_speed[] = "drop_start_speed";
+	static const char drop_min_start_speed[] = "drop_min_start_speed";
+	static const char drop_max_start_speed[] = "drop_max_start_speed";
+	static const char drop_min_start_dist[] = "drop_min_start_dist";
+	static const char drop_max_start_dist[] = "drop_max_start_dist";
+	static const char drop_var_start_dist[] = "drop_var_start_dist";
+	static const char drop_dx_range[] = "drop_dx_range";
+	static const char bady_start_speed[] = "bady_start_speed";
+	static const char bady_min_start_speed[] = "bady_min_start_speed";
+	static const char bady_max_start_speed[] = "bady_max_start_speed";
+	static const char bady_hits[] = "bady_hits";
+	static const char bady_min_hits[] = "bady_min_hits";
+	static const char bady_max_hits[] = "bady_max_hits";
+	static const char bady_dx_range[] = "bady_dx_range";
+	static const char cumulus_start_speed[] = "cumulus_start_speed";
+	static const char cumulus_min_start_speed[] = "cumulus_min_start_speed";
+	static const char cumulus_max_start_speed[] = "cumulus_max_start_speed";
+	static const char phaser_dx_range[] = "phaser_dx_range";
+
 	ostringstream defLevelName;
 	defLevelName << ( _internal_levels ? "Internal level" : "Level" )  << " " << _level;
-	iniValue( "level_name", _level_name, 35, defLevelName.str() );
+	_level_name = iniValue( level_name, 35, defLevelName.str().c_str() );
 
-	iniValue( "rocket_start_prob", _rocket_start_prob, 0, 100,
+	_rocket_start_prob = iniValue( rocket_start_prob, 0, 100,
 	          (int)( 45. + 35. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ) ); // 45% - 80%
-	iniValue( "rocket_radar_start_prob", _rocket_radar_start_prob, 0, 100,
+	_rocket_radar_start_prob = iniValue( rocket_radar_start_prob, 0, 100,
 	          (int)( 60. + 40. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ) ); // 60% - 100%
-	if ( iniValue(  "rocket_start_speed", _rocket_min_start_speed, 1, 10,
-	               4 + _level / 2 ) )
+	_rocket_min_start_speed = iniValue( rocket_start_speed, 1, 10,
+	               4 + _level / 2 );
+	if ( _ini.found() )
 	{
 		_rocket_max_start_speed = _rocket_min_start_speed;
 	}
 	else
 	{
-		iniValue( "rocket_min_start_speed", _rocket_min_start_speed, 1, 10,
+		_rocket_min_start_speed = iniValue( rocket_min_start_speed, 1, 10,
 		          4 + _level / 2 - 1 );
-		iniValue( "rocket_max_start_speed", _rocket_max_start_speed, 1, 10,
+		_rocket_max_start_speed = iniValue( rocket_max_start_speed, 1, 10,
 		          _rocket_min_start_speed + 2 );
 	}
-	iniValue( "rocket_min_start_dist", _rocket_min_start_dist, 0, 50, 50 );
-	iniValue( "rocket_max_start_dist", _rocket_max_start_dist, 50, 400, 400 );
-	iniValue( "rocket_var_start_dist", _rocket_var_start_dist, 0, 200, 200 );
-#ifdef DEBUG
-	printf("rocket_min_start_speed: %d\n", _rocket_min_start_speed);
-	printf("rocket_max_start_speed: %d\n", _rocket_max_start_speed);
-	printf("rocket_start_prob     : %d\n", _rocket_start_prob);
-	printf("rocket_min_start_dist : %d\n", _rocket_min_start_dist);
-	printf("rocket_max_start_dist : %d\n", _rocket_max_start_dist);
-	printf("rocket_var_start_dist : %d\n", _rocket_var_start_dist);
-#endif
+	_rocket_min_start_dist = SCALE_X * iniValue( rocket_min_start_dist, 0, 50, 50 );
+	_rocket_max_start_dist = SCALE_X * iniValue( rocket_max_start_dist, 50, 400, 400 );
+	_rocket_var_start_dist = SCALE_X * iniValue( rocket_var_start_dist, 0, 200, 200 );
+	_rocket_dx_range = iniValue( rocket_dx_range, 0, 2, 0 );
 
-	iniValue( "drop_start_prob", _drop_start_prob, 0, 100,
+	_drop_start_prob = iniValue( drop_start_prob, 0, 100,
 	          (int)( 45. + 30. / ( MAX_LEVEL - 1 ) * ( _level - 1 ) ) ); // 45% - 75%
-	if ( iniValue( "drop_start_speed", _drop_min_start_speed, 1, 10,
-	               4 + _level / 2) )
+	_drop_min_start_speed = iniValue( drop_start_speed, 1, 10,
+	               4 + _level / 2 );
+	if ( _ini.found() )
 	{
 		_drop_max_start_speed = _drop_min_start_speed;
 	}
 	else
 	{
-		iniValue( "drop_min_start_speed", _drop_min_start_speed, 1, 10,
+		_drop_min_start_speed = iniValue( drop_min_start_speed, 1, 10,
 		          4 + _level / 2 - 1 );
-		iniValue( "drop_max_start_speed", _drop_max_start_speed, 1, 10,
+		_drop_max_start_speed = iniValue( drop_max_start_speed, 1, 10,
 		          _drop_min_start_speed + 1 );
 	}
-	iniValue( "drop_min_start_dist", _drop_min_start_dist, 0, 50, 50 );
-	iniValue( "drop_max_start_dist", _drop_max_start_dist, 50, 400, 400 );
-	iniValue( "drop_var_start_dist", _drop_var_start_dist, 0, 200, 200 );
-#ifdef DEBUG
-	printf("drop_min_start_speed: %d\n", _drop_min_start_speed);
-	printf("drop_max_start_speed: %d\n", _drop_max_start_speed);
-	printf("drop_start_prob     : %d\n", _drop_start_prob);
-	printf("drop_min_start_dist : %d\n", _drop_min_start_dist);
-	printf("drop_max_start_dist : %d\n", _drop_max_start_dist);
-	printf("drop_var_start_dist : %d\n", _drop_var_start_dist);
-#endif
+	_drop_min_start_dist = SCALE_X * iniValue( drop_min_start_dist, 0, 50, 50 );
+	_drop_max_start_dist = SCALE_X * iniValue( drop_max_start_dist, 50, 400, 400 );
+	_drop_var_start_dist = SCALE_X * iniValue( drop_var_start_dist, 0, 200, 200 );
+	_drop_dx_range = iniValue( drop_dx_range, 0, 2, 0 );
 
-	if ( iniValue( "bady_start_speed", _bady_min_start_speed, 1, 10,
-	               2 ) )
+	_bady_min_start_speed = iniValue( bady_start_speed, 1, 10, 2 );
+	if ( _ini.found() )
 	{
 		_bady_max_start_speed = _bady_min_start_speed;
 	}
 	else
 	{
-		iniValue( "bady_min_start_speed", _bady_min_start_speed, 1, 10, 2 - 1 );
-		iniValue( "bady_max_start_speed", _bady_max_start_speed, 1, 10, 2 );
+		_bady_min_start_speed = iniValue( bady_min_start_speed, 1, 10, 2 - 1 );
+		_bady_max_start_speed = iniValue( bady_max_start_speed, 1, 10, 2 );
 	}
-#ifdef DEBUG
-	printf( "_bady_min_start_speed: %d\n", _bady_min_start_speed );
-	printf( "_bady_max_start_speed: %d\n", _bady_max_start_speed );
-#endif
 
-	if ( iniValue( "bady_hits", _bady_min_hits, 1, 5, 5 ) )
+	_bady_min_hits = iniValue( bady_hits, 1, 5, 5 );
+	if ( _ini.found() )
 	{
 		_bady_max_hits = _bady_min_hits;
 	}
 	else
 	{
-		iniValue( "bady_min_hits", _bady_min_hits, 1, 5, 5 );
-		iniValue( "bady_max_hits", _bady_max_hits, 1, 5, 5 );
+		_bady_min_hits = iniValue( bady_min_hits, 1, 5, 5 );
+		_bady_max_hits = iniValue( bady_max_hits, 1, 5, 5 );
 	}
-#ifdef DEBUG
-	printf( "_bady_min_hits: %d\n", _bady_min_hits );
-	printf( "_bady_max_hits: %d\n", _bady_max_hits );
-#endif
+	_bady_dx_range = iniValue( bady_dx_range, 0, 2, 0 );
 
-	if ( iniValue( "cumulus_start_speed", _cumulus_min_start_speed, 1, 10, 2 ) )
+	 _cumulus_min_start_speed = iniValue( cumulus_start_speed, 1, 10, 2 );
+	if ( _ini.found() )
 	{
 		_cumulus_max_start_speed = _cumulus_min_start_speed;
 	}
 	else
 	{
-		iniValue( "cumulus_min_start_speed", _cumulus_min_start_speed, 1, 10, 2 - 1 );
-		iniValue( "cumulus_max_start_speed", _cumulus_max_start_speed, 1, 10, 2 + 1 );
+		_cumulus_min_start_speed = iniValue( cumulus_min_start_speed,1, 10, 2 - 1 );
+		_cumulus_max_start_speed = iniValue( cumulus_max_start_speed, 1, 10, 2 + 1 );
 	}
-#ifdef DEBUG
-	printf( "_cumulus_min_start_speed: %d\n", _cumulus_min_start_speed );
-	printf( "_cumulus_max_start_speed: %d\n", _cumulus_max_start_speed );
-#endif
+
+	_phaser_dx_range = iniValue( phaser_dx_range,0, 10, 0 );
 }
 
 string FltWin::demoFileName( unsigned level_/* = 0*/ ) const
 //-------------------------------------------------------------------------------
 {
 	ostringstream os;
-	os << ( _internal_levels ? "di" : "d" ) << "_" << ( level_ ? level_ : _level );
+	int level = level_ ? level_ : _level;
+	assert( level );
+	os << ( _internal_levels ? "di" : "d" ) /* << ( _user.completed ? "c" : "" ) */
+	   << ( ( SCREEN_W != SCREEN_NORMAL_W || SCREEN_H != SCREEN_NORMAL_H ) ?
+	      ( string( "_" ) + asString( w() ) + (string)"x" + asString( h() ) ) : "" )
+	   << "_" << level;
 	if ( 1 != DX )
 		os << "_" << DX;
 	os << ".txt";
 	return demoPath( os.str() );
 }
 
-bool FltWin::validDemoData( unsigned level_/* = 0*/ ) const
+bool FltWin::validDemoData( unsigned level_/* = 0*/ )
 //-------------------------------------------------------------------------------
 {
-	ifstream f( demoFileName( level_ ).c_str() );
-	if ( !f.is_open() )
-		return false;
-	unsigned int seed;
-	bool alternate_ship;
-	unsigned int dx;
-
-	f >> seed;
-	f >> alternate_ship;
-	f >> dx;
-	seed = seed;
-	alternate_ship = alternate_ship;
-
-	if ( DX != dx )
-		return false;
-	return true;
+	return loadDemoData( level_, true );
 }
 
 unsigned FltWin::pickRandomDemoLevel( unsigned minLevel_/* = 0*/, unsigned maxLevel_/* = 0*/ )
@@ -3703,41 +4252,58 @@ unsigned FltWin::pickRandomDemoLevel( unsigned minLevel_/* = 0*/, unsigned maxLe
 	return minLevel;	// return a valid level even if there's no demo data
 }
 
-bool FltWin::loadDemoData()
+bool FltWin::loadDemoData( unsigned level_/* = 0*/, bool dryrun_/* = false*/ )
 //-------------------------------------------------------------------------------
 {
-	_demoData.clear();
-	_demoData.alternate_ship( _alternate_ship );
-	ifstream f( demoFileName().c_str() );
+	if ( !dryrun_ )
+	{
+		_demoData.clear();
+		_demoData.ship( _ship );
+	}
+	ifstream f( demoFileName( level_ ).c_str() );
 	if ( !f.is_open() )
 		return false;
-//	cout << "using demo data " <<  demoFileName().c_str() << endl;
-	unsigned int seed;
+	uint32_t seed;
 	unsigned int dx;
 	f >> seed;
-	_demoData.seed( seed );
-	bool alternate_ship;
-	f >> alternate_ship;
+	int ship;
+	f >> ship;
 	f >> dx;
 	if ( DX != dx )
 		return false;
-	bool user_completed;
-	f >> user_completed;
-	_demoData.alternate_ship( alternate_ship );
+	if ( dryrun_ )
+		return true;
+//	cout << "using demo data " <<  demoFileName().c_str() << endl;
+	_demoData.seed( seed );
+	unsigned long flags;
+	f >> flags;
+	unsigned user_completed( flags & 0xffff );
+	bool classic( ( flags >> 16 ) & 1 );
+	bool correct_speed( ( flags >> 17 ) & 1 );
+	_exit_demo_on_collision = correct_speed;
+	_demoData.ship( ship );
 	_demoData.user_completed( user_completed );
+	_demoData.classic( classic );
 	int index = 0;
 	while ( f.good() )
 	{
 		int sx, sy;
 		bool bomb, missile;
+		uint32_t seed, seed2;
 		f >> sx;
 		f >> sy;
 		f >> bomb;
 		f >> missile;
+		int c = f.peek();	// have value for seed?
+		if ( ' ' == c || '\t' == c )
+		{
+			f >> seed;
+			f >> seed2;
+		}
 		if ( !f.good() ) break;
 		while ( f.good() )
 		{
-			_demoData.set( index, sx, sy, bomb, missile );
+			_demoData.set( index, sx, sy, bomb, missile, seed, seed2 );
 			index++;
 			int c = (f >> std::ws).peek(); // (peek one character skipping whitespace)
 			if ( '*' != c ) break;
@@ -3747,7 +4313,7 @@ bool FltWin::loadDemoData()
 	return true;
 }
 
-bool FltWin::saveDemoData()
+bool FltWin::saveDemoData() const
 //-------------------------------------------------------------------------------
 {
 	ofstream f( demoFileName().c_str() );
@@ -3755,29 +4321,59 @@ bool FltWin::saveDemoData()
 		return false;
 //	cout << "save to demo data " << demoFileName().c_str() << endl;
 	f << _demoData.seed() << endl;
-	f << _alternate_ship << endl;
+	f << _ship << endl;
 	f << DX << endl;
-	f << _user.completed << endl;
+	unsigned user_completed( _user.completed );
+	if ( _level == _end_level && user_completed )	// save last level with corrected completed
+		user_completed--;
+	unsigned flags( user_completed | ( _classic << 16 ) | ( _correct_speed << 17 ) );
+	f << flags << endl;
 	int index = 0;
 	int osx( 0 ), osy( 0 );
 	bool obomb( false ), omissile( false );
+	uint32_t oseed( 0 );
+	uint32_t oseed2( 0 );
 	while ( f.good() )
 	{
 		int sx, sy;
 		bool bomb, missile;
-		if ( !_demoData.get( index, sx, sy, bomb, missile ) )
+		uint32_t seed, seed2;
+		if ( !_demoData.get( index, sx, sy, bomb, missile, seed, seed2 ) )
 			break;
-		if ( index && sx == osx && sy == osy && obomb == bomb && omissile == missile )
+		if ( ( index && sx == 0 && sy == 0 && bomb == 0 && missile == 0 ) ||
+		     ( index && sx == osx && sy == osy && obomb == bomb && omissile == missile &&
+		     oseed == seed && oseed2 == seed2 ) )
 			f << '*';	// data repeat
 		else
-			f << sx << " " << sy << " " << bomb << " " << missile << endl;
-		osx = sx; osy = sy; obomb = bomb; omissile = missile;
+		{
+			if ( seed == oseed && seed2 == oseed2 )
+				f << sx << " " << sy << " " << bomb << " " << missile << endl;
+			else
+				f << sx << " " << sy << " " << bomb << " " << missile << " "
+				  << seed << " " << seed2 << endl;
+			osx = sx; osy = sy; obomb = bomb; omissile = missile; oseed = seed; oseed2 = seed2;
+		}
 		index++;
 	}
 	return true;
 }
 
-static bool readColors( ifstream& f_, Fl_Color& c_, vector<Fl_Color>& alt_ )
+static istream& readColor( istream& s_, Fl_Color& c_ )
+//-------------------------------------------------------------------------------
+{
+	string c;
+	s_ >> c;
+	if ( !s_.fail() )
+	{
+		unsigned long color = strtoul( c.c_str(), NULL, 0 );
+		if ( color > 0xff && color % 256 != 0 && color <= 0xffffff )
+			color = color << 8;
+		c_ = color;
+	}
+	return s_;
+}
+
+static ifstream& readColors( ifstream& f_, Fl_Color& c_, vector<Fl_Color>& alt_ )
 //-------------------------------------------------------------------------------
 {
 	string line;
@@ -3786,18 +4382,76 @@ static bool readColors( ifstream& f_, Fl_Color& c_, vector<Fl_Color>& alt_ )
 		getline( f_, line );
 	stringstream is;
 	is << line;
-	is >> c_;
+	readColor( is, c_ );
 	while ( !is.fail() )
 	{
 		Fl_Color c;
-		is >> c;
+		readColor( is, c );
 		if ( !is.fail() )
 			alt_.push_back( c );
 	}
-	return f_.good();
+	return f_;
 }
 
-bool FltWin::loadLevel( int level_, string& levelFileName_ )
+static void loadParameter( ifstream& f_, IniParameter& ini_ )
+//-------------------------------------------------------------------------------
+{
+	string line;
+	while ( getline( f_, line ) )
+	{
+		if ( isspace( line[0] ) )
+			continue;
+		if ( line[0] == ';' || line[0] == '/' || line[0] == '#' )
+			continue;
+		size_t pos = line.find( "=" );
+		if ( pos == string::npos )
+			continue;
+		string name = line.substr( 0, pos );
+		trim( name );
+		if ( name.empty() ) continue;
+		string value = line.substr( pos + 1 );
+		trim( value );
+		while ( value.size() && value[ value.size() - 1 ] == '\\' )
+		{
+			value.erase( value.size() - 1 );
+			getline( f_, line );
+			trim( line );
+			value.push_back( '\n' );
+			value += line;
+		}
+//		cout << "add ini parameter '" << name << "' = '" << value << "'" << endl;
+		ini_[ name ] = value;
+	}
+}
+
+bool FltWin::loadDefaultIniParameter()
+//-------------------------------------------------------------------------------
+{
+	string iniFileName( levelPath( "ini.txt" ) );
+//	cout << "iniFileName: '" << iniFileName.c_str() << "'" << endl;
+	ifstream f( iniFileName.c_str() );
+	if ( !f.is_open() )
+		return false;
+	loadParameter( f, _defaultIniParameter );
+	return true;
+}
+
+bool FltWin::loadTranslations()
+//-------------------------------------------------------------------------------
+{
+	if ( _lang.empty() )
+		return false;
+
+	string iniFileName( homeDir() + "lang_" + _lang + ".txt" );
+//	cout << "iniFileName: '" << iniFileName.c_str() << "'" << endl;
+	ifstream f( iniFileName.c_str() );
+	if ( !f.is_open() )
+		return false;
+	loadParameter( f, _texts );
+	return true;
+}
+
+bool FltWin::loadLevel( unsigned level_, string& levelFileName_ )
 //-------------------------------------------------------------------------------
 {
 	string levelFileName( levelFileName_ );
@@ -3819,14 +4473,18 @@ bool FltWin::loadLevel( int level_, string& levelFileName_ )
 	{
 		// new format
 		f >> T.ls_outline_width;
-		f >> T.outline_color_ground;
-		f >> T.outline_color_sky;
+		readColor( f, T.outline_color_ground );
+		readColor( f, T.outline_color_sky );
 	}
 
 	readColors( f, T.bg_color, T.alt_bg_colors );
 	readColors( f, T.ground_color, T.alt_ground_colors );
 	readColors( f, T.sky_color, T.alt_sky_colors );
 
+	int filler = floor( SCALE_X ) - 1;
+	int subfiller = lround( fmod( SCALE_X, 1. ) * 10 );
+	int subfill = 0;
+	int cnt = 0;
 	while ( f.good() )	// access data is ignored!
 	{
 		int s, g;
@@ -3835,14 +4493,29 @@ bool FltWin::loadLevel( int level_, string& levelFileName_ )
 		f >> g;
 		f >> obj;
 		if ( !f.good() ) break;
-		T.push_back( TerrainPoint( g, s, obj ) );
+		for ( int i = 0; i < filler; i++ )
+			T.push_back( TerrainPoint( g, s , 0 ) );
+		if ( filler >= 0 )
+		{
+			subfill += subfiller;
+			if ( subfill >= 10  )
+			{
+				T.push_back( TerrainPoint( g, s , 0 ) );
+				subfill -= 10;
+			}
+		}
+		if ( SCALE_X >= 1. || ( SCALE_X < 1. && ( obj || (int)(SCALE_X * ( cnt + 1 )) != (int)( SCALE_X * cnt ) ) ) )
+			T.push_back( TerrainPoint( g, s, obj ) );
+		cnt++;
 		if ( obj & O_COLOR_CHANGE )
 		{
 			// fetch extra data for color change object
-			Fl_Color bg_color, ground_color, sky_color;
-			f >> bg_color;
-			f >> ground_color;
-			f >> sky_color;
+			Fl_Color bg_color( T.bg_color );
+			Fl_Color ground_color( T.ground_color );
+			Fl_Color sky_color( T.sky_color );
+			readColor( f, bg_color );
+			readColor( f, ground_color );
+			readColor( f, sky_color );
 			if ( f.good() )
 			{
 				T.back().bg_color = bg_color;
@@ -3852,11 +4525,7 @@ bool FltWin::loadLevel( int level_, string& levelFileName_ )
 		}
 	}
 	f.clear(); 	// reset for reading of ini section
-	string line;
-	while ( getline( f, line ) )
-	{
-		_ini.push_back( line );
-	}
+	loadParameter( f, _ini );
 	return true;
 }
 
@@ -3869,8 +4538,6 @@ Fl_Image *FltWin::terrain_as_image()
 	Fl_Image_Surface *img_surf = new Fl_Image_Surface( W, H );
 	assert( img_surf );
 	img_surf->set_current();
-
-	// TODO: use same code as in draw()
 
 	// draw bg
 	fl_rectf( 0, 0, W, h(), T.bg_color );
@@ -3885,58 +4552,32 @@ Fl_Image *FltWin::terrain_as_image()
 }
 #endif
 
-static void fixColorChange( Terrain &T_, bool correct_speed_ )
-//-------------------------------------------------------------------------------
-{
-	if ( DX == 1 && !correct_speed_ )
-		return;
-	int dx( correct_speed_ ? 10 : DX );
-	for ( size_t i = 0; i < T_.size(); i++ )
-	{
-		if ( T_[ i ].object() & O_COLOR_CHANGE )
-		{
-			bool change( false );
-			size_t e = ( ( i + dx ) / dx ) * dx;
-//			printf( "fix range [%lu, %lu]\n", (unsigned long)i, (unsigned long)e );
-			if ( e > T_.size() )
-				e = T_.size() - 1;
-			for ( size_t j = i + 1; j <= e; j++ )
-			{
-				if ( T_[ j ].object() & O_COLOR_CHANGE )
-				{
-					change = true;
-//					printf( "interrupted by another cc object at %lu\n", (unsigned long)j );
-					i = j - 1;
-					break;
-				}
-				T_[ j ].object( T_[ j ].object() | O_COLOR_CHANGE );
-				T_[ j ].sky_color = T_[ i ].sky_color;
-				T_[ j ].ground_color = T_[ i ].ground_color;
-				T_[ j ].bg_color = T_[ i ].bg_color;
-			}
-			if ( !change )
-				i = e;
-		}
-	}
-}
-
 bool FltWin::create_terrain()
 //-------------------------------------------------------------------------------
 {
 	assert( _level > 0 && _level <= MAX_LEVEL );
-	static unsigned int seed = 0;
+	static uint32_t seed = 0;
 	static unsigned lastCachedTerrainLevel = 0;
+	static unsigned lastCachedUserCompleted = 0;
+	static bool lastCachedClassic = false;
 	static Terrain TC;
 
-	if ( _level != lastCachedTerrainLevel )
+	if ( _level != lastCachedTerrainLevel
+	     || classic() != lastCachedClassic // recreate also when completed/classic flag differ
+	     || user_completed() != lastCachedUserCompleted )
 	{
-		_ini.clear();
+		// level must be recreated
+//		cout << "level " << _level << " must be re-created "
+//		     << lastCachedTerrainLevel << " " << classic() << ":" << lastCachedClassic
+//         << " " << user_completed() << ":" << lastCachedUserCompleted << endl;
+		_ini = _defaultIniParameter;
 		T.clear();
+		lastCachedTerrainLevel = 0;
 		seed = 0;
 	}
 	else
 	{
-		T = TC;
+		T = TC;	// load from "cache"
 	}
 
 	// set level randomness
@@ -3970,9 +4611,9 @@ bool FltWin::create_terrain()
 	string levelFile( _levelFile );
 	bool loaded( false );
 	errno = 0;
-	if ( _internal_levels )
+	if ( _internal_levels  )
 	{
-		// internal level (always create, to keep random generator in sync)
+		// always create internal level, to keep random generator in sync
 		T.clear();
 		create_level();
 		loaded = (int)T.size() > w();
@@ -3980,12 +4621,15 @@ bool FltWin::create_terrain()
 	else if ( T.empty() )
 	{
 		loaded = loadLevel( _level, levelFile );	// try to load level from landscape file
-		if ( loaded && user_completed() )
+		if ( loaded && user_completed() / 2 )
 		{
 			// TODO: just a test to use different colors dep. on completed state
 			if ( T.alt_bg_colors.size() )
 			{
-				T.bg_color = T.alt_bg_colors[0];
+				size_t idx = user_completed() / 2; // revers level has still same color
+				if ( idx > T.alt_bg_colors.size() )
+					idx = T.alt_bg_colors.size();
+				T.bg_color = T.alt_bg_colors[ idx - 1 ];
 			}
 		}
 	}
@@ -3997,10 +4641,17 @@ bool FltWin::create_terrain()
 	}
 	else if ( !_internal_levels && loaded )
 	{
-		if ( !( T.flags & Terrain::NO_SCROLLIN_ZONE ) )
+		revert_level();
+		if ( reversLevel() && !( T.flags & Terrain::NO_SCROLLOUT_ZONE ) )
 			addScrollinZone();
-		if ( !( T.flags & Terrain::NO_SCROLLOUT_ZONE ) )
-			addScrolloutZone();
+		else if ( !reversLevel() && !( T.flags & Terrain::NO_SCROLLIN_ZONE ) )
+			addScrollinZone();
+		addScrolloutZone();	// always add scrollout zone
+
+		// save "original" colors (for color change restore) into first index
+		T[0].sky_color = T.sky_color;
+		T[0].ground_color = T.ground_color;
+		T[0].bg_color = T.bg_color;
 	}
 #ifndef NO_PREBUILD_LANDSCAPE
 	if ( _level != lastCachedTerrainLevel || !_terrain )
@@ -4012,8 +4663,10 @@ bool FltWin::create_terrain()
 #endif
 	if ( lastCachedTerrainLevel != _level )
 	{
+		// store last cached level + flags completed/classic (hacky!)
 		lastCachedTerrainLevel = _level;
-		fixColorChange( T, _correct_speed );
+		lastCachedUserCompleted = user_completed();
+		lastCachedClassic = classic();
 		TC = T;
 	}
 	TBG.clear();
@@ -4023,8 +4676,9 @@ bool FltWin::create_terrain()
 		// currently levels without sky draw mountains in background
 		if ( !T.hasSky() )
 		{
-			for ( size_t i = 0; i < T.size(); i++ )
-				TBG.push_back( T[T.size() - i - 1] );
+			int back = _final_xoff + w() / 2;
+			for ( int i = 0; i < back; i++ )
+				TBG.push_back( T[back - i - 1] );
 			TBG.flags = 1;	// use as marker for "has mountain plane"
 		}
 		// and levels with dark sky draw a starfield...
@@ -4044,7 +4698,8 @@ bool FltWin::create_terrain()
 				for ( size_t i = 0; i < TBG.size(); i++ )
 					TBG[i].sky_level( 0 );
 			}
-			for ( size_t i = 0; i < TBG.size() / 10; i++ )
+			size_t n_stars = 1. / SCALE_X * TBG.size() / 10;
+			for ( size_t i = 0; i < n_stars; i++ )
 			{
 				int x = Random::pRand() % TBG.size();
 				int range = h() - 10;
@@ -4061,6 +4716,51 @@ bool FltWin::create_terrain()
 	setTitle();
 
 	return true;
+}
+
+bool FltWin::revert_level()
+//-------------------------------------------------------------------------------
+{
+	if ( reversLevel() )
+	{
+		size_t n = T.size();
+		for ( size_t i = 0; i < n; i++ )
+			T.push_back( T[n - i - 1] );
+		T.erase( T.begin(), T.begin() + n );
+
+		// have to revert again the color changes...
+		int last_x = T.size() - 1;
+		for ( size_t i = 0; i < T.size(); i++ )
+		{
+			if ( T[i].has_object( O_COLOR_CHANGE ) )
+			{
+				for ( size_t j = last_x; j > 0; j-- )
+				{
+					if ( j <= i )
+						return true;
+					if (  T[j].has_object( O_COLOR_CHANGE ) )
+					{
+						Fl_Color s = T[j].sky_color;
+						Fl_Color g = T[j].ground_color;
+						Fl_Color b = T[j].bg_color;
+
+						T[j].sky_color = T[i].sky_color;
+						T[j].ground_color = T[i].ground_color;
+						T[j].bg_color = T[i].bg_color;
+
+						T[i].sky_color = s;
+						T[i].ground_color = g;
+						T[i].bg_color = b;
+
+						last_x = j - 1;
+						break;
+					}
+				}
+			}
+		}
+		return true;
+	}
+	return false;
 }
 
 static void connectPoints( vector<Point> &terrain_, Terrain& T_, bool edgy_  )
@@ -4156,7 +4856,7 @@ void FltWin::create_level()
 		int cumulus;
 		int phasers;
 	};
-	static struct terrain_data level_data[] = {
+	static const struct terrain_data level_data[] = {
 		{ /*1*/false, 0, FL_GREEN, FL_BLUE, FL_GREEN, 0, FL_BLACK, FL_BLACK,
 			30, 20, 0, 0, 0, 0 },
 		{ /*2*/true, 0, fl_rgb_color( 241, 132, 0 ), fl_rgb_color( 97, 64, 41 ), fl_rgb_color( 139, 13, 6 ),
@@ -4180,10 +4880,9 @@ void FltWin::create_level()
 			30, 10, 20, 2, 2, 4 }
 	};
 
-#define ANZ_LEVEL_COLOR_SETS (sizeof(level_data) / sizeof(level_data[0]) )
-	assert( ANZ_LEVEL_COLOR_SETS >= MAX_LEVEL );
-	int set = ( _level - 1 ) % ANZ_LEVEL_COLOR_SETS;
-	struct terrain_data& level = level_data[ set ];
+	assert( nbrOfItems( level_data ) >= MAX_LEVEL );
+	int set = ( _level - 1 ) % nbrOfItems( level_data );
+	const struct terrain_data& level = level_data[ set ];
 
 	T.ground_color = level.ground_color;
 	T.bg_color = level.bg_color;
@@ -4225,7 +4924,7 @@ void FltWin::create_level()
                           flat2
                          2)  3)
               peak       +---+
-     	                  /     \
+                        /     \
                        / |   | \
              flat1    /  |   |  +------- bott2
   bott1   +----------+   |   |  4)
@@ -4324,7 +5023,7 @@ void FltWin::create_level()
 				string( cumulus, 'c' ) + string( phasers, 'p' );
 			for ( size_t i = 0; i < objects.size() * 10; i++ )
 			{
-				objects.insert( objects.begin() + Random::pRand() % objects.size(), objects[0] );
+				objects.insert( objects.begin() + Random::Rand() % objects.size(), objects[0] );
 				objects.erase( 0, 1 );
 			}
 		}
@@ -4345,7 +5044,7 @@ void FltWin::create_level()
 			// pick an object if needed
 			if ( !o )
 			{
-				int index = Random::pRand() % objects.size();
+				int index = Random::Rand() % objects.size();
 				o = objects[ index ];
 				objects.erase( index, 1 );
 			}
@@ -4396,10 +5095,11 @@ void FltWin::create_level()
 		}
 	}
 	addScrollinZone();
+	revert_level();
 	addScrolloutZone();
 }
 
-void FltWin::draw_badies()
+void FltWin::draw_badies() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Badies.size(); i++ )
@@ -4408,7 +5108,7 @@ void FltWin::draw_badies()
 	}
 }
 
-void FltWin::draw_bombs()
+void FltWin::draw_bombs() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Bombs.size(); i++ )
@@ -4417,7 +5117,7 @@ void FltWin::draw_bombs()
 	}
 }
 
-void FltWin::draw_cumuluses()
+void FltWin::draw_cumuluses() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Cumuluses.size(); i++ )
@@ -4426,7 +5126,7 @@ void FltWin::draw_cumuluses()
 	}
 }
 
-void FltWin::draw_drops()
+void FltWin::draw_drops() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Drops.size(); i++ )
@@ -4435,7 +5135,7 @@ void FltWin::draw_drops()
 	}
 }
 
-void FltWin::draw_explosions()
+void FltWin::draw_explosions() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Explosions.size(); i++ )
@@ -4444,7 +5144,7 @@ void FltWin::draw_explosions()
 	}
 }
 
-void FltWin::draw_missiles()
+void FltWin::draw_missiles() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Missiles.size(); i++ )
@@ -4453,7 +5153,7 @@ void FltWin::draw_missiles()
 	}
 }
 
-void FltWin::draw_phasers()
+void FltWin::draw_phasers() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Phasers.size(); i++ )
@@ -4462,7 +5162,7 @@ void FltWin::draw_phasers()
 	}
 }
 
-void FltWin::draw_radars()
+void FltWin::draw_radars() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Radars.size(); i++ )
@@ -4471,7 +5171,7 @@ void FltWin::draw_radars()
 	}
 }
 
-void FltWin::draw_rockets()
+void FltWin::draw_rockets() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Rockets.size(); i++ )
@@ -4480,7 +5180,7 @@ void FltWin::draw_rockets()
 	}
 }
 
-void FltWin::draw_objects( bool pre_ )
+void FltWin::draw_objects( bool pre_ ) const
 //-------------------------------------------------------------------------------
 {
 	if ( pre_ )
@@ -4508,21 +5208,64 @@ int FltWin::drawText( int x_, int y_, const char *text_, size_t sz_, Fl_Color c_
 	va_start( argp, c_ );
 	vsnprintf( buf, sizeof( buf ), text_, argp );
 	va_end( argp );
-	fl_font( FL_HELVETICA_BOLD_ITALIC, sz_ );
+	flt_font( FL_HELVETICA_BOLD_ITALIC, sz_ );
 	Fl_Color cc = fl_contrast( FL_WHITE, c_ );
 	fl_color( cc );
+
+	if ( x_ != -1 )
+		x_ *= SCALE_X;
+	y_ *= SCALE_Y;
+	if ( y_ < 0 )
+		y_ = h() + y_;
+	if ( x_ < -1 )
+		x_ = w() + x_;
+
 	int x = x_;
 	if ( x_ < 0 )
 	{
 		// centered
-		int dx = 0, dy = 0, W = 0, H = 0;
-		fl_text_extents( buf, dx, dy, W, H );
-		x = ( w() - W ) / 2;
+		x = ( w() - (int)fl_width( buf ) ) / 2;
 	}
 
-	fl_draw( buf, strlen( buf ), x + 2, y_ + 2 );
+	fl_draw( buf, strlen( buf ), x + ceil( SCALE_Y * 2 ), y_ + ceil( SCALE_Y * 2 ) );
 	fl_color( c_ );
 	fl_draw( buf, strlen( buf ), x, y_ );
+	return lround( x / SCALE_X );
+}
+
+int FltWin::drawTextBlock( int x_, int y_, const char *text_, size_t sz_,
+                           int line_height_, Fl_Color c_, ... ) const
+//-------------------------------------------------------------------------------
+{
+	char buf[1024];
+	va_list argp;
+	va_start( argp, c_ );
+	vsnprintf( buf, sizeof( buf ), text_, argp );
+	va_end( argp );
+
+	int x = x_;
+	int y = y_;
+	char *text = buf;
+	while ( text )
+	{
+		char *nl = strchr( text, '\r' );
+		if ( !nl )
+			nl = strchr( text, '\n' );
+		if ( nl )
+			*nl = 0;
+		int X = drawText( x, y, text, sz_, c_ );
+		if ( x_ >= 0 )	// keep text centered
+			x = X;
+		y += line_height_;
+		if ( nl )
+		{
+			text = nl + 1;
+			if ( *nl == '\r' && *text == '\n' )
+				text++;
+		}
+		else
+			text = 0;
+	}
 	return x;
 }
 
@@ -4534,9 +5277,12 @@ int FltWin::drawTable( int w_, int y_, const char *text_, size_t sz_, Fl_Color c
 	va_start( argp, c_ );
 	vsnprintf( buf, sizeof( buf ), text_, argp );
 	va_end( argp );
-	fl_font( FL_HELVETICA_BOLD_ITALIC, sz_ );
+	flt_font( FL_HELVETICA_BOLD_ITALIC, sz_ );
 	Fl_Color cc = fl_contrast( FL_WHITE, c_ );
 	fl_color( cc );
+
+	w_ *= SCALE_X;
+	y_ *= SCALE_Y;
 
 	int xl = 0, yl = 0, wl = 0, hl = 0;
 	int xr = 0, yr = 0, wr = 0, hr = 0;
@@ -4554,21 +5300,21 @@ int FltWin::drawTable( int w_, int y_, const char *text_, size_t sz_, Fl_Color c
 
 	int x =  ( w() - w_ ) / 2;
 
-	fl_draw( l, strlen( l ), x + 2, y_ + 2 );
+	fl_draw( l, strlen( l ), x + SCALE_Y * 2, y_ + SCALE_Y * 2 );
 	if ( r )
-		fl_draw( r, strlen( r ), x + w_ - wr + 2, y_ + 2 );
-	static const int DOT_SIZE = 5;
+		fl_draw( r, strlen( r ), x + w_ - wr + SCALE_Y * 2, y_ + SCALE_Y * 2 );
+	static int DOT_SIZE = lround( SCALE_X * 5 );
 	int lw = ( x + w_ - wr - 2 * DOT_SIZE ) - ( x + wl + 2 * DOT_SIZE );
 	lw = ( ( lw + DOT_SIZE / 2 ) / DOT_SIZE + 1 ) * DOT_SIZE;
 	int lx = x + wl + 2 * DOT_SIZE;
 	for ( int i = 0; i < lw / ( DOT_SIZE * 2 ); i++ )
-		fl_rectf( lx + 2 + i * DOT_SIZE * 2, y_ - 3, DOT_SIZE, DOT_SIZE );
+		fl_rectf( lx + SCALE_Y * 2 + i * DOT_SIZE * 2, y_ - SCALE_Y * 3, DOT_SIZE, DOT_SIZE );
 	fl_color( c_ );
 	fl_draw( l, strlen( l ), x, y_ );
 	if ( r )
 		fl_draw( r, strlen( r ), x + w_ - wr, y_ );
 	for ( int i = 0; i < lw / ( DOT_SIZE * 2 ); i++ )
-		fl_rectf( lx + i * DOT_SIZE * 2, y_ - 5, DOT_SIZE, DOT_SIZE );
+		fl_rectf( lx + i * DOT_SIZE * 2, y_ - SCALE_Y * 5, DOT_SIZE, DOT_SIZE );
 
 	return x;
 }
@@ -4579,82 +5325,111 @@ void FltWin::draw_score()
 	static Fl_Image *_lifes[3] = { 0, 0, 0 };
 	if ( _effects && !_lifes[0] )
 	{
-		_lifes[0] = new Fl_GIF_Image( imgPath.get( "lifes1.gif" ).c_str() );
-		_lifes[1] = new Fl_GIF_Image( imgPath.get( "lifes2.gif" ).c_str() );
-		_lifes[2] = new Fl_GIF_Image( imgPath.get( "lifes3.gif" ).c_str() );
+		_lifes[0] = (new FltImage())->get( imgPath.get( "lifes1.gif" ).c_str() );
+		_lifes[1] = (new FltImage())->get( imgPath.get( "lifes2.gif" ).c_str() );
+		_lifes[2] = (new FltImage())->get( imgPath.get( "lifes3.gif" ).c_str() );
 	}
 	if ( _state == DEMO )
 	{
-		drawText( -1, h() - 30, "*** DEMO - Hit space to cancel ***", 30, FL_WHITE );
+		drawText( -1, -30, _texts.value( "demo", 50,
+		          "*** DEMO - Hit space to cancel ***" ),
+		          30, FL_WHITE );
 		return;
 	}
 	if ( _trainMode )
 	{
-		drawText( w() - 110, 20, "TRAINER", 20, FL_RED );
+		drawText( -110, 20, _texts.value( "trainer", 7, "TRAINER" ), 20, FL_RED );
 	}
 
-	fl_font( FL_HELVETICA, 30 );
+	flt_font( FL_HELVETICA, 30 );
 	fl_color( fl_contrast( FL_WHITE, T.ground_color ) );
 
 	char buf[50];
 	int n = snprintf( buf, sizeof( buf ), "Hiscore: %06u", _hiscore );
-	fl_draw( buf, n, w() - 280, h() - 30 );
+	flt_draw( buf, n, -280, -30 );
 
 	if ( !_effects )
 	{
 		n = snprintf( buf, sizeof( buf ), "L %u/%u Score: %06u", _level,
 		              MAX_LEVEL_REPEAT - _level_repeat, _user.score );
-		fl_draw( buf, n, 20, h() - 30 );
+		flt_draw( buf, n, 20, -30 );
 		n = snprintf( buf, sizeof( buf ), "%d %%",
-	              (int)( (float)_xoff / (float)( T.size() - w() ) * 100. ) );
-		fl_draw( buf, n, w() / 2 - 20 , h() - 30 );
+	              (int)( (float)_xoff / (float)( _final_xoff  - _spaceship->x() ) * 100. ) );
+		flt_draw( buf, n, SCREEN_NORMAL_W / 2 - 20 , -30 );
 	}
 	else
 	{
 		n = snprintf( buf, sizeof( buf ), "%u%s       Score: %06u",
 	                 _level, ( _level < 10 ? " " : "" ), _user.score );
-		fl_draw( buf, n, 20, h() - 30 );
+		flt_draw( buf, n, 20, -30 );
 		int lifes = MAX_LEVEL_REPEAT - _level_repeat;
 		if ( lifes )
 		{
-			_lifes[lifes - 1]->draw( 60, h() - 52 );
+			_lifes[lifes - 1]->draw( SCALE_X * 60, h() - SCALE_Y * 52 );
 		}
-		int proc = (int)( (float)_xoff / (float)( T.size() - w() ) * 100. );
-		int X = w() / 2 - 16;
-		int Y = h() - 49;
-		int W = 100;	// 100% = 100px
-		int H = 18;
+		int proc = (int)( (float)_xoff / (float)( _final_xoff - _spaceship->x() ) * 100. );
+		int X = w() / 2 - SCALE_X * 16;
+		int Y = h() - SCALE_Y * 49;
+		int W = lround( SCALE_X * 100 );	// 100% = 100px
+		int H = SCALE_Y * 18;
 		fl_rect( X - 1, Y -1, W + 2, H + 2 );
-		fl_color( T.ground_color == T.bg_color || _classic ?
+		fl_color( T.ground_color == T.bg_color || classic() ?
 		          fl_contrast( FL_WHITE, T.ground_color ) : T.bg_color );
-		fl_rectf( X, Y, proc, H );
+		fl_rectf( X, Y, lround( proc * SCALE_X ), H );
+
+		if ( reversLevel() && !_completed )	// draw a down-arrow to denote going reverse levels
+			fl_draw_symbol( "@+22->", 0, h() - SCALE_Y * 45, SCALE_X * 20, SCALE_Y * 30, FL_RED );
 	}
 
 	if ( G_paused )
 	{
-		drawText( -1, 50, "** PAUSED **", 50, FL_WHITE );
+		drawText( -1, SCREEN_NORMAL_H / 2, _texts.value( "paused", 30, "** PAUSED **" ), 50, FL_WHITE );
 	}
 	else if ( _done )
 	{
-		if ( _level == MAX_LEVEL && ( !_trainMode || _cheatMode ) )
+		if ( _level == _end_level && ( !_trainMode || _cheatMode ) )
 		{
+			static bool revers_level = false;
+			string s;
 			if ( !_completed )
 			{
 				_completed = true;
+				revers_level = reversLevel() || _internal_levels || _trainMode;
 				Audio::instance()->enable();	// turn sound on
 				free( _terrain );	// switch to direct drawing for grayout!
 				_terrain = 0;
-				Audio::instance()->play( "win" );
-				(_anim_text = new AnimText( 0, 10, w(), "** MISSION COMPLETE! **",
+				if ( revers_level )
+					s = _texts.value( "mission_complete", 50, "** MISSION COMPLETE! **" );
+				else
+					s = _texts.value( "mission_part", 50, "** WELL DONE! **" );
+				(_anim_text = new AnimText( 0, SCALE_Y * 10, w(), s.c_str(),
 					FL_WHITE, FL_RED, 50, 40, false ))->start();
-				_bonus *= 3;
+
+				// add a "completed" bonus
+				int completed_bonus = _bonus * ( _user.completed % 2 + 1 );
+				_bonus += completed_bonus;;
+				add_score( completed_bonus );
 			}
 			if ( _anim_text )
 				_anim_text->draw();
-			drawText( -1, 150, "You bravely mastered all challenges", 30, FL_WHITE );
-			drawText( -1, 190, "and deserve to be called a REAL HERO.", 30, FL_WHITE );
-			drawText( -1, 230, "Well done! Take some rest now, or ...", 30, FL_WHITE );
-			drawText( -1, 400, "** hit space to restart **", 40, FL_YELLOW );
+			if ( revers_level )
+				s = _texts.value( "praise_completed", 200,
+			                     "You bravely mastered all challenges\n"
+			                     "and deserve to be called a REAL HERO.\n"
+			                     "Well done! Take some rest now, or ...");
+			else
+				s = _texts.value( "praise", 200,
+		                        "You succeeded to conquer all hazards\n"
+			                     "and have reached your destination!\n"
+				                  "\n"
+			 	                  "What a pity, that you have to get back\n"
+			                     "now from where you started....");
+			drawTextBlock( -1, 150, s.c_str(), 30, 40, FL_WHITE );
+			if ( revers_level )
+				s = _texts.value( "space_to_restart", 50, "** hit space to restart **" );
+			else
+				s = _texts.value( "space_to_go_back", 50, "** hit space to go back **" );
+			drawText( -1, 400, s.c_str(), 40, FL_YELLOW );
 			// fireworks...
 			for ( size_t i = 0; i < Phasers.size(); i++ )
 				Phasers[i]->disable();
@@ -4677,16 +5452,19 @@ void FltWin::draw_score()
 		}
 		else
 		{
-			drawText( -1, 50, "LEVEL %u FINISHED!", 50, FL_WHITE, _level );
+			drawText( -1, 50, _texts.value( "level_finished", 50,  "LEVEL %u FINISHED!" ),
+			          50, FL_WHITE, _level );
 		}
 		if ( _bonus > 0 )
-			drawText( -1, h() - 80, "Bonus: %u", 30, FL_YELLOW, _bonus );
+			drawText( -1, -80, _texts.value( "bonus", 20, "Bonus: %u" ),
+			          30, FL_YELLOW, _bonus );
 	}
 	else if ( _collision )
 	{
 		if ( _level_repeat + 1 > MAX_LEVEL_REPEAT )
 		{
-			drawText( -1, 50, "START AGAIN!", 50, FL_WHITE );
+			drawTextBlock( -1, 50, _texts.value( "start_again", 50, "START AGAIN!" ),
+			               50, 60, FL_RED );
 		}
 	}
 }
@@ -4695,18 +5473,23 @@ void FltWin::draw_scores()
 //-------------------------------------------------------------------------------
 {
 	fl_rectf( 0, 0, w(), h(), FL_BLACK );
-	drawText( -1, 120, "CONGRATULATION!", 70, FL_RED );
-	drawText( -1, 200, "You topped the hiscore:", 40, FL_RED );
-	int x = drawText( -1, 290, "old hiscore .......... %06u", 30, FL_WHITE, _hiscore );
+	drawText( -1, 120, _texts.value( "congratulation", 20, "CONGRATULATION!" ),
+	          70, FL_RED );
+	drawText( -1, 200, _texts.value( "topped", 30, "You topped the hiscore:" ),
+	          40, FL_RED );
+	int x = drawText( -1, 290, _texts.value( "old_hiscore", 40, "old hiscore .......... %06u" ),
+	                  30, FL_WHITE, _hiscore );
 	int Y = 330;
 	if ( _hiscore )
 	{
 		string bestname( _hiscore_user );
-		drawText( x, Y, "held by ................ %s", 30, FL_WHITE,
+		drawText( x, Y, _texts.value( "held_by", 40, "held by ................ %s" ),
+		          30, FL_WHITE,
 		          bestname.empty() ?  "???" : bestname.c_str() );
 		Y += 40;
 	}
-	drawText( x, Y, "new hiscore ......... %06u", 30, FL_WHITE, _user.score );
+	drawText( x, Y, _texts.value( "new_hiscore", 40, "new hiscore ......... %06u" ),
+	          30, FL_WHITE, _user.score );
 
 	if ( _input.size() > 10 )
 		_input.erase( 10 );
@@ -4722,10 +5505,13 @@ void FltWin::draw_scores()
 	}
 
 	if ( _user.name == DEFAULT_USER )
-		drawText( -1, 420, "Enter your name:   %s", 32, FL_GREEN, inpfield.c_str() );
+		drawText( -1, 420, _texts.value( "enter_name", 30, "Enter your name:   %s" ),
+		          32, FL_GREEN, inpfield.c_str() );
 	else
-		drawText( -1, 420, "Score goes to:   %s", 32, FL_GREEN, _user.name.c_str() );
-	drawText( -1, h() - 50, "** hit space to continue **", 40, FL_YELLOW );
+		drawText( -1, 420, _texts.value( "score_goes_to", 30, "Score goes to:   %s" ),
+		          32, FL_GREEN, _user.name.c_str() );
+	drawText( -1, -50, _texts.value( "space_to_continue", 30, "** hit space to continue **" ),
+	          40, FL_YELLOW );
 }
 
 void FltWin::draw_title()
@@ -4746,27 +5532,27 @@ void FltWin::draw_title()
 		reveal_height = 0;
 	}
 
+	int border_w = lround( 40 * SCALE_X );
+	int border_h = lround( 20 * SCALE_Y );
+	int dborder_h = lround( 40 * SCALE_Y );
 	if ( !G_paused )
 	{
 		// speccy loading stripes
-		Fl_Color c[] = { FL_GREEN, FL_BLUE, FL_YELLOW };
+		static const Fl_Color c[] = { FL_GREEN, FL_BLUE, FL_YELLOW };
 		int ci = Random::pRand() % 3;
-		for ( int y = 0; y < h(); y += 4 )
+		int stripe_h = SCALE_Y * 4;
+		for ( int y = 0; y < h(); y += stripe_h )
 		{
 			fl_color( c[ci] );
-			if ( y <= 20 || y >= h() - 20 )
+			for ( int n = 0; n < stripe_h; n++ )
 			{
-				fl_line( 0, y , w(), y );
-				fl_line( 0, y + 1 , w(), y + 1 );
-				fl_line( 0, y + 2 , w(), y + 2 );
-				fl_line( 0, y + 3 , w(), y + 3 );
-			}
-			else
-			{
-				fl_line( 0, y, 40, y ); fl_line( w() - 40, y, w(), y );
-				fl_line( 0, y + 1, 40, y + 1 ); fl_line ( w() - 40, y + 1, w(), y + 1 );
-				fl_line( 0, y + 2, 40, y + 2 ); fl_line ( w() - 40, y + 2, w(), y + 2 );
-				fl_line( 0, y + 3, 40, y + 3 ); fl_line ( w() - 40, y + 3, w(), y + 3 );
+				if ( y + n <= border_h || y + n >= h() - border_h )
+					fl_line( 0, y + n , w(), y + n );
+				else
+				{
+					fl_line( 0, y + n, border_w, y + n );
+					fl_line( w() - border_w, y + n, w(), y + n );
+				}
 			}
 			ci++;
 			ci %= 3;
@@ -4779,27 +5565,29 @@ void FltWin::draw_title()
 		reveal_height = h();
 	}
 	else
-		fl_rectf( 40, 20, w() - 80, h() - 40, fl_rgb_color( 32, 32, 32 ) );
-	if ( _spaceship && _spaceship->image() && !bgImage )
+		fl_rectf( border_w, border_h, w() - 2 * border_w, h() - dborder_h + 1, fl_rgb_color( 32, 32, 32 ) );
+	if ( _spaceship && _spaceship->origImage() && !bgImage )
 	{
 #if FLTK_HAS_NEW_FUNCTIONS
 		Fl_Image::RGB_scaling( FL_RGB_SCALING_BILINEAR );
 #endif
-		bgImage = _spaceship->image()->copy( w() - 120, h() - 150 );
-		bgImage2 = _rocket.image()->copy( w() / 3, h() - 150 );
+//		bgImage = _spaceship->origImage()->copy( w() - SCALE_X * 120, h() - SCALE_Y * 150 );
+		bgImage = fl_copy_image( _spaceship->origImage(),  w() - SCALE_X * 120, h() - SCALE_Y * 150 );
+//		bgImage2 = _rocket.origImage()->copy( w() / 3, h() - SCALE_Y * 150 );
+		bgImage2 = fl_copy_image( _rocket.origImage(), w() / 3, h() - SCALE_Y * 150 );
 	}
 	if ( !_title_anim )
-		(_title_anim = new AnimText( 0, 45, w(), "FL-TRATOR",
+		(_title_anim = new AnimText( 0, SCALE_Y * 45, w(), "FL-TRATOR",
 		                             FL_RED, FL_WHITE, 90, 80, false ))->start();
 	if ( !G_paused && _cfg->non_zero_scores() && _flip++ % (FPS * 8) > ( FPS * 5) )
 	{
 		if ( bgImage2 )
-			bgImage2->draw( 60, 120 );
+			bgImage2->draw( SCALE_X * 60, SCALE_Y * 120 );
 		size_t n = _cfg->non_zero_scores();
 		if ( n > 6 )
 			n = 6;
 		int y = 330 - n / 2 * 40;
-		drawText( -1, y, "Hiscores", 35, FL_GREEN );
+		drawText( -1, y, _texts.value( "hiscores", 20, "Hiscores" ), 35, FL_GREEN );
 		y += 50;
 		for ( size_t i = 0; i < n; i++ )
 		{
@@ -4812,37 +5600,45 @@ void FltWin::draw_title()
 	}
 	else
 	{
-		fl_push_clip( 40, 20, w() - 80, h() - 40 );
+		fl_push_clip( border_w, border_h, w() - 2 * border_w, h() - dborder_h );
 		if ( _zoominShip && !_zoominShip->done() )
 			_zoominShip->draw();
 		else if ( bgImage )
-			bgImage->draw( 60, 40 );
+			bgImage->draw( SCALE_X * 60, SCALE_Y * 40 );
 		fl_pop_clip();
-		drawText( -1, 210, "%s (%u)", 30, FL_GREEN,
+		int x = drawText( -1, 210, "%s (%u)", 30, _user.completed ? FL_YELLOW : FL_GREEN,
 		          _user.name.empty() ? "N.N." : _user.name.c_str(), _first_level );
-		drawTable( 360, 260, "%c/%c\tup/down", 30, FL_WHITE, KEY_UP, KEY_DOWN );
-		drawTable( 360, 310, "%c/%c\tleft/right", 30, FL_WHITE, KEY_LEFT, KEY_RIGHT );
-		drawTable( 360, 350, "%c\tfire missile", 30, FL_WHITE, KEY_RIGHT );
-		drawTable( 360, 390, "space\tdrop bomb", 30, FL_WHITE );
-		drawTable( 360, 430, "7-9\thold game", 30, FL_WHITE );
+		if ( reversLevel() )	// draw a down-arrow to denote going reverse levels
+			fl_draw_symbol( "@+22->", SCALE_X * ( x - 20 ), SCALE_Y * (210 - 15), SCALE_X * 20, SCALE_Y * 30, FL_RED );
+		drawTable( 360, 260, _texts.value( "up_down", 20, "%c/%c\tup/down" ), 30, FL_WHITE, KEY_UP, KEY_DOWN );
+		drawTable( 360, 310, _texts.value( "left_right", 20, "%c/%c\tleft/right" ), 30, FL_WHITE, KEY_LEFT, KEY_RIGHT );
+		drawTable( 360, 350, _texts.value( "fire_missile", 20, "%c\tfire missile" ), 30, FL_WHITE, KEY_RIGHT );
+		drawTable( 360, 390, _texts.value( "drop_bomb", 20, "space\tdrop bomb" ), 30, FL_WHITE );
+		drawTable( 360, 430, _texts.value( "hold_game", 20, "7-9\thold game" ), 30, FL_WHITE );
 	}
 	if ( G_paused )
-		drawText( -1, h() - 50, "** PAUSED **", 40, FL_YELLOW );
+		drawText( -1, -50, _texts.value( "paused_title", 20, "** PAUSED **" ), 40, FL_YELLOW );
 	else
 	{
-		drawText( -1, h() - 50, "** hit space to start **", 40, FL_YELLOW );
-		drawText( -1, h() - 26, "o/p: toggle user     q/a: toggle ship     s: %s sound",
-			10, FL_GRAY, Audio::instance()->enabled() ? "disable" : "enable" );
-		drawText( w() - 90, h() - 26, "fps=%d", 8, FL_CYAN, FPS );
+		drawText( -1, -50, _texts.value( "space_to_start", 28, "** hit space to start **" ),
+		          40, FL_YELLOW );
+		drawText( -1, -26, _texts.value( "title_help", 90, "%c/%c: toggle user     %c/%c: toggle ship     s: %s sound     b: %s music" ),
+			10, FL_GRAY,
+			KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN,
+			Audio::instance()->enabled() ? _texts.value( "disable", 12, "disable") :
+			                               _texts.value( "enable", 12, "enable" ),
+			Audio::instance()->bg_enabled() ? _texts.value( "disable", 12, "disable") :
+			                               _texts.value( "enable", 12, "enable" ) );
+		drawText( -90, -26, "fps=%d", 8, FL_CYAN, FPS );
 	}
 	drawText( 45, 34, "v"VERSION, 8, FL_CYAN );
 
-	if (_title_anim)
+	if ( _title_anim )
 		_title_anim->draw();
 
-	if ( _gimmicks && reveal_height < h() - 40 )
+	if ( _gimmicks && reveal_height < h() - dborder_h )
 	{
-		fl_rectf( 40, 20 + reveal_height, w() - 80, h() - reveal_height - 40, FL_BLACK );
+		fl_rectf( border_w, border_h + reveal_height, w() - 2 * border_w, h() - reveal_height - border_h * 2, FL_BLACK );
 		reveal_height += 6 * _DX;
 	}
 }
@@ -4955,110 +5751,120 @@ void FltWin::draw_shaded_landscape( int xoff_, int W_ )
 	}
 }
 
+void FltWin::draw_outline( int xoff_, int W_, int outline_width_,
+                           Fl_Color outline_color_sky_,
+                           Fl_Color outline_color_ground_ ) const
+//-------------------------------------------------------------------------------
+{
+	// draw ONLY outline
+	// NOTE: WIN32 must set line style AFTER setting drawing color
+	outline_width_ = lround( SCALE_Y * outline_width_ );
+
+	// sky
+	fl_color( outline_color_sky_ );
+	fl_line_style( FL_SOLID|FL_CAP_SQUARE|FL_JOIN_ROUND, outline_width_ );
+	bool vertex = false;
+	for ( int i = 0; i < W_; i++ )
+	{
+		if ( T[xoff_ + i].sky_level() >= 0 )
+		{
+			if ( vertex )
+			{
+				fl_vertex( i, T[xoff_ + i].sky_level() );
+			}
+			else
+			{
+				fl_begin_line();
+				if ( i )
+					fl_vertex( i - 1, T[xoff_ + i - 1].sky_level() );
+				fl_vertex( i, T[xoff_ + i].sky_level() );
+				vertex = true;
+			}
+		}
+		else
+		{
+			if ( vertex )
+			{
+				fl_vertex( i, T[xoff_ + i].sky_level() );
+				fl_end_line();
+				vertex = false;
+			}
+		}
+	}
+	if ( vertex )
+		fl_end_line();
+
+	// ground
+	fl_color( outline_color_ground_ );
+#ifdef WIN32
+	fl_line_style( FL_SOLID|FL_CAP_SQUARE|FL_JOIN_ROUND, outline_width_ );
+#endif
+	fl_begin_line();
+	for ( int i = 0; i < W_; i++ )
+		fl_vertex( i, h() - T[xoff_ + i].ground_level() );
+	fl_end_line();
+	fl_line_style( 0 );
+}
+
 void FltWin::draw_landscape( int xoff_, int W_ )
 //-------------------------------------------------------------------------------
 {
 	// draw landscape
-	if ( _effects && !_classic )
+	if ( _effects && !classic() )
 		return draw_shaded_landscape( xoff_, W_ );
 
-	if ( _classic )
+	Fl_Color outline_color_sky = T.outline_color_sky;
+	Fl_Color outline_color_ground = T.outline_color_ground;
+	int outline_width = T.ls_outline_width;
+	if ( classic() )
 	{
-		// draw ONLY outline
-		// NOTE: WIN32 must set line style AFTER setting drawing color
-		fl_color( T.sky_color == T.bg_color ?
-			fl_contrast( T.sky_color, T.bg_color ) : T.sky_color );
-		fl_line_style( FL_SOLID, T.ls_outline_width ? T.ls_outline_width : 3 );
-		for ( int i = 1; i < W_ - 1; i++ )
-		{
-			if ( T[xoff_ + i].sky_level() >= 0 )
-			{
-				fl_line( i - 1, T[xoff_ + i - 1].sky_level(),
-				         i + 1, T[xoff_ + i + 1].sky_level() );
-			}
-		}
+		// in classic mode draw only outline
+		// make sure outline contrast with background
+		outline_color_sky = T.sky_color == T.bg_color ?
+			fl_contrast( T.sky_color, T.bg_color ) : T.sky_color;
 
-		fl_color( T.ground_color == T.bg_color ? 
-			fl_contrast( T.ground_color, T.bg_color ) : T.ground_color );
-#ifdef WIN32
-		fl_line_style( FL_SOLID, T.ls_outline_width ? T.ls_outline_width : 3 );
-#endif
-		for ( int i = 1; i < W_ - 1; i++ )
-		{
-			fl_line( i - 1, h() - T[xoff_ + i - 1].ground_level(),
-			         i + 1, h() - T[xoff_ + i + 1].ground_level() );
-		}
-		fl_line_style( 0 );
-		return;
+		outline_color_ground = T.ground_color == T.bg_color ?
+			fl_contrast( T.ground_color, T.bg_color ) : T.ground_color;
+		// and use a default ouline width if none specified
+		outline_width = outline_width ? outline_width : 3;
 	}
-
-#if 0
-	// the most simple initial version
-	for ( int i = 0; i < W_; i++ )
+	else
 	{
+		// standard non-shaded drawing
+		int x = 0;
 		fl_color( T.sky_color );
-		fl_yxline( i, -1, T[xoff_ + i].sky_level() );
+		while ( x < W_ )
+		{
+			int xo = x;
+			int s = T[xoff_ + x].sky_level();
+			while ( x < W_ && T[xoff_ + x + 1].sky_level() == s )
+				x++;
+			fl_rectf( xo, 0, x - xo + 1, s );
+			x++;
+		}
+
+		/*int*/ x = 0;
 		fl_color( T.ground_color );
-		fl_yxline( i, h() - T[xoff_ + i].ground_level(), h() );
-	}
-#else
-	int x = 0;
-	fl_color( T.sky_color );
-	while ( x < W_ )
-	{
-		int xo = x;
-		int s = T[xoff_ + x].sky_level();
-		while ( x < W_ && T[xoff_ + x + 1].sky_level() == s )
-			x++;
-		fl_rectf( xo, 0, x - xo + 1, s );
-		x++;
-	}
-
-	/*int*/ x = 0;
-	fl_color( T.ground_color );
-	while ( x < W_ )
-	{
-		int xo = x;
-		int g = T[xoff_ + x].ground_level();
-		while ( x < W_ && T[xoff_ + x + 1].ground_level() == g )
-			x++;
-		fl_rectf( xo, h() - g, x - xo + 1, g );
-		x++;
-	}
-#endif
-	// draw outline
-	// NOTE: WIN32 must set line style AFTER setting drawing color
-	if ( T.ls_outline_width )
-	{
-		fl_color( T.outline_color_sky );
-		fl_line_style( FL_SOLID, T.ls_outline_width );
-		for ( int i = 1; i < W_ - 1; i++ )
+		while ( x < W_ )
 		{
-			if ( T[xoff_ + i].sky_level() >= 0 )
-			{
-				fl_line( i - 1, T[xoff_ + i - 1].sky_level(),
-				         i + 1, T[xoff_ + i + 1].sky_level() );
-			}
+			int xo = x;
+			int g = T[xoff_ + x].ground_level();
+			while ( x < W_ && T[xoff_ + x + 1].ground_level() == g )
+				x++;
+			fl_rectf( xo, h() - g, x - xo + 1, g );
+			x++;
 		}
-
-		fl_color( T.outline_color_ground );
-#ifdef WIN32
-		fl_line_style( FL_SOLID, T.ls_outline_width );
-#endif
-		for ( int i = 1; i < W_ - 1; i++ )
-		{
-			fl_line( i - 1, h() - T[xoff_ + i - 1].ground_level(),
-			         i + 1, h() - T[xoff_ + i + 1].ground_level() );
-		}
-		fl_line_style( 0 );
 	}
+	// draw outline (if set)
+	if ( outline_width )
+		draw_outline( xoff_, W_, outline_width, outline_color_sky, outline_color_ground );
 }
 
-bool FltWin::draw_decoration()
+bool FltWin::draw_decoration() const
 //-------------------------------------------------------------------------------
 {
 	bool redraw( false );
-	if ( _effects > 1 && !_classic )	// only if turned on additionally
+	if ( _effects > 1 && !classic() )	// only if turned on additionally
 	{
 		// shaded bg
 		int sky_min = T.min_sky;
@@ -5103,14 +5909,19 @@ bool FltWin::draw_decoration()
 			if ( sy > T[_xoff + x].ground_level() &&
 			    h() - sy > T[_xoff + x].sky_level() )
 			{
+				static int sz = -1;
+				if ( sz < 0 )
+					sz = lround( SCALE_Y * 1 );
 				// draw with a "twinkle" effect
 				( Random::pRand() % 10 || G_paused ) ?
-					fl_point( x, h() - sy ) : fl_pie( x, h() - sy, 2, 2, 0., 360. );
+					sz <= 1 ? fl_point( x, h() - sy ) :
+				   fl_pie( x - sz / 2, h() - sy - sz / 2, sz, sz, 0., 360. ) :
+				   fl_pie( x - sz, h() - sy - sz, sz * 2, sz * 2, 0., 360. );
 			}
 		}
 		redraw = true;
 	}
-	if ( TBG.flags & 1 && !_classic )
+	if ( TBG.flags & 1 && !classic() )
 	{
 		// test for "parallax scrolling" background plane
 		int xoff = _xoff / 3;	// scrollfactor 1/3
@@ -5118,7 +5929,7 @@ bool FltWin::draw_decoration()
 		for ( size_t i = 0; i < SCREEN_W; i++ )
 		{
 			if ( _xoff + i >= T.size() ) break;
-			// TODO: take account of outline_width if drawn (currently not)
+			// TODO: take account of outline_width if drawn (currently not)?
 			int g2 = h() - T[_xoff + i].ground_level()/* - T.ls_outline_width*/;
 			int g1 = h() - TBG[(xoff + i + SCREEN_W )].ground_level() * 2 / 3;
 			if ( g2 > g1 )
@@ -5130,6 +5941,15 @@ bool FltWin::draw_decoration()
 }
 
 void FltWin::draw()
+//-------------------------------------------------------------------------------
+{
+	int xoff = _xoff;
+	_xoff = _draw_xoff;
+	do_draw();
+	_xoff = xoff;
+}
+
+void FltWin::do_draw()
 //-------------------------------------------------------------------------------
 {
 	_frame++;
@@ -5156,11 +5976,24 @@ void FltWin::draw()
 	else
 	{
 		// handle color change
-		if ( T[_xoff].object() & O_COLOR_CHANGE )
+		if ( _colorChangeList.size() && _xoff >= _colorChangeList[0] )	// have we passed the next color change offset?
 		{
-			T.sky_color = T[_xoff].sky_color;
-			T.ground_color = T[_xoff].ground_color;
-			T.bg_color = T[_xoff].bg_color;
+			int xoff = _colorChangeList[0];
+			_colorChangeList.erase( _colorChangeList.begin() );
+			if ( !T[xoff].sky_color && !T[xoff].ground_color && !T[xoff].bg_color )
+			{
+				// a "restore" object (0/0/0)
+				T.sky_color = T[0].sky_color;
+				T.ground_color = T[0].ground_color;
+				T.bg_color = T[0].bg_color;
+			}
+			else
+			{
+				// a normal color change object
+				T.sky_color = T[xoff].sky_color;
+				T.ground_color = T[xoff].ground_color;
+				T.bg_color = T[xoff].bg_color;
+			}
 		}
 
 		// draw bg
@@ -5172,7 +6005,7 @@ void FltWin::draw()
 
 	draw_objects( true );	// objects for collision check
 
-	if ( !G_paused && !paused() && !_done && _state != DEMO && !_collision )
+	if ( !G_paused && !paused() && !_done && !_collision )
 	{
 		_collision |= collision( *_spaceship, w(), h() );
 		if ( _collision )
@@ -5203,9 +6036,66 @@ void FltWin::draw()
 
 	// draw animated title and zoomout ship over reveal rect
 	if ( _anim_text )
-		_anim_text->draw();
+	{
+		if ( !_anim_text->done() )
+			_anim_text->draw();
+		else
+		{
+			delete _anim_text;
+			_anim_text = 0;
+		}
+	}
 	if ( _zoomoutShip && !_zoomoutShip->done() )
 		_zoomoutShip->draw();
+
+	// scanline effect
+	if ( _effects > 2 )
+	{
+		static int bytes = w() * h() * 4;
+		static Fl_RGB_Image *scanlines = 0;
+		if ( !scanlines )
+		{
+			uchar *lines = new uchar[ bytes ];
+			memset( lines, 0, bytes );
+			scanlines = new Fl_RGB_Image( lines, w(), h(), 4 );
+			int step = ceil( SCALE_Y * 2 );
+			if ( step < 2 )
+				step = 2;
+			for ( int y = 0; y < h(); y += step )
+				memset( &lines[y * w() * 4], 32, w() * 4 );
+		}
+		scanlines->draw( 0, 0 );
+	}
+
+	// fade out effect
+	if ( _effects > 1 && _state == PAUSED && !_done )
+	{
+		static int bytes = w() * h() * 4;
+		static uchar *screen = 0;
+		static Fl_RGB_Image *matte = 0;
+
+		if ( !screen )
+		{
+			screen = new uchar[ bytes ];
+			memset( screen, 0, bytes );
+		}
+		if ( !matte )
+			matte = new Fl_RGB_Image( screen, w(), h(), 4 );
+
+		double total_frames = _TO * FPS;
+		double perc = (double)_alpha_matte / total_frames;
+		int alpha = perc * 256;
+		if ( alpha > 255 )
+			alpha = 255;
+		_alpha_matte++;
+
+		// change alpha in screen array
+		uchar *p = screen;
+		for ( int i = 0; i < bytes; i += 4, p += 4 )
+			*(p + 3) = alpha;
+		matte->uncache();
+		matte->draw( 0, 0 );
+	}
 }
 
 void FltWin::check_bomb_hits()
@@ -5221,9 +6111,10 @@ void FltWin::check_bomb_hits()
 			     (*b)->rect().intersects( (*r)->rect() ) )
 			{
 				// rocket hit by bomb
-				Audio::instance()->play( "bomb_x" );
+				Audio::instance()->play( "x_bomb" );
 				(*r)->explode();
-				create_explosion( (*r)->cx(), (*r)->cy(), Explosion::MC_FALLOUT_STRIKE, 0.8 );
+				create_explosion( (*r)->cx(), (*r)->cy(),
+					Explosion::MC_FALLOUT_STRIKE, 0.8 );
 				add_score( 50 );
 
 				// bomb also is gone...
@@ -5242,7 +6133,7 @@ void FltWin::check_bomb_hits()
 			     (*b)->rect().intersects( (*pa)->rect() ) )
 			{
 				// phaser hit by bomb
-				Audio::instance()->play( "bomb_x" );
+				Audio::instance()->play( "x_bomb" );
 				(*pa)->explode();
 				add_score( 50 );
 
@@ -5262,9 +6153,11 @@ void FltWin::check_bomb_hits()
 			     (*b)->rect().intersects( (*ra)->rect() ) )
 			{
 				// radar hit by bomb
-				Audio::instance()->play( "bomb_x" );
+				Audio::instance()->play( "x_bomb" );
 				(*ra)->explode();
-				create_explosion( (*ra)->cx(), (*ra)->cy(), Explosion::MC_FALLOUT_STRIKE, 0.8, radar_explosion, 3 );
+				create_explosion( (*ra)->cx(), (*ra)->cy(),
+					Explosion::MC_FALLOUT_STRIKE, 0.8,
+					radar_explosion, nbrOfItems( radar_explosion ) );
 				add_score( 50 );
 
 				// bomb also is gone...
@@ -5326,9 +6219,10 @@ void FltWin::check_missile_hits()
 			     (*m)->rect().intersects( (*r)->rect() ) )
 			{
 				// rocket hit by missile
-				Audio::instance()->play( "missile_hit" );
+				Audio::instance()->play( "x_missile_hit" );
 				(*r)->explode();
-				create_explosion( (*r)->cx(), (*r)->cy(), Explosion::MC_FALLOUT_STRIKE, 0.5 );
+				create_explosion( (*r)->cx(), (*r)->cy(),
+					Explosion::MC_FALLOUT_STRIKE, 0.5 );
 				add_score( 20 );
 
 				// missile also is gone...
@@ -5347,7 +6241,7 @@ void FltWin::check_missile_hits()
 			     (*m)->rect().intersects( (*pa)->rect() ) )
 			{
 				// phaser hit by missile
-				Audio::instance()->play( "bomb_x" );
+				Audio::instance()->play( "x_bomb" );
 				(*pa)->explode();
 				add_score( 40 );
 
@@ -5369,9 +6263,11 @@ void FltWin::check_missile_hits()
 				// radar hit by missile
 				if ( (*ra)->hit() )	// takes 2 missile hits to succeed!
 				{
-					Audio::instance()->play( "missile_hit" );
+					Audio::instance()->play( "x_missile" );
 					(*ra)->explode();
-					create_explosion( (*ra)->cx(), (*ra)->cy(), Explosion::MC_FALLOUT_STRIKE, 0.5, radar_explosion, 3 );
+					create_explosion( (*ra)->cx(), (*ra)->cy(),
+						Explosion::MC_FALLOUT_STRIKE, 0.5,
+						radar_explosion, nbrOfItems( radar_explosion ) );
 					add_score( 40 );
 				}
 				// missile also is gone...
@@ -5392,8 +6288,10 @@ void FltWin::check_missile_hits()
 				if ( (*b)->hit() )
 				{
 					Audio::instance()->play( "bady_hit" );
-					static Fl_Color bady_smash_colors[] = { fl_rgb_color( 174, 70, 57 ), fl_rgb_color( 126, 127, 2 ) };
-					create_explosion( (*b)->cx(), (*b)->cy(), Explosion::MC_FALLOUT_DOT, 0.5, bady_smash_colors, 2 );
+					static const Fl_Color bady_smash_colors[] = { fl_rgb_color( 174, 70, 57 ), fl_rgb_color( 126, 127, 2 ) };
+					create_explosion( (*b)->cx(), (*b)->cy(),
+						Explosion::MC_FALLOUT_DOT, 0.5,
+						bady_smash_colors, nbrOfItems( bady_smash_colors ) );
 					delete *b;
 					b = Badies.erase(b);
 					add_score( 100 );
@@ -5415,7 +6313,9 @@ void FltWin::check_missile_hits()
 				// drop hit by missile
 				(*d)->hit();
 				Audio::instance()->play( "drop_hit" );
-				create_explosion( (*d)->cx(), (*d)->cy(), Explosion::STRIKE, 0.3, drop_explosion_color, 1 );
+				create_explosion( (*d)->cx(), (*d)->cy(),
+					Explosion::STRIKE, 0.3,
+					drop_explosion_color, nbrOfItems( drop_explosion_color ) );
 				delete *d;
 				d = Drops.erase(d);
 				add_score( 5 );
@@ -5475,17 +6375,29 @@ void FltWin::create_spaceship()
 //-------------------------------------------------------------------------------
 {
 	delete _spaceship;
-	_spaceship = new Spaceship( w() / 2, 40, w(), h(), alternate_ship(),
+	_spaceship = new Spaceship( w() / 2, 40, w(), h(), ship(),
 		_effects != 0 );	// before create_terrain()!
+	string shipId = "spaceship" + asString( ship() );
+	string id( shipId + ".bomb_x_offset" );
+	_spaceship->bombXOffset( lround( SCALE_Y *_defaultIniParameter.value( id, 0, 20, 14 ) ) );
+	id = shipId + ".explosion_color";
+	long explosion_color = _defaultIniParameter.value( id, 0, 0xffffff, 0xffff );
+	_spaceship->explosionColor( (Fl_Color)( explosion_color << 8 ) );
+	id = shipId + ".missile_color";
+	long missile_color = _ini.value( id, 0, 0xffffff, 0xffffff );	// per level!
+	_spaceship->missileColor( (Fl_Color)( missile_color << 8 ) );
 }
 
 void FltWin::create_objects()
 //-------------------------------------------------------------------------------
 {
 	// Only consider scrolled part!
-	// Plus 150 pixel (=half width of broadest object) in advance in order to
+	// Plus half width of broadest object in advance in order to
 	// make appearance of new objects smooth.
-	for ( int i = (_xoff == 0 ? 0 : w() - _DX); i < w() + 150 ; i++ )
+	static int wx = 0;
+	if ( !wx )
+		wx = _cumulus.w() / 2;	// assumption: cumulus is broadest object
+	for ( int i = (_xoff == 0 ? 0 : w() - _xdelta); i < w() + wx ; i++ )
 	{
 		if ( _xoff + i >= (int)T.size() ) break;
 		unsigned int o = T[_xoff + i].object();
@@ -5500,6 +6412,7 @@ void FltWin::create_objects()
 				start_dist = _rocket_min_start_dist;
 			}
 			r->data1( start_dist );
+			r->dxRange( _rocket_dx_range );
 			Rockets.push_back( r );
 			o &= ~O_ROCKET;
 #ifdef DEBUG
@@ -5518,6 +6431,7 @@ void FltWin::create_objects()
 		if ( o & O_PHASER && i - _phaser.w() / 2 < w())
 		{
 			Phaser *p = new Phaser( i, h() - T[_xoff + i].ground_level() - _phaser.h() / 2 );
+			p->dxRange( _phaser_dx_range );
 			Phasers.push_back( p );
 			o &= ~O_PHASER;
 #ifdef DEBUG
@@ -5537,6 +6451,7 @@ void FltWin::create_objects()
 				start_dist = _drop_min_start_dist;
 			}
 			d->data1( start_dist );
+			d->dxRange( _drop_dx_range );
 			Drops.push_back( d );
 			o &= ~O_DROP;
 #ifdef DEBUG
@@ -5554,6 +6469,7 @@ void FltWin::create_objects()
 			if ( turn )
 				b->turn();
 			b->stamina( rangedRandom( _bady_min_hits, _bady_max_hits ) );
+			b->dxRange( _bady_dx_range );
 			Badies.push_back( b );
 #ifdef DEBUG
 			printf( "#badies: %lu\n", (unsigned long)Badies.size() );
@@ -5610,7 +6526,7 @@ void FltWin::update_badies()
 	for ( size_t i = 0; i < Badies.size(); i++ )
 	{
 		if ( !paused() )
-			Badies[i]->x( Badies[i]->x() - _DX );
+			Badies[i]->x( Badies[i]->x() - _xdelta );
 
 		int top = T[_xoff + Badies[i]->x() + Badies[i]->w() / 2].sky_level();
 		int bottom = h() - T[_xoff + Badies[i]->x() + Badies[i]->w() / 2].ground_level();
@@ -5632,7 +6548,6 @@ void FltWin::update_badies()
 			if ( !Badies[i]->started() )
 			{
 				int speed = rangedValue( rangedRandom( _bady_min_start_speed, _bady_max_start_speed ), 1, 10 );
-//				printf( "   start bady with speed %d!\n", speed );
 				Badies[i]->start( speed );
 				assert( Badies[i]->started() );
 			}
@@ -5657,7 +6572,6 @@ void FltWin::update_bombs()
 		            Bombs[i]->y() + Bombs[i]->h() > h() - T[_xoff + Bombs[i]->x()].ground_level();
 		if ( gone )
 		{
-//			printf( " gone one bomb from #%d\n", Missiles.size() );
 			Bomb *b = Bombs[i];
 			Bombs.erase( Bombs.begin() + i );
 			delete b;
@@ -5672,7 +6586,7 @@ void FltWin::update_cumuluses()
 	for ( size_t i = 0; i < Cumuluses.size(); i++ )
 	{
 		if ( !paused() )
-			Cumuluses[i]->x( Cumuluses[i]->x() - _DX );
+			Cumuluses[i]->x( Cumuluses[i]->x() - _xdelta );
 
 		int top = T[_xoff + Cumuluses[i]->x() + Cumuluses[i]->w() / 2].sky_level();
 		int bottom = h() - T[_xoff + Cumuluses[i]->x() + Cumuluses[i]->w() / 2].ground_level();
@@ -5694,7 +6608,6 @@ void FltWin::update_cumuluses()
 			if ( !Cumuluses[i]->started() )
 			{
 				int speed = rangedValue( rangedRandom( _cumulus_min_start_speed, _cumulus_max_start_speed ), 1, 10 );
-//				printf( "   start cunulus with speed %d!\n", speed );
 				Cumuluses[i]->start( speed );
 				assert( Cumuluses[i]->started() );
 			}
@@ -5716,7 +6629,7 @@ void FltWin::update_drops()
 	for ( size_t i = 0; i < Drops.size(); i++ )
 	{
 		if ( !paused() )
-			Drops[i]->x( Drops[i]->x() - _DX );
+			Drops[i]->x( Drops[i]->x() - _xdelta );
 
 		int bottom = h() - T[_xoff + Drops[i]->x()].ground_level();
 		if ( 0 == bottom  ) bottom += Drops[i]->h();	// glide out completely if no ground
@@ -5728,9 +6641,11 @@ void FltWin::update_drops()
 #endif
 			Drop *d = Drops[i];
 			Drops.erase( Drops.begin() + i );
-			if ( d->x() + d->w() > 0 )
+			if ( d->x() + d->w() > 0 && bottom )
 			{
-				create_explosion( d->cx(), d->cy(), Explosion::SPLASH_STRIKE, 0.3, drop_explosion_color, 1 );
+				create_explosion( d->cx(), d->cy(),
+					Explosion::SPLASH_STRIKE, 0.3,
+					drop_explosion_color, nbrOfItems( drop_explosion_color ) );
 			}
 			delete d;
 			i--;
@@ -5741,9 +6656,9 @@ void FltWin::update_drops()
 			// drop fall strategy...
 			if ( Drops[i]->nostart() ) continue;
 			if ( Drops[i]->dropped() ) continue;
-			// if user has completed all 10 levels, objects start later (which is harder)...
-			int dist = user_completed() ? Drops[i]->cx() - _spaceship->cx() // center distance S<->R
-			                            : Drops[i]->x() - _spaceship->x();
+			// if user has completed all 10 levels and revers, objects start later (which is harder)...
+			int dist = ( user_completed() / 2 ) ? Drops[i]->cx() - _spaceship->cx() // center distance S<->R
+			                                    : Drops[i]->x() - _spaceship->x();
 			int start_dist = (int)Drops[i]->data1();	// 400 - _level * 20 - Random::Rand() % 200;
 			if ( dist <= 0 || dist >= start_dist ) continue;
 //			printf( "start drop #%ld, start_dist=%d?\n", i, start_dist );
@@ -5769,7 +6684,7 @@ void FltWin::update_explosions()
 	for ( size_t i = 0; i < Explosions.size(); i++ )
 	{
 		if ( !paused() )
-			Explosions[i]->x( Explosions[i]->x() - _DX );
+			Explosions[i]->x( Explosions[i]->x() - _xdelta );
 		if ( Explosions[i]->done() )
 		{
 			Explosion *e = Explosions[i];
@@ -5784,7 +6699,6 @@ void FltWin::update_explosions()
 void FltWin::update_missiles()
 //-------------------------------------------------------------------------------
 {
-//	printf( "#%u missiles\n", Missiles.size() );
 	for ( size_t i = 0; i < Missiles.size(); i++ )
 	{
 		bool gone = Missiles[i]->exhausted() ||
@@ -5793,7 +6707,6 @@ void FltWin::update_missiles()
 		            Missiles[i]->y() < T[_xoff + Missiles[i]->x() + Missiles[i]->w()].sky_level();
 		if ( gone )
 		{
-//			printf( " gone one missile from #%d\n", Missiles.size() );
 			Missile *m = Missiles[i];
 			Missiles.erase( Missiles.begin() + i );
 			delete m;
@@ -5808,7 +6721,7 @@ void FltWin::update_phasers()
 	for ( size_t i = 0; i < Phasers.size(); i++ )
 	{
 		if ( !paused() )
-			Phasers[i]->x( Phasers[i]->x() - _DX );
+			Phasers[i]->x( Phasers[i]->x() - _xdelta );
 
 		bool gone = Phasers[i]->exploded() || Phasers[i]->x() < -Phasers[i]->w();
 		if ( gone )
@@ -5831,7 +6744,7 @@ void FltWin::update_radars()
 	for ( size_t i = 0; i < Radars.size(); i++ )
 	{
 		if ( !paused() )
-			Radars[i]->x( Radars[i]->x() - _DX );
+			Radars[i]->x( Radars[i]->x() - _xdelta );
 
 		bool gone = Radars[i]->exploded() || Radars[i]->x() < -Radars[i]->w();
 		if ( gone )
@@ -5854,10 +6767,10 @@ void FltWin::update_rockets()
 	for ( size_t i = 0; i < Rockets.size(); i++ )
 	{
 		if ( !paused() )
-			Rockets[i]->x( Rockets[i]->x() - _DX );
+			Rockets[i]->x( Rockets[i]->x() - _xdelta );
 
 		int top = T[_xoff + Rockets[i]->x()].sky_level();
-		if ( -1 == top  ) top -= Rockets[i]->h();	// glide out completely if no sky
+		if ( top < 0 ) top -= Rockets[i]->h();	// glide out completely if no sky ( <= -1 )
 		bool gone = Rockets[i]->exploded() || Rockets[i]->x() < -Rockets[i]->w();
 		// NOTE: when there's no sky, explosion is not visible, but still occurs,
 		//       so checking exploded() suffices as end state for all rockets.
@@ -5874,16 +6787,25 @@ void FltWin::update_rockets()
 		}
 		else if ( Rockets[i]->y() <= top && !Rockets[i]->exploding() )
 		{
-			Rockets[i]->crash();
+			if ( _completed && !reversLevel() )
+			{
+				static const Fl_Color mega_explosion_colors[] = { FL_YELLOW, FL_WHITE, FL_RED, FL_GREEN };
+				Rockets[i]->explode();
+				create_explosion( Rockets[i]->cx(), Rockets[i]->cy(),
+					Explosion::MC_FALLOUT_STRIKE, 1.2,
+				   mega_explosion_colors, nbrOfItems( mega_explosion_colors ) );
+			}
+			else
+				Rockets[i]->crash();
 		}
 		else if ( !Rockets[i]->exploding() )
 		{
 			// rocket fire strategy...
 			if ( Rockets[i]->nostart() ) continue;
 			if ( Rockets[i]->lifted() ) continue;
-			// if user has completed all 10 levels, objects start later (which is harder)...
-			int dist = user_completed() ? Rockets[i]->cx() - _spaceship->cx() // center distance S<->R
-			                            : Rockets[i]->x() - _spaceship->x();
+			// if user has completed all 10 levels and revers, objects start later (which is harder)...
+			int dist = ( user_completed() / 2 ) ? Rockets[i]->cx() - _spaceship->cx() // center distance S<->R
+			                                    : Rockets[i]->x() - _spaceship->x();
 			int start_dist = (int)Rockets[i]->data1();	// 400 - _level * 20 - Random::Rand() % 200;
 			if ( dist <= 0 || dist >= start_dist ) continue;
 //			printf( "start rocket #%ld, start_dist=%d?\n", i, start_dist );
@@ -5930,6 +6852,21 @@ void FltWin::update_objects()
 	update_explosions();
 }
 
+void FltWin::setIcon()
+//-------------------------------------------------------------------------------
+{
+#if FLTK_HAS_NEW_FUNCTIONS
+	if ( _spaceship && _spaceship->image() )
+		Fl_Window::default_icon( (Fl_RGB_Image *)_spaceship->image() );
+	else
+	{
+		Fl_GIF_Image defIcon( imgPath.get( "spaceship0.gif" ).c_str() );
+		Fl_RGB_Image rgbDefIcon( &defIcon );
+		Fl_Window::default_icon( &rgbDefIcon);
+	}
+#endif
+}
+
 void FltWin::setTitle()
 //-------------------------------------------------------------------------------
 {
@@ -5955,9 +6892,18 @@ void FltWin::setUser()
 //-------------------------------------------------------------------------------
 {
 	_user = _cfg->readUser( _user.name );
-	_first_level = _user.level + 1;
-	if ( _first_level > MAX_LEVEL )
-		_first_level = 1;
+	if ( !_user.level )
+	{
+		_first_level = reversLevel() ? MAX_LEVEL : 1;
+	}
+	else
+	{
+		_first_level = _user.level + levelIncrement();
+		if ( _first_level > MAX_LEVEL )
+			_first_level = MAX_LEVEL;
+		if ( _first_level < 1 )
+			_first_level = 1;
+	}
 	_level = _first_level;
 //	cout << "user " << _user.name << " completed: " << _user.completed << endl;
 }
@@ -5967,6 +6913,7 @@ void FltWin::resetUser()
 {
 	_user.score = 0;
 	_user.completed = 0;
+	_user.ship = -1;
 	_first_level = 1;
 	_level = 1;
 	_cfg->writeUser( _user );	// but no flush() - must play one level to make permanent!
@@ -6060,6 +7007,18 @@ bool FltWin::setFullscreen( bool fullscreen_ )
 	static int ox = 0;
 	static int oy = 0;
 	int X, Y, W, H;
+
+	// Check special case resolution matches work area
+	Fl::screen_work_area( X, Y, W, H );
+	if ( W == (int)SCREEN_W && H == (int)SCREEN_H )
+	{
+		cerr << "Use full screen work area " << X << "/" << Y << " " << W << "x" << H << endl;
+		border( 0 );
+		position( X, Y );
+		show();
+		return true;
+	}
+
 	bool isFull = fullscreen_active();
 
 	if ( fullscreen_ )
@@ -6070,6 +7029,7 @@ bool FltWin::setFullscreen( bool fullscreen_ )
 			ox = x();
 			oy = y();
 			hide();
+			border( 0 ); // this is neccessary, otherwise border may be seen (shortly)!
 			if ( setScreenResolution( SCREEN_W, SCREEN_H ) )
 			{
 				Fl::check();	// X11: neccessary for FLTK to register screen res. change!
@@ -6086,8 +7046,9 @@ bool FltWin::setFullscreen( bool fullscreen_ )
 				}
 				else
 				{
+					border( 1 );
 					cerr << "Failed to set resolution to " << SCREEN_W << "x"<< SCREEN_H <<
-						" ( is: " << W << "x" << H << ")" << endl;
+						" (is: " << W << "x" << H << ")" << endl;
 				}
 			}
 			show();
@@ -6100,6 +7061,7 @@ bool FltWin::setFullscreen( bool fullscreen_ )
 		if ( isFull )
 		{
 			hide();
+			border( 1 );
 			restoreScreenResolution();
 			Fl::check();	// X11: neccessary for FLTK to register screen res. change!
 			fullscreen_off();
@@ -6168,7 +7130,15 @@ void FltWin::togglePaused()
 void FltWin::toggleShip( bool prev_/* = false */ )
 //-------------------------------------------------------------------------------
 {
-	_alternate_ship = !_alternate_ship;
+	int ships = _defaultIniParameter.value( "ships", 2, 9, 4 );
+	_ship += prev_ ? -1 : 1;
+	if ( _ship < 0 )
+		_ship = ships - 1;
+	if ( _ship > ships - 1 )
+		_ship = 0;
+	_user.ship = _ship;
+	_cfg->writeUser( _user );
+	_cfg->flush();
 	keyClick();
 	create_spaceship();
 	changeState( TITLE, true );	// immediate display + reset demo timer
@@ -6193,9 +7163,19 @@ void FltWin::toggleUser( bool prev_/* = false */ )
 			found = _cfg->users().size() - 1;
 		if ( (size_t)found >= _cfg->users().size() )
 			found = 0;
-		_user.name = _cfg->users()[found].name;
-		setUser();
-
+		string user_name = _cfg->users()[found].name;
+		if ( _user.name != user_name )
+		{
+			_user.name = user_name;
+			setUser();
+			_cfg->writeUser( _user );
+			_cfg->flush();
+			if ( _user.ship >= 0 && _user.ship != _ship )
+			{
+				_ship = _user.ship;
+				create_spaceship();
+			}
+		}
 		keyClick();
 		changeState( TITLE, true );	// immediate display + reset demo timer
 	}
@@ -6208,7 +7188,7 @@ bool FltWin::dropBomb()
 	{
 		Bomb *b = new Bomb( _spaceship->x() + _spaceship->bombPoint().x,
 		                    _spaceship->y() + _spaceship->bombPoint().y +
-		                    ( alternate_ship() ? 14 : 10 ));	// alternate ship needs more offset!
+		                    _spaceship->bombXOffset() );
 		Bombs.push_back( b );
 		Bombs.back()->start( _speed_right );
 		_bomb_lock = true;
@@ -6226,7 +7206,8 @@ bool FltWin::fireMissile()
 	if ( Missiles.size() < 5 && !paused() )
 	{
 		Missile *m = new Missile( _spaceship->x() + _spaceship->missilePoint().x + 20,
-		                          _spaceship->y() + _spaceship->missilePoint().y );
+		                          _spaceship->y() + _spaceship->missilePoint().y,
+		                          _spaceship->missileColor() );
 		Missiles.push_back( m );
 		Missiles.back()->start();
 		if ( _state == LEVEL )
@@ -6281,6 +7262,7 @@ void FltWin::onActionKey()
 	Fl::remove_timeout( cb_paused, this );
 	if ( _state == DEMO )
 	{
+		_demoData.clear();
 		_done = true;	// ensure ship gets reloaded in onNextScreen()
 		return;
 	}
@@ -6299,9 +7281,6 @@ void FltWin::onActionKey()
 		_cfg->flush();
 		_hiscore = _cfg->hiscore();
 		_hiscore_user = _cfg->best().name;
-		_first_level = _done_level + 1;
-		if ( _first_level > MAX_LEVEL )
-			_first_level = 1;
 //		printf( "score saved.\n" );
 	}
 
@@ -6311,7 +7290,7 @@ void FltWin::onActionKey()
 void FltWin::onCollision()
 //-------------------------------------------------------------------------------
 {
-	if ( _done || _state == DEMO )
+	if ( _done || ( _state == DEMO && !_exit_demo_on_collision ) )
 		_collision = false;
 	else if ( _cheatMode )
 	{
@@ -6321,6 +7300,8 @@ void FltWin::onCollision()
 	}
 	if ( _collision && _spaceship)
 		_spaceship->explode();
+	if ( _state == DEMO && _exit_demo_on_collision )
+		_done = true;
 }
 
 void FltWin::onPaused()
@@ -6353,6 +7334,13 @@ void FltWin::onGotFocus()
 		_state = START;
 		changeState( TITLE );
 	}
+	if ( _state == PAUSED )
+	{
+		setPaused( false );
+		Fl::remove_timeout( cb_paused, this );
+		Fl::add_timeout( _TO, cb_paused, this );
+		return;
+	}
 	setTitle();
 }
 
@@ -6364,6 +7352,7 @@ void FltWin::onLostFocus()
 
 //	printf(" onLostFocus()\n" );
 	_left = _right = _up = _down = false;	// invalidate keys
+	Fl::focus( 0 );
 	setPaused( true );	// (this also stops bg sound)
 	if ( _state == TITLE || _state == DEMO )
 	{
@@ -6383,6 +7372,7 @@ void FltWin::onDemo()
 void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 //-------------------------------------------------------------------------------
 {
+//	cout << "onNextScreen(" << fromBegin_ << ") " << _first_level << endl;
 	delete _spaceship;
 	_spaceship = 0;
 	delete _anim_text;
@@ -6393,17 +7383,43 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 	delete_objects();
 
 	_xoff = 0;
+	_draw_xoff = 0;
+	_dxoff = 0.;
 	_frame = 0;
 	_collision = false;
+	bool completed( _completed );
+	bool done( _done );
+
 	_completed = false;
+	_done = false;
+	_left = _right = _up = _down = false;
 
 	bool show_scores = false;
-	if ( _state == LEVEL && _demoData.size() && _demoData.size() >= T.size() - w() &&
-		!_trainMode && !_no_demo )
-		saveDemoData();
+	if ( _state == LEVEL )
+	{
+		if ( _demoData.size() && (int)_demoData.size() >= _final_xoff - w() / 2 &&
+		     !_trainMode && !_no_demo )
+			saveDemoData();
+		_demoData.clear();
+	}
 
+	_end_level = reversLevel() ? 1 : MAX_LEVEL;
 	if ( fromBegin_ )
 	{
+		if ( completed && !_trainMode )
+		{
+			show_scores = _cfg->readUser( _user.name ).score > (int)_hiscore;
+			if ( show_scores )
+			{
+				_input = _user.name == DEFAULT_USER ? "" : _user.name;
+				changeState( SCORE );
+				return;
+			}
+
+			changeState( TITLE );
+			return;
+		}
+
 		Random::Srand( time( 0 ) );	// otherwise determined because of demo seed!
 		_level = _state == DEMO ? pickRandomDemoLevel( 1,
 		                          max( 3, _user.completed ? (int)MAX_LEVEL : (int)_level ) )
@@ -6414,18 +7430,19 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 	}
 	else
 	{
-		show_scores = _cfg->readUser( _user.name ).score > (int)_hiscore && !_done;
+		show_scores = _cfg->readUser( _user.name ).score > (int)_hiscore && !done;
 
-		if ( _done || _state == DEMO )
+		if ( done || _state == DEMO )
 		{
-			_level++;
+			_level += levelIncrement();
 			_level_repeat = 0;
 
-			if ( _level > MAX_LEVEL || _state == DEMO/*new: demo stops after one level*/ )
+			if ( _level > MAX_LEVEL || _level < 1 || _state == DEMO/*new: demo stops after one level*/ )
 			{
 				_level = _first_level; // restart with level 1
 				_user.score = _cfg->readUser( _user.name ).score;
 				changeState( TITLE );
+				return;
 			}
 		}
 		else
@@ -6436,13 +7453,28 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 				_level = _first_level;
 				_level_repeat = 0;
 				_bonus = 0;
-				changeState( TITLE );
+
+				show_scores &= _level == _first_level && _level_repeat == 0;
+				if ( show_scores )
+				{
+					_input = _user.name == DEFAULT_USER ? "" : _user.name;
+					changeState( SCORE );
+					return;
+				}
+				else
+				{
+					changeState( TITLE );
+				}
 			}
 		}
 	}
 
 	if ( _state == DEMO )
+	{
 		loadDemoData();
+		if ( _correct_speed )
+			_exit_demo_on_collision = true;
+	}
 
 	create_spaceship();	// after loadDemoData()!
 
@@ -6452,55 +7484,61 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 		return;
 	}
 
-	if ( _demoData.size() && _demoData.size() < T.size() - w() )
-	{
-		// clear incomplete demo data
-		_demoData.clear();
-	}
+	// prepare color change list
+	_colorChangeList.clear();
+	for ( size_t i = 0; i < T.size(); i++ )
+		if ( T[ i ].object() & O_COLOR_CHANGE )
+			_colorChangeList.push_back( i );
 
-	if ( _state == DEMO && !_demoData.size() )
+	if ( _state == DEMO )
 	{
-		changeState( TITLE );
+		if ( _demoData.size() && (int)_demoData.size() < _final_xoff - w() / 2 )
+		{
+			// clear incomplete demo data
+			cerr << "demo " << demoFileName() << " is corrupt"
+			     << " (" << _demoData.size() << "<" << _final_xoff - w() / 2 << ")" << endl;
+			_demoData.clear();
+		}
+
+		if ( !_demoData.size() )
+		{
+			changeState( TITLE );
+		}
 	}
 
 	position_spaceship();
 
 	if ( !_level_repeat )
 	{
-		(_anim_text = new AnimText( 0, 20, w(), _level_name.c_str() ))->start();
+		(_anim_text = new AnimText( 0, SCALE_Y * 20, w(), _level_name.c_str() ))->start();
 		if ( _state == LEVEL )
 			setBgSoundFile();
 	}
 	if ( _gimmicks )
 	{
-		if ( !_zoomoutShip || _zoomoutShip->src()->w() != _spaceship->w() )
+		if ( !_zoomoutShip || _zoomoutShip->src().name() != _spaceship->flt_image().name() )
 		{
 			delete _zoomoutShip;
-			_zoomoutShip = new ImageAnimation( _spaceship->image(), 30 );
+			_zoomoutShip = new ImageAnimation( _spaceship->flt_image(), 1.0,
+			                                   _effects > 1 && FPS >= 100 );
 			_zoomoutShip->setSizeMoveFromTo(
-			                 ImageAnimation::Rect( 60, 40, w() - 120, h() - 150 ),
+			                 ImageAnimation::Rect( SCALE_X * 60, SCALE_Y * 40, w() - SCALE_X * 120, h() - SCALE_Y * 150 ),
 			                 ImageAnimation::Rect( _spaceship->x(), _spaceship->y(),
 			                                       _spaceship->w(), _spaceship->h() ) );
 		}
 		else
 		{
 			// update only destination position (keep images)
+			_zoomoutShip->stop();
 			_zoomoutShip->setMoveTo( _spaceship->x(), _spaceship->y() );
 		}
 		_zoomoutShip->start();
 	}
 
-	_done = false;
-	setPaused( false );
-	_left = _right = _up = _down = false;
+	if ( Fl::focus() == this )
+		setPaused( false );
 
-	show_scores &= _level == _first_level && _level_repeat == 0;
-	if ( show_scores )
-	{
-		_input = _user.name == DEFAULT_USER ? "" : _user.name;
-		changeState( SCORE );
-	}
-	else if ( _state == LEVEL )
+	if ( _state == LEVEL )
 	{
 		startBgSound();
 	}
@@ -6515,7 +7553,7 @@ void FltWin::onTitleScreen()
 	_state = TITLE;
 	_frame = 0;
 	Fl::remove_timeout( cb_demo, this );
-	if ( !G_paused && !_no_demo )
+	if ( !G_paused && !_no_demo && Fl::focus() == this )
 	{
 		Fl::add_timeout( 20.0, cb_demo, this );
 		if ( _gimmicks )
@@ -6523,24 +7561,29 @@ void FltWin::onTitleScreen()
 			// start ship movin animation?
 			if ( !_spaceship )
 				create_spaceship();
-			if ( _zoominShip && _zoominShip->src()->w() == _spaceship->w() )
+			if ( _zoominShip && _zoominShip->src().name() == _spaceship->flt_image().name() )
 				if ( !_zoominShip->done() )
 					return;
-			if ( !_zoominShip || _zoominShip->src()->w() != _spaceship->w() )
+
+			int x_origin = _zoominShip ? Random::pRand() % w() : _spaceship->x();
+			int y_origin = _zoominShip ? Random::pRand() % h() / 2 + h() / 2 : _spaceship->y();
+			if ( !_zoominShip || _zoominShip->src().name() != _spaceship->flt_image().name() )
 			{
 				delete _zoominShip;
-				_zoominShip = new ImageAnimation( _spaceship->image(), 30 );
+
+				_zoominShip = new ImageAnimation( _spaceship->flt_image(), 1.0,
+			                                     _effects > 1 && FPS >= 100 );
 				_zoominShip->setSizeMoveFromTo(
-				                 ImageAnimation::Rect( _spaceship->x(), _spaceship->y(),
+				                 ImageAnimation::Rect( x_origin, y_origin,
 				                                       _spaceship->w(), _spaceship->h() ),
-				                 ImageAnimation::Rect( 60, 40, w() - 120, h() - 150 ) );
+				                 ImageAnimation::Rect( SCALE_X * 60, SCALE_Y * 40, w() - SCALE_X * 120, h() - SCALE_Y * 150 ) );
 				_zoominShip->start();
 			}
 			else if ( zoomin )
 			{
 				// update only destination position (keep images)
 				_zoominShip->stop();
-				_zoominShip->setMoveFrom( Random::pRand() % w(), Random::pRand() % h() / 2 + h() / 2 );
+				_zoominShip->setMoveFrom( x_origin, y_origin );
 				_zoominShip->start();
 			}
 		}
@@ -6550,47 +7593,70 @@ void FltWin::onTitleScreen()
 void FltWin::onUpdateDemo()
 //-------------------------------------------------------------------------------
 {
-	create_objects();
-
-	update_objects();
-
-	check_hits();
 
 	int cx = 0;
 	int cy = 0;
 	bool bomb( false );
 	bool missile( false );
-	if ( !_demoData.get( _xoff, cx, cy, bomb, missile ) )
+	uint32_t seed, seed2;
+	if ( !_demoData.get( _xoff, cx, cy, bomb, missile, seed, seed2 ) )
 		_done = true;
 	else
 	{
-		// use Spaceshipo::right()/left() methods for accel/decel feedback in demo
+		Random::Srand( seed, seed2 );
+
+		update_objects();
+
+		create_objects();
+
+		check_hits();
+
+		// use Spaceship::right()/left() methods for accel/decel feedback in demo
 		while ( _spaceship->cx() < cx )
+		{
+			int ocx = _spaceship->cx();
 			_spaceship->right();
+			if ( ocx == _spaceship->cx() )
+				break;
+		}
 		while ( _spaceship->cx() > cx )
+		{
+			int ocx = _spaceship->cx();
 			_spaceship->left();
+			if ( ocx == _spaceship->cx() )
+				break;
+		}
 //		_spaceship->cx( cx );
 		_spaceship->cy( cy );
+		if ( _zoomoutShip && !_zoomoutShip->done() )
+			_zoomoutShip->setMoveTo( _spaceship->x(), _spaceship->y() );
 		if ( bomb )
 			dropBomb();
 		if ( missile )
 			fireMissile();
+
+		// reset missile/bomb for this xoff (maybe read again with next update)
+		_demoData.set( _xoff, cx, cy, false, false, seed, seed2 );
 	}
 
-	_collision = false;
-
+	_draw_xoff = _xoff;
 	redraw();
 
 	if ( _done )
 	{
+		_demoData.clear();
 		onNextScreen();	// ... but for now, just skip pause in demo mode
 		return;	// do not increment _xoff now!
 	}
 
-	_xoff += _DX;
+	_dxoff += _DDX;
+	int oxoff = _xoff;
+	_xoff = _dxoff;
+	_xdelta = _xoff - oxoff;
 	if ( _xoff + w() > (int)T.size() )
 	{
 		_xoff = T.size() - w();
+		_dxoff = _xoff;
 		_done = true;
 	}
 }
@@ -6598,22 +7664,20 @@ void FltWin::onUpdateDemo()
 bool FltWin::correctDX()
 //-------------------------------------------------------------------------------
 {
-	_DX = DX;
-	if ( _waiter.elapsedMilliSeconds() )
+	_DDX = ( SCALE_X * ( (double)_waiter.elapsedMilliSeconds() + 2 ) / 5 ) ;
+	_DX = ceil( _DDX );
+#if 0
+	// set limit
+	static unsigned int MAX_DX = 0;
+	if ( !MAX_DX )
+		MAX_DX = ceil( SCALE_X * 10 );
+	if ( _DX > MAX_DX )
 	{
-		_DX = ( ( _waiter.elapsedMilliSeconds() + 2 ) / 5 );
-		if ( _DX != DX  )
-		{
-#ifdef DEBUG
-			printf( "_DX = %u (%u)\n", _DX, _waiter.elapsedMilliSeconds() );
-#endif
-			// set limit
-			if ( _DX > 10 )
-				_DX = 10;
-		}
-		return true;
+		_DX = MAX_DX;
+		return false;
 	}
-	return false;
+#endif
+	return true;
 }
 
 void FltWin::onUpdate()
@@ -6621,7 +7685,7 @@ void FltWin::onUpdate()
 {
 	if ( _mouseMode )
 	{
-		static int cnt =0 ;
+		static int cnt = 0 ;
 		cnt += _DX;
 		if ( cnt >= 10 )
 		{
@@ -6632,29 +7696,40 @@ void FltWin::onUpdate()
 
 	if ( _state == TITLE || _state == SCORE || G_paused )
 	{
+		_draw_xoff = _xoff;
 		redraw();
 		return;
 	}
-	create_objects();
+
+	uint32_t seed, seed2;
+	seed = Random::Seed( seed2 );
+	_demoData.setSeed( _xoff, seed, seed2 );
 
 	update_objects();
+
+	create_objects();
 
 	check_hits();
 
 	if ( paused() )
 	{
 		Audio::instance()->check( true );	// reliably stop bg-sound
+		_draw_xoff = _xoff;
 		redraw();
 		return;
 	}
 
-	if ( _xoff % SCORE_STEP == 0 )
+	static unsigned last_score_step = 0;
+	unsigned step = _xoff / SCORE_STEP;
+	if ( step != last_score_step )
 	{
-		add_score( 1 );
+		if ( _xoff > (int)( last_score_step * SCORE_STEP ) )
+			add_score( 1 );
+		last_score_step = step;
 		Audio::instance()->check();	// test bg-sound expired
 	}
 
-	if ( _left && _xoff + w() + w() / 2 < (int)T.size() ) // no retreat at end!
+	if ( _left && _xoff + _spaceship->cx() < _final_xoff - w() / 2 ) // no retreat at end!
 		_spaceship->left();
 	if ( _right )
 	{
@@ -6667,8 +7742,12 @@ void FltWin::onUpdate()
 		_spaceship->up();
 	if ( _down  )
 		_spaceship->down();
+	if ( _zoomoutShip && !_zoomoutShip->done() )
+		_zoomoutShip->setMoveTo( _spaceship->x(), _spaceship->y() );
+
 	_demoData.setShip( _xoff, _spaceship->cx(), _spaceship->cy() );
 
+	_draw_xoff = _xoff;
 	redraw();
 	if ( _collision )
 		changeState( LEVEL_FAIL );
@@ -6677,10 +7756,14 @@ void FltWin::onUpdate()
 
 	if ( !_done )
 	{
-		_xoff += _DX;
-		if ( _xoff + w() > (int)T.size() )
+		_dxoff += _DDX;
+		int oxoff = _xoff;
+		_xoff = _dxoff;
+		_xdelta = _xoff - oxoff;
+		if ( _xoff + _spaceship->x() > _final_xoff )
 		{
-			_xoff = T.size() - w();
+			_xoff = _final_xoff - _spaceship->x();
+			_dxoff = _xoff;
 			_done = true;
 			_bonus = 500 - 200 * _level_repeat;
 			add_score( _bonus );
@@ -6688,12 +7771,48 @@ void FltWin::onUpdate()
 	}
 }
 
+#include "Fl_ZXAttrEffect.H"
+//-------------------------------------------------------------------------------
+class ZXAttrEffect : public Fl_ZXAttrEffect
+//-------------------------------------------------------------------------------
+{
+typedef Fl_ZXAttrEffect Inherited;
+public:
+	ZXAttrEffect( Fl_Window& win_ ) :
+		Inherited( win_ )
+	{
+		while ( Fl::first_window() && win_.children() )
+		{
+#ifndef WIN32
+			Fl::wait( 0.0005 );
+#else
+			Fl::wait( 0.0 );
+#endif
+		}
+	}
+};
+
 int FltWin::handle( int e_ )
 //-------------------------------------------------------------------------------
 {
 #define F10_KEY 0xffc7
 	static bool ignore_space = false;
 	static int repeated_right = -1;
+
+	if ( FL_FOCUS == e_ )
+	{
+		Fl::focus( this );
+		onGotFocus();
+		return Inherited::handle( e_ );
+	}
+	if ( FL_UNFOCUS == e_ )
+	{
+		onLostFocus();
+		return Inherited::handle( e_ );
+	}
+
+	if ( _disableKeys )
+		return Inherited::handle( e_ );
 
 	if ( _mouseMode )
 	{
@@ -6813,24 +7932,24 @@ int FltWin::handle( int e_ )
 		}
 	}	// _mouseMode
 
-	if ( FL_FOCUS == e_ )
-	{
-		Fl::focus( this );
-		onGotFocus();
-		return Inherited::handle( e_ );
-	}
-	if ( FL_UNFOCUS == e_ )
-	{
-		onLostFocus();
-		return Inherited::handle( e_ );
-	}
 	int c = Fl::event_key();
 
 //	printf( "event %d: key = 0x%x\n", e_, c );
 	if ( ( e_ == FL_KEYDOWN || e_ == FL_KEYUP ) && c == FL_Escape )
+	{
 		// get rid of escape key closing window (except in boss mode and title screen)
-		return ( _enable_boss_key || _state == TITLE || fullscreen_active() ) ?
-			Inherited::handle( e_ ) : 1;
+		if ( _enable_boss_key || _state == TITLE || fullscreen_active() )
+		{
+			if ( e_ == FL_KEYDOWN && _gimmicks && !_enable_boss_key )
+			{
+				_disableKeys = true;
+				ZXAttrEffect zxattr( *this );
+				_disableKeys = false;
+			}
+			hide();
+		}
+		return 1;
+	}
 
 	if ( e_ == FL_KEYUP && _state != SCORE && 's' == c )
 	{
@@ -6845,6 +7964,8 @@ int FltWin::handle( int e_ )
 	}
 	if ( e_ == FL_KEYUP && _state != SCORE && 'b' == c )
 	{
+		if ( _state == TITLE )
+			keyClick();
 		toggleBgSound();
 	}
 	if ( e_ == FL_KEYUP && F10_KEY == c && ( _state != LEVEL || G_paused ) )
@@ -7007,15 +8128,16 @@ string FltWin::firstTimeSetup()
 	                           "If you have any recent hardware\n"
 	                           "you should answer 'yes'.",
 		"ASK ME LATER",  "NO", "YES" );
+	int speed = 0;
 	if ( fast_slow == 2 )
 	{
 		fl_message_title( title );
-		int speed = fl_choice( "*How* fast is your computer?\n\n"
-		                       "'Very fast' enables all features,\n"
-		                       "'Fast' most features.\n"
-		                       "'Normal' disables drawing effects\n\n"
-		                       "NOTE: You don't need a gaming pc\n"
-		                       "to answer with 'very fast'..",
+		speed = fl_choice( "*How* fast is your computer?\n\n"
+		                   "'Very fast' enables all features,\n"
+		                   "'Fast' most features.\n"
+		                   "'Normal' disables drawing effects\n\n"
+		                   "NOTE: You don't need a gaming pc\n"
+		                   "to answer with 'very fast'..",
 			"NORMAL", "FAST", "VERY FAST" );
 		switch ( speed )
 		{
@@ -7031,10 +8153,10 @@ string FltWin::firstTimeSetup()
 	else if ( fast_slow == 1 )
 	{
 		fl_message_title( title );
-		int speed = fl_choice( "*How* slow is your computer?\n\n"
-		                       "'Slow' lowers the frame rate,\n"
-		                       "'Very slow' enables frame correction,\n"
-		                       "'Creepy slow' will disable sound too.",
+		speed = fl_choice( "*How* slow is your computer?\n\n"
+		                   "'Slow' lowers the frame rate,\n"
+		                   "'Very slow' enables frame correction,\n"
+		                   "'Creepy slow' will disable sound too.",
 			"SLOW", "VERY SLOW", "CREEPY SLOW" );
 		switch ( speed )
 		{
@@ -7066,6 +8188,8 @@ string FltWin::firstTimeSetup()
 				NULL, "NO", "YES" );
 			if ( fullscreen == 2 )
 				cmd += " -f";
+			else if ( speed == 2 )
+				cmd += " -W -R50";
 		}
 
 		trim( cmd );
@@ -7077,92 +8201,6 @@ string FltWin::firstTimeSetup()
 	}
 	return cmd;
 }
-
-#include "Fl_Fireworks.H"
-//-------------------------------------------------------------------------------
-class Fireworks : public Fl_Fireworks
-//-------------------------------------------------------------------------------
-{
-typedef Fl_Fireworks Inherited;
-public:
-	Fireworks( Fl_Window& win_, bool fullscreen_ = false ) :
-		Fl_Fireworks( win_, fullscreen_ ? 2000 : 1000 ),
-		_text( 0 )
-	{
-		callback( cb_fireworks );
-		string yearStr;
-		time_t t = time( NULL );
-		struct tm *tmp;
-		tmp = localtime( &t );
-		if ( t )
-		{
-			char buf[20];
-			if ( strftime( buf, sizeof(buf), "%Y", tmp ) )
-				yearStr = buf;
-		}
-		string crYearStr( "2015" );
-		if ( yearStr > crYearStr )
-			crYearStr += ( "-" + yearStr );
-		ostringstream welcome;
-		welcome << "CG\n© " << crYearStr << "\n\nproudly presents...";
-		(_text = new AnimText( 0, win_.h(), win_.w(), welcome.str().c_str(),
-			FL_GRAY, FL_RED, 50, 40, false ))->start();
-		while ( Fl::first_window() && win_.children() )
-#ifndef WIN32
-			Fl::wait( 0.0005 );
-#else
-			Fl::wait( 0.0 );
-#endif
-	}
-	~Fireworks()
-	{
-		delete _text;
-	}
-	void draw()
-	{
-		Inherited::draw();
-		_text->draw();
-	}
-	int handle( int e_ )
-	{
-		if ( e_ == FL_JOY_BUTTON_UP )
-			e_ = FL_RELEASE;
-		return Inherited::handle( e_ );
-	}
-	static void cb_fireworks( Fl_Widget *wgt_, long d_ )
-	{
-		Fireworks *f = (Fireworks *)wgt_;
-		static int flip = 0;
-		flip ^= 1;
-		switch ( d_ )
-		{
-			case -1:
-				if ( flip )
-				{
-					f->_text->y( f->_text->y() - 2 );
-					if ( f->_text->y() < 30 )
-						f->_text->y( f->h() );
-				}
-				break;
-			case 1:
-				Audio::instance()->play( "firework_start" );
-				break;
-			case 2:
-			{
-				static int flip = 0;
-				flip ^= 1;
-				Audio::instance()->play( "firework_explode" );
-				if ( flip )
-					f->_text->color( f->explodeColor() );
-				else
-					f->_text->bgColor( f->explodeColor() );
-				break;
-			}
-		}
-	}
-private:
-	AnimText *_text;
-};
 
 static void cleanup()
 //-------------------------------------------------------------------------------
@@ -7189,7 +8227,7 @@ static void signalHandler( int sig_ )
 static void installSignalHandler()
 //-------------------------------------------------------------------------------
 {
-	const int signals[] = { SIGABRT, SIGFPE, SIGILL, SIGINT, SIGSEGV, SIGTERM };
+	static const int signals[] = { SIGABRT, SIGFPE, SIGILL, SIGINT, SIGSEGV, SIGTERM };
 	for ( size_t i = 0; i < sizeof( signals ) / sizeof( signals[0] ); i++ )
 		signal( signals[i], signalHandler );
 }
@@ -7208,15 +8246,10 @@ int main( int argc_, const char *argv_[] )
 	installSignalHandler();
 
 	fl_register_images();
-	Fl::set_font( FL_HELVETICA, " Verdana" );
-	Fl::set_font( FL_HELVETICA_BOLD_ITALIC, "PVerdana" );
+	Fl::scheme( "gtk+" );
 	int seed = time( 0 );
 	Random::pSrand( seed );
 
 	FltWin fltrator( argc_, argv_ );
-
-	if ( !fltrator.trainMode() && fltrator.gimmicks() )
-		Fireworks fireworks( fltrator, fltrator.isFullscreen() );
-
 	return fltrator.run();
 }

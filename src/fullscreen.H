@@ -62,13 +62,13 @@ static bool xrandr_set_screen( int mode_, int W_ = 0 , int H_ = 0 )
 	// LOOP THROUGH ALL POSSIBLE RESOLUTIONS,
 	// GETTING THE SELECTABLE DISPLAY FREQUENCIES
 	short possible_frequencies[64][64];
-	for ( int i = 0; i < num_sizes; i ++ )
+	for ( int i = 0; i < num_sizes; i++ )
 	{
 		short *rates;
 		int num_rates;
 
 		rates = XRRRates( dpy, 0, i, &num_rates );
-		for (  int j = 0; j < num_rates; j ++ )
+		for ( int j = 0; j < num_rates; j++ )
 		{
 			possible_frequencies[i][j] = rates[j];
 		}
@@ -104,6 +104,7 @@ static bool xrandr_set_screen( int mode_, int W_ = 0 , int H_ = 0 )
 	}
 
 	// EXIT
+	XRRFreeScreenConfigInfo( conf );
 	XCloseDisplay( dpy );
 	return success;
 }

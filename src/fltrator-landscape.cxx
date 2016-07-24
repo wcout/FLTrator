@@ -36,6 +36,7 @@
 #include <FL/fl_ask.H>
 
 #include <cassert>
+#include <cmath>
 #include <string>
 #include <vector>
 #include <fstream>
@@ -320,6 +321,21 @@ public:
 	vector<Fl_Color> alt_sky_colors;
 };
 
+static bool readColor( istream& s_, Fl_Color& c_ )
+//-------------------------------------------------------------------------------
+{
+	string c;
+	s_ >> c;
+	if ( !s_.fail() )
+	{
+		unsigned long color = strtoul( c.c_str(), NULL, 0 );
+		if ( color > 0xff && color % 256 != 0 && color <= 0xffffff )
+			color = color << 8;
+		c_ = color;
+	}
+	return !s_.fail();
+}
+
 static bool readColors( ifstream& f_, Fl_Color& c_, vector<Fl_Color>& alt_ )
 //-------------------------------------------------------------------------------
 {
@@ -329,26 +345,35 @@ static bool readColors( ifstream& f_, Fl_Color& c_, vector<Fl_Color>& alt_ )
 		getline( f_, line );
 	stringstream is;
 	is << line;
-	is >> c_;
+	readColor( is, c_ );
 	while ( !is.fail() )
 	{
 		Fl_Color c;
-		is >> c;
+		readColor( is, c );
 		if ( !is.fail() )
 			alt_.push_back( c );
 	}
 	return f_.good();
 }
 
-static bool writeColors( ofstream& f_, Fl_Color c_, vector<Fl_Color> alt_ )
+static ostream& writeColor( ostream& s_, Fl_Color c_ )
 //-------------------------------------------------------------------------------
 {
+	s_ << hex << showbase << c_ << noshowbase << dec;
+	return s_;
+}
+static ostream& writeColors( ostream& s_, Fl_Color c_, vector<Fl_Color> alt_ )
+//-------------------------------------------------------------------------------
+{
+	writeColor( s_, c_ );
 	ostringstream os;
-	os << c_;
 	for ( size_t i = 0; i < alt_.size(); i++ )
-		os << " " << alt_[i];
-	f_ << os.str() << endl;
-	return f_.good();
+	{
+		os << " ";
+		writeColor( os, alt_[i] );
+	}
+	s_ << os.str() << endl;
+	return s_;
 }
 
 //--------------------------------------------------------------------------
@@ -378,8 +403,8 @@ public:
 				{
 					// new format
 					f >> _ls.outline_width;
-					f >> _ls.outline_color_ground;
-					f >> _ls.outline_color_sky;
+					readColor( f, _ls.outline_color_ground );
+					readColor( f, _ls.outline_color_sky );
 				}
 				readColors( f, _ls.bg_color, _ls.alt_bg_colors );
 				readColors( f, _ls.ground_color, _ls.alt_ground_colors );
@@ -399,9 +424,9 @@ public:
 					{
 						// fetch extra data for color change object
 						Fl_Color bg_color, ground_color, sky_color;
-						f >> bg_color;
-						f >> ground_color;
-						f >> sky_color;
+						readColor( f, bg_color );
+						readColor( f ,ground_color );
+						readColor( f, sky_color );
 						if ( f.good() && size() <= W )
 						{
 							_ls.back().bg_color = bg_color;
@@ -776,16 +801,19 @@ void PreviewWindow::draw()
 	for ( int i = 0; i < (int)_ls->size(); i++ )
 	{
 		int S = _ls->sky( i );
-		fl_line( (int)((double)i / Scale), -1,
-		         (int)((double)i / Scale), (int((double)S / Scale)) - 1 );	// TODO: -1 ??
+		if ( S >= 0 )
+		{
+			fl_line( lround( (double)i / Scale ), -1,
+			         lround( (double)i / Scale ), lround( (double)S / Scale ) );
+		}
 	}
 
 	fl_color( _ls->ground_color() );
 	for ( int i = 0; i < (int)_ls->size(); i++ )
 	{
 		int G = _ls->ground( i );
-		fl_line( (int)((double)i / Scale), h() - int((double)G / Scale),
-		         (int)((double)i / Scale), h() );
+		fl_line( lround( (double)i / Scale ), h() - lround( (double)G / Scale ),
+		         lround( (double)i / Scale ), h() );
 	}
 
 	// draw outline
@@ -795,12 +823,15 @@ void PreviewWindow::draw()
 		fl_line_style( FL_SOLID, 1 );
 		for ( int i = 1; i < (int)_ls->size() - 1; i++ )
 		{
-			int S0 = _ls->sky( i - 1 );
-			int S1 = _ls->sky( i + 1 );
-			fl_line( (int)( (double)(i - 1) / Scale ),
-			         (int)( (double)S0 / Scale ),
-			         (int)( (double)(i + 1) / Scale ),
-			         (int)( (double)S1 / Scale ) );
+			if ( _ls->sky( i ) >= 0 )
+			{
+				int S0 = _ls->sky( i - 1 );
+				int S1 = _ls->sky( i + 1 );
+				fl_line( lround( (double)(i - 1) / Scale ),
+				         lround( (double)S0 / Scale ),
+				         lround( (double)(i + 1) / Scale ),
+				         lround( (double)S1 / Scale ) );
+			}
 		}
 		fl_color( _ls->outline_color_ground() );
 #ifdef WIN32
@@ -810,18 +841,18 @@ void PreviewWindow::draw()
 		{
 			int G0 = _ls->ground( i - 1 );
 			int G1 = _ls->ground( i + 1 );
-			fl_line( (int)( (double)(i - 1) / Scale ),
-			         h() - (int)( (double)G0 / Scale ),
-			         (int)( (double)(i + 1) / Scale ),
-			         h() - (int)( (double)G1 / Scale ) );
+			fl_line( lround( (double)(i - 1) / Scale ),
+			         h() - lround( (double)G0 / Scale ),
+			         lround( (double)(i + 1) / Scale ),
+			         h() - lround( (double)G1 / Scale ) );
 		}
 		fl_line_style( 0 );
 	}
 	// draw visible window hint
 	fl_color( FL_WHITE );
 	fl_line_style( FL_DOT );
-	fl_rect( (int)( (double)_ls->xoff() / Scale ), 0,
-	         (int)( (double)(SCREEN_W - 1) / Scale ), h() - 1 );
+	fl_rect( lround( (double)_ls->xoff() / Scale ), 0,
+	         lround( (double)(SCREEN_W - 1) / Scale ), h() - 1 );
 	fl_line_style( 0 );
 }
 
@@ -1068,7 +1099,7 @@ void LSEditor::draw()
 	for ( int i = _xoff; i < _xoff + w(); i++ )
 	{
 		int S = _ls->sky( i );
-		fl_line( i - _xoff, -1, i - _xoff, S  - 1 );	// TODO: -1 ??
+		fl_line( i - _xoff, -1, i - _xoff, S );
 	}
 
 	fl_color( ground_color );
@@ -1084,9 +1115,13 @@ void LSEditor::draw()
 		fl_color( _ls->outline_color_sky() );
 		fl_line_style( FL_SOLID, _ls->outline_width() );
 		for ( int i = ( _xoff ? _xoff : 1 ); i < _xoff + w() - 1; i++ )
-			fl_line( i - _xoff - 1, _ls->sky( i - 1 ),
-		            i - _xoff + 1, _ls->sky( i + 1 ) );
-
+		{
+			if ( _ls->sky( i ) >= 0 )
+			{
+				fl_line( i - _xoff - 1, _ls->sky( i - 1 ),
+			            i - _xoff + 1, _ls->sky( i + 1 ) );
+			}
+		}
 		fl_color( _ls->outline_color_ground() );
 #ifdef WIN32
 		fl_line_style( FL_SOLID, _ls->outline_width() );
@@ -1116,7 +1151,7 @@ void LSEditor::draw()
 			int S = _ls->sky( i );
 			Object *o = objects.find( O_BADY );
 			if ( o )
-				o->image()->draw( i - _xoff - _bady->w() / 2, S, o->w(), o->h()  );
+				o->image()->draw( i - _xoff - o->w() / 2, S, o->w(), o->h()  );
 		}
 		if ( _ls->hasCumulus( i ) )
 		{
@@ -1282,6 +1317,7 @@ int LSEditor::handle( int e_ )
 				ow++;
 				ow %= 5;
 				_ls->outline_width( ow );
+				changed( true );
 				redraw();
 			}
 
@@ -1667,8 +1703,8 @@ void LSEditor::save()
 	f << _ls->flags() << endl;	// preserved flags (only hand-editable currently)
 	// new format
 	f << _ls->outline_width() << endl;
-	f << _ls->outline_color_ground() << endl;
-	f << _ls->outline_color_sky() << endl;
+	writeColor( f, _ls->outline_color_ground() ) << endl;
+	writeColor( f, _ls->outline_color_sky() ) << endl;
 
 	writeColors( f, _ls->bg_color(), _ls->alt_bg_colors() );
 	writeColors( f, _ls->ground_color(), _ls->alt_ground_colors() );
@@ -1680,9 +1716,9 @@ void LSEditor::save()
 		if ( _ls->object( i ) & O_COLOR_CHANGE )
 		{
 			// save extra data for color change object
-			f << " " << _ls->point(i).bg_color;
-			f << " " << _ls->point(i).ground_color;
-			f << " " << _ls->point(i).sky_color;
+			f << " "; writeColor( f, _ls->point(i).bg_color );
+			f << " "; writeColor( f, _ls->point(i).ground_color );
+			f << " "; writeColor( f, _ls->point(i).sky_color );
 		}
 		f << endl;
 	}

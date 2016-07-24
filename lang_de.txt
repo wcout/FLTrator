@@ -1,0 +1,66 @@
+; translations
+demo=*** DEMO - Abbruch mit Leertaste ***
+
+paused=*** PAUSIERT ***
+
+mission_complete=** MISSION VOLLENDET! **
+
+mission_part=** SUPER GEMACHT! **
+
+space_to_restart=* Leertaste für neues Abenteuer *
+
+space_to_start=** Start mit Leertaste **
+
+space_to_go_back=** Leertaste für Weg zurück**
+
+level_finished=LEVEL %u GESCHAFFT!
+
+start_again=PROBIER'S\
+            NOCH\
+            MAL!
+
+praise_completed=Du hast wagemutig alle Hindernisse\
+                 überwunden und bist ein ECHTER HELD.\
+                 Bravo! Mach' erst mal Pause, oder...
+
+praise=Du hast allen Übeln zum Trotz\
+       endlich Dein Ziel erreicht!\
+       \
+       Wie schade, daß Du nun auch wieder\
+       den Weg zurück finden musst...
+
+congratulation=GLÜCKWUNSCH!
+
+topped=Du hast den Hiscore genackt:
+
+held_by=gehalten von ................ %s
+
+old_hiscore=alter Hiscore .......... %06u
+
+new_hiscore=neuer Hiscore ......... %06u
+
+enter_name=Gib Deinen Namen ein:   %s
+
+score_goes_to=Score geht an:   %s
+
+space_to_continue=** Weiter mit Leertaste **
+
+trainer=TRAINER
+
+bonus=Bonus: %u
+
+hiscores=Bestenliste
+
+up_down=%c/%c	rauf/runter
+left_right=%c/%c	links/rechts
+fire_missile=%c	Laser feuern
+drop_bomb=%c	Bombe werfen
+hold_game=7-9	Spiel pausieren
+
+title_help=%c/%c: User wechseln     %c/%c: Schiff wechseln     s: Sound %s     b: Musik %s
+
+disable=ausschalten
+enable=einschalten
+
+greeting=freut sich\
+         zu präsentieren...

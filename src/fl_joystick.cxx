@@ -23,9 +23,35 @@
 //-------------------------------------------------------------------------------
 Fl_Joystick::Fl_Joystick()
 {
+#if 0
 	open();
 	if ( fd() >= 0 )
 		Fl::add_fd( fd(), FL_READ, cb_data_ready, this );
+#endif
+}
+
+bool Fl_Joystick::attach( const char *device_/* = NULL*/ )
+//-------------------------------------------------------------------------------
+{
+	if ( fd() < 0 )
+	{
+		open( device_ );
+		if ( fd() >= 0 )
+			Fl::add_fd( fd(), FL_READ, cb_data_ready, this );
+	}
+	return fd() >= 0;
+}
+
+bool Fl_Joystick::detach()
+//-------------------------------------------------------------------------------
+{
+	// NOTE: currently only one device can be open
+	if ( fd() >= 0 )
+	{
+		Fl::remove_fd( fd() );
+		close();
+	}
+	return fd() < 0;
 }
 
 /*virtual*/

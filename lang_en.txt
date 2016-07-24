@@ -1,0 +1,63 @@
+; translations
+demo=*** DEMO - Hit space to cancel ***
+
+paused=*** PAUSED ***
+
+mission_complete=** MISSION COMPLETE! **
+
+mission_part=** WELL DONE! **
+
+space_to_restart=** hit space to restart **
+
+space_to_start=** hit space to start**
+
+space_to_go_back=** hit space to go back **
+
+level_finished=LEVEL %u FINISHED!
+
+start_again=START AGAIN!
+
+praise_completed=You bravely mastered all challenges\
+                 and deserve to be called a REAL HERO.\
+                 Well done! Take some rest now, or ...
+
+praise=You succeeded to conquer all hazards\
+       and have reached your destination!\
+       \
+       What a pity, that you have to get back\
+       now from where you started....
+
+congratulation=CONGRATULATION!
+
+topped=You topped the hiscore:
+
+held_by=held by ................ %s
+
+old_hiscore=old hiscore .......... %06u
+
+new_hiscore=new hiscore ......... %06u
+
+enter_name=Enter your name:   %s
+
+score_goes_to=Score goes to:   %s
+
+space_to_continue=** hit space to continue **
+
+trainer=TRAINER
+
+bonus=Bonus: %u
+
+hiscores=Hiscores
+
+up_down=%c/%c	up/down
+left_right=%c/%c	left/right
+fire_missile=%c	fire missile
+drop_bomb=%c	drop bomb
+hold_game=7-9	hold game
+
+title_help=%c/%c: toggle user     %c/%c: toggle ship     s: %s sound     b: %s music
+
+disable=disable
+enable=enable
+
+greeting=proudly presents...

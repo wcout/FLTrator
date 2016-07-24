@@ -1,4 +1,4 @@
-<p align="right">15/03/2016</p>
+<p align="right">25/06/2016</p>
 
 
 Welcome to FLTrator (a FLTK retro arcade game)!
@@ -185,11 +185,9 @@ Links
 
    [Sourceforge project site](http://sourceforge.net/projects/fltrator/)
 
-   [YouTube video level 4](https://www.youtube.com/watch?v=dZa2rYsGHHQ&feature=youtu.be)
-
-   [YouTube video level 6](https://www.youtube.com/watch?v=PoPRpiJ5oAs&feature=youtu.be)
-
    [FLTK](http://www.fltk.org/)
+
+   [Watch YouTube video v2.3r (Level 1)](https://youtu.be/q1tK40ZBG7E)
 
 
 FLTrator runtime notes
@@ -228,13 +226,32 @@ Running fullscreen
 Running *FLTrator* in fullscreen on a big monitor is really a great pleasure!
 It also runs faster and more smooth I believe.
 
-So I dug out some instructions how to change resolution under Linux using Xrandr
-and and also for Windows and integrated it everything into the program.
+There are two ways to run fullscreen:
+
+-  1) Change display resolution to e.g. 800x600 during execution
+
+-  2) Scale the output to match full screen size
+
+For 1) I dug out some instructions how to change resolution under Linux using Xrandr
+and and also for Windows and integrated everything into the program.
 
 Use `F10` to toggle fullscreen when in title menu or in paused state.
 Or start with `-f` to immediately go fullscreen.
 
 [Tested to work under Ubuntu 12.04 and 14.04, Windows 7]
+
+For 2) it is now possible to scale the output up to 1920x1200.
+
+Use `-W` command line switch to specify the screen dimension to use.
+
+e.g. `-W1024x768` or `-W1920x1200`.
+
+There are two 'shorthands':
+
+-  `-Wf` uses the current screen size
+-  `-W` alone uses the desktop workarea size
+
+[Note: it also possible to scale the output down. E.g. to 400x300]
 
 ---
 
@@ -268,6 +285,9 @@ Your best combination of command line switches for a slow computer:
     -Scpsb
 
 
+**NEW**: You can also try the auto-frame-correction mode by specifying `-C`.
+         This tries to dynamically adjust the scrolling speed.
+
 ### Fast Machine?
 
 If on the other hand you have a **fast** (any recent!) computer you should use:
@@ -280,3 +300,7 @@ some levels (Don't hold your breath though - nothing really spectacalar .. but n
     -FF (start with settings for very fast computer)
 
 This also turns on gradient drawing of landscape.
+
+    -FFF (start with all features)
+
+This additionally turns on some effects like blending and scanline simulation.

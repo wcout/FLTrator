@@ -37,14 +37,17 @@ Joystick::~Joystick()
 	close();
 }
 
-int Joystick::open( const std::string& device_/* = JOYSTICK1_ DEVICE_NAME*/ )
+int Joystick::open( const char *device_/* = NULL*/ )
 //-------------------------------------------------------------------------------
 {
 #if defined __linux__
-	_device = device_;
-	_fd = ::open( device_.c_str(), O_RDONLY | O_NONBLOCK );
-	if ( _fd >= 0 )
-		_device = device_;
+	if ( _fd < 0 )
+	{
+		std::string device( device_ ? device_ : JOYSTICK1_DEVICE_NAME );
+		_fd = ::open( device.c_str(), O_RDONLY | O_NONBLOCK );
+		if ( _fd >= 0 )
+			_device = device;
+	}
 #endif
 	return _fd;
 }
@@ -55,6 +58,7 @@ void Joystick::close()
 	if ( _fd >= 0 )
 		::close( _fd );
 	_fd = -1;
+	_device.erase();
 }
 
 int Joystick::update()

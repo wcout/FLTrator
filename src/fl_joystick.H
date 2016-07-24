@@ -30,6 +30,8 @@ typedef Joystick Inherited;
 public:
 	Fl_Joystick();
 	~Fl_Joystick();
+	bool attach( const char *device_ = NULL );
+	bool detach();
 	virtual void onEvent();
 private:
 	static void cb_data_ready( int fd_, void *d_ );

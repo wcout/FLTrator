@@ -134,7 +134,8 @@ install: all
 	$(CP) -a ../demo/*.txt $(RSC_PATH)/demo/.
 	$(CP) -a ../ATTRIBUTION $(RSC_PATH)/.
 	$(CP) -a ../README.md $(RSC_PATH)/.
-	$(CP) -a ../levels/L_*.txt $(RSC_PATH)/levels/.
+	$(CP) -a ../lang_*.txt $(RSC_PATH)/.
+	$(CP) -a ../levels/*.txt $(RSC_PATH)/levels/.
 
 target: all
 	@echo TARGET_ROOT $(TARGET_ROOT)
@@ -177,8 +178,9 @@ target: all
 	$(CP) -a "$$file" "$$dest"; \
 	done
 	$(CP) -a $(ROOT)/ATTRIBUTION $(TARGET_PATH)/.
+	$(CP) -a $(ROOT)/lang_*.txt $(TARGET_PATH)/.
 	$(CP) -a $(ROOT)/README.md $(TARGET_PATH)/.
-	$(CP) -a $(ROOT)/levels/L_*.txt $(TARGET_PATH)/levels/.
+	$(CP) -a $(ROOT)/levels/*.txt $(TARGET_PATH)/levels/.
 	$(CP) -a $(ROOT)/rsc $(TARGET_PATH)
 	$(CP) -a *.ico $(TARGET_PATH)
 	cd $(TARGET_ROOT) && zip -r $(TARGET_PATH).zip $(TARGET_NAME)

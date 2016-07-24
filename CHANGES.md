@@ -1,3 +1,20 @@
+Changes in V2.3r (unreleased)
+================
+
+- Scale down/up to arbitary screen sizes between 320x200 and 1920x1200
+- Extended game with a "way home" mode
+	- after finishing level 10 player must return home to level 1 with reversed terrain
+- Even more gimmicks( Fade out effect, Scanline effect, ZX-Attribute clash effect at exit)
+- Make all text translatable (read from language file if present)
+- More ship types (but just different colors at the moment)
+- Ship type saved per user
+- Wide screen option
+- add a 'lost' sound
+- move fireworks screen into main loop
+- drops/phaser can move/fire slightly horizontal
+- add objects to level 6
+- Minor bugfixes and improvements
+
 Changes in V2.2
 ===============
 

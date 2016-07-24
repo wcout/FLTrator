@@ -28,6 +28,7 @@
 class Fl_Fireworks : public Fl_Double_Window
 {
 	typedef Fl_Double_Window Inherited;
+	static const double POLL_DELAY;
 private:
 
 	class Fl_Firework_Particle
@@ -38,7 +39,8 @@ private:
 			                      unsigned len_ = 10, bool multicolor_ = false ) :
 				start_r( 1. ), end_r( end_r_ ), angle( angle_ ),
 				speed( speed_ ), color( color_ ), len( len_ ), multicolor( multicolor_ ),
-				valid( false ), dot( false )
+				valid( false ), dot( false ),
+				zf( double( 1 + random() % 1000 ) / 1000. ) // simple z-axis simulation
 			{
 				r = start_r + random() % std::min( len, 5 );
 				dot = len <= 5;
@@ -57,6 +59,7 @@ private:
 			Fl_Color curr_color;
 			bool valid;
 			bool dot;
+			double zf;
 	};
 
 	class Fl_Firework_Rocket : public Fl_Box
@@ -70,7 +73,8 @@ private:
 			_Y( -1 ),
 			_exploded( false ),
 			_started( false ),
-			_explosion_type( - 1 )
+			_explosion_type( - 1 ),
+			_done( false )
 		{
 			DBG(( "Fl_Firework_Rocket %p", this ));
 			box( FL_NO_BOX );
@@ -101,17 +105,19 @@ private:
 				else
 					_exploded = true;
 			}
-			if ( _exploded )
+			if ( _exploded && _done )
 			{
 				init();
 			}
-			x( x() + 2 *_dx  );
+			x( x() + 2 *_dx );
 			if ( x() < 0 )
 				x( parent()->w() );
 			if ( x() > parent()->w() )
 				x( 0 );
 			update_particles( _X + w() / 2, parent()->h() - _Y + _r / 3, _particles );
+			_done = _exploded && _particles.empty();
 		} // update
+	bool done() const { return _done; }
 	private:
 		static Fl_Color explode_color( Fl_Color color_ )
 		{
@@ -131,10 +137,10 @@ private:
 			for ( size_t i = 0; i < p_.size(); i++ )
 			{
 				Fl_Firework_Particle& p = p_[i];
-				if ( p.r < p.end_r )
+				if ( p.r < p.end_r && p.speed > 0.4 )
 				{
-					p.beg_x = p.r * cos( p.angle * M_PI / 180.0 ) + center_x_;
-					p.beg_y = p.r * sin( p.angle * M_PI / 180.0 ) + center_y_;
+					p.beg_x = p.zf * ( p.r * cos( p.angle * M_PI / 180.0 ) ) + center_x_;
+					p.beg_y = p.zf * ( p.r * sin( p.angle * M_PI / 180.0 ) ) + center_y_;
 					double f = ( p.end_r - p.r ) / ( p.end_r - p.start_r );
 					int mask = 256. * f;
 					if ( !mask )
@@ -145,8 +151,8 @@ private:
 						p.curr_color = p.color;
 
 					unsigned len = (double)p.len * f;
-					p.end_x = ( p.r + len ) * cos( p.angle * M_PI / 180.0 ) + center_x_;
-					p.end_y = ( p.r + len ) * sin( p.angle * M_PI / 180.0 ) + center_y_;
+					p.end_x = p.zf * ( ( p.r + len ) * cos( p.angle * M_PI / 180.0 ) ) + center_x_;
+					p.end_y = p.zf * ( ( p.r + len ) * sin( p.angle * M_PI / 180.0 ) ) + center_y_;
 
 					p.valid = true;
 					if ( p.r < p.end_r / 2 )
@@ -157,7 +163,7 @@ private:
 					else
 					{
 						if ( p.speed > 0.4 )
-							p.speed -= p.dot ? -0.2 : 0.2;
+							p.speed -= p.dot ? -0.4 : 0.2;
 					}
 					p.r += p.speed;
 					done = false;
@@ -183,11 +189,12 @@ private:
 
 				if ( p.dot )
 				{
-					fl_pie( p.beg_x, p.beg_y, p.len, p.len, 0., 360. );
+					fl_pie( p.beg_x, p.beg_y, ceil( scale_y() * p.len ),
+				           ceil( scale_y() * p.len ), 0., 360. );
 				}
 				else
 				{
-					fl_line_style( FL_SOLID, 2 );
+					fl_line_style( FL_SOLID, ceil( scale_y() * 2 ) );
 					fl_line( p.beg_x, p.beg_y, p.end_x, p.end_y );
 					fl_line_style( 0 );
 				}
@@ -198,15 +205,17 @@ private:
 			DBG(( "Fl_Firework_Rocket::draw() %p r=%d", this, _r ));
 			if ( _r < 10 )
 			{
+				double sx( scale_x() < 0.6 ? 0.6 : scale_x() > 1.5 ? 1.5 : scale_x() );
+				double sy( scale_y() < 0.6 ? 0.6 : scale_y() > 1.5 ? 1.5 : scale_y() );
 				fl_push_matrix();
 				fl_translate( x(), parent()->h() - y() );
 				fl_rotate( ( 90. - _angle ) + 270. );
 				fl_color( color() );
 				fl_begin_polygon();
 
-				fl_vertex( w() / 2, 0 );
-				fl_vertex( 0, h() );
-				fl_vertex( w(), h()  );
+				fl_vertex( sx * ( w() / 2 ), 0 );
+				fl_vertex( 0, sy * h() );
+				fl_vertex( sx * w(), sy * h()  );
 
 				fl_end_polygon();
 				fl_pop_matrix();
@@ -226,17 +235,23 @@ private:
 		{
 			_particles.clear();
 			if ( y() > -h() )
-				y( -h() * ( ( random() % 20 ) + 20 ) );
+			{
+				int sh = 20 * scale_y();
+				y( -h() * ( ( random() % sh ) + sh ) );
+			}
 			_r = 0;
 			_X = -1;
 			_Y = -1;
-			_dy = random() % 3 + 3;
-			_dx = (random() % (_dy - 2)) + 1;
-			_explosion_radius = h() * ( 6 + random() % 4 );
+			_dy = ( random() % 3 ) + 3;	// 3-5
+			_dx = ( random() % ( _dy - 2 ) ) + 1;
+			_dy = ceil( scale_y() * _dy );
+			_dx = ceil( scale_x() * _dx );
+			_explosion_radius = scale_y() * h() * ( 6 + random() % 4 );
 			_exploded = false;
 			_started = false;
+			_done = false;
 			_multicolor = h() >= 50;
-			_explode_h = parent()->h() - parent()->h() / 5 - random() % 150;
+			_explode_h = parent()->h() - parent()->h() / 5 - random() % ( parent()->h() / 4 );
 			double r = atan( (double)_dx / (double)_dy ) * 180. / M_PI;
 			_angle = r;
 			DBG(( "%p _explode_h: %d _angle: %f, dx: %d dy:%d",
@@ -259,6 +274,8 @@ private:
 					( dot ? random() % 5 + 1 : speed * 10 ), _multicolor ) );
 			}
 		}
+		double scale_x() const { return ((Fl_Fireworks *)window())->scale_x(); }
+		double scale_y() const { return ((Fl_Fireworks *)window())->scale_y(); }
 
 	private:
 		int _r;
@@ -274,14 +291,14 @@ private:
 		bool _started;
 		std::vector <Fl_Firework_Particle> _particles;
 		int _explosion_type;
+		bool _done;
 	};
 
 public:
-	Fl_Fireworks( Fl_Window &baseWin_, int duration_ = 1000, size_t anz_ = 8 ) :
+	Fl_Fireworks( Fl_Window &baseWin_, double duration_ = 10.0, size_t anz_ = 8 ) :
 		Inherited( 0, 0, baseWin_.w(), baseWin_.h() ),
 		_baseWin( &baseWin_ ),
-		_counter( 0 ),
-		_max_count( duration_ / 2)
+		_max_count( ceil( duration_ / POLL_DELAY ) )
 	{
 		DBG(( "Fl_Fireworks" ));
 		color( FL_BLACK );
@@ -295,7 +312,7 @@ public:
 				random() % 200 + 56,
 				random() % 200 + 56 );
 			int sh = -H * random() % 3;
-			rockets.push_back( new Fl_Firework_Rocket( (i + 1) * w() / 8, sh, W, H, c ) );
+			rockets.push_back( new Fl_Firework_Rocket( (i + 1) * w() / anz_, sh, W, H, c ) );
 		}
 		end();
 
@@ -313,12 +330,14 @@ public:
 		terminate();
 	}
 protected:
+	virtual double scale_x() const { return 1.; }
+	virtual double scale_y() const { return 1.; }
 	int handle( int e_ )
 	{
 		DBG(( "handle %d key: 0x%x", e_, Fl::event_key() ));
 		if ( e_ == 9999 )
 		{
-			if ( ++_counter > _max_count )
+			if ( --_max_count <= 0 )
 			{
 				terminate();
 				return 1;
@@ -327,18 +346,19 @@ protected:
 			for ( size_t i = 0; i < rockets.size(); i++ )
 				rockets[i]->update();
 			redraw();
-// note WIN32: continue to check key, to workaround issue that no key event is delivered
-//			return 1;
+			return 1;
 		}
 		if ( e_ == FL_FOCUS || e_ == FL_UNFOCUS )
 			return 1;
-		// note WIN32: no key events delivered
-		if ( /*e_ == FL_KEYDOWN &&*/ Fl::event_key() == FL_Escape && _baseWin )
-			_baseWin->hide();	// exit whole application
-		if ( ( /*e_ == FL_KEYUP &&*/ Fl::event_key() == ' ' ) || e_ == FL_RELEASE )
+		if ( e_ == FL_KEYDOWN || e_ == FL_SHORTCUT || e_ == FL_RELEASE )
 		{
-			terminate();	// exit fireworks
-			return 1;
+			if ( Fl::event_key( FL_Escape ) && _baseWin )
+				_baseWin->hide();	// exit whole application
+			if ( Fl::event_key( ' ' ) || e_ == FL_RELEASE )
+			{
+				terminate();	// exit fireworks
+				return 1;
+			}
 		}
 		return Inherited::handle( e_ );
 	} // handle
@@ -361,12 +381,14 @@ private:
 	{
 		DBG(( "cb_poll" ));
 		((Fl_Fireworks *)d_)->handle( 9999 );
-		Fl::repeat_timeout( 0.02, cb_poll, d_ );
+		Fl::repeat_timeout( POLL_DELAY, cb_poll, d_ );
 	}
 private:
 	std::vector <Fl_Firework_Rocket *> rockets;
 	Fl_Window *_baseWin;
-	long _counter;
-	long _max_count;
+	int _max_count;
 	Fl_Color _explodeColor;
 };
+
+/*static*/
+const double Fl_Fireworks::POLL_DELAY = 0.02;
