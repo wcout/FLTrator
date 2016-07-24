@@ -8,7 +8,6 @@ Changes in V2.3r (unreleased)
 - Make all text translatable (read from language file if present)
 - More ship types (but just different colors at the moment)
 - Ship type saved per user
-- Wide screen option
 - add a 'lost' sound
 - move fireworks screen into main loop
 - drops/phaser can move/fire slightly horizontal
