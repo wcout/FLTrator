@@ -425,11 +425,11 @@ public:
 		}
 #ifndef WIN32
 #ifdef _POSIX_MONOTONIC_CLOCK
-//		printf( "Using clock_gettime()\n" );
+		// using clock_gettime()
 		clock_gettime( CLOCK_MONOTONIC, &ts );
 		startTime = ts.tv_sec * 1000L + ts.tv_nsec / 1000000L;
 #else
-//		printf( "Using gettimeofday()\n" );
+		// using gettimeofday()
 		gettimeofday( &tv, NULL );
 		startTime = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 #endif // _POSIX_MONOTONIC_CLOCK
@@ -745,7 +745,6 @@ void Cfg::load()
 		user.get( "level", e.level, 0 );
 		user.get( "completed", e.completed, 0 );
 		user.get( "ship", e.ship, -1 );
-//		printf(" entry: '%s' %d %d %d %d\n", e.name.c_str(), e.score, e.level, e.completed, e.ship);
 		bool inserted = false;
 		for ( size_t j = 0; j < _users.size(); j++ )
 		{
@@ -1014,7 +1013,7 @@ static void parseAudioCmd( const string &cmd_,
 	trim( arg );
 	if ( arg.empty() )
 		return;
-//	printf( "type: '%s' arg: '%s'\n", type.c_str(), arg.c_str() );
+	// command 'type' with argument 'arg'
 	if ( type.empty() || "cmd" == type )
 		playCmd_ = arg;
 	else if ( "bgcmd" == type)
@@ -1141,7 +1140,7 @@ bool Audio::play( const char *file_, bool bg_/* = false*/, bool repeat_/* = true
 		if ( runInBg )
 			cmd += " &";
 
-//		printf( "cmd: %s\n", cmd.c_str() );
+		// execute command 'cmd'
 #ifdef WIN32
 		STARTUPINFO si = { 0 };
 		si.cb = sizeof(si);
@@ -1169,7 +1168,7 @@ bool Audio::play( const char *file_, bool bg_/* = false*/, bool repeat_/* = true
 bool Audio::terminate_player( pid_t pid_, const string& pidfile_ )
 //-------------------------------------------------------------------------------
 {
-//	printf( "%s: kill player %d\n", pidfile_.c_str(), pid );
+	// kill player with pid 'pid_', pidfile 'pidfile_'
 	bool success( true );
 #ifndef WIN32
 	if ( -1 == kill( pid_, SIGTERM ) && errno != ESRCH )
@@ -1243,7 +1242,7 @@ void Audio::check( bool killOnly_/* = false*/ )
 		{
 			if ( _repeat )
 			{
-//				printf( "restart bgsound '%s' '%s'\n", _bgpidfile.c_str(), _bgsound.c_str() );
+				// restart bgsound
 				play( _bgsound.c_str(), true );
 			}
 			else
@@ -3004,7 +3003,6 @@ public:
 
 		_found = true;
 		int value = rangedValue( this->value( id_ ), min_, max_ );
-//		printf( "'%s' = %d\n", id_.c_str(), value_ );
 
 		return value;
 	}
@@ -3019,7 +3017,6 @@ public:
 
 		_found = true;
 		double value = rangedValue( this->dvalue( id_ ), min_, max_ );
-//		printf( "'%s' = %f\n", id_.c_str(), value_ );
 
 		return value;
 	}
@@ -3037,7 +3034,6 @@ public:
 		value = at( id_ );
 		if ( value.size() > max_ )
 			value.erase( max_ );
-//		printf( "'%s' = '%s'\n", id_.c_str(), value_.c_str() );
 
 		return value.c_str();
 	}
@@ -3180,6 +3176,9 @@ private:
 	virtual void show();
 	void toggleShip( bool prev_ = false );
 	void toggleUser( bool prev_ = false );
+
+	bool zoominShip( bool updateOrigin_ );
+	bool zoomoutShip();
 
 	bool paused() const { return _state == PAUSED; }
 	void bombUnlock();
@@ -3696,58 +3695,58 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	if ( usage )
 	{
 		const char *name = fl_filename_name( argv_[0] );
-		cout << "Usage:" << endl;
-		cout << "  " << name << " [level] [levelfile] [options]" << endl << endl;
-		cout << "\tlevel      [1, 10] startlevel" << endl;
-		cout << "\tlevelfile  name of levelfile (for testing a new level)" << endl;
-		cout << "Options:" << endl;
-		cout << "  -a\tuse alternate (penetrator like) ship image" << endl;
-		cout << "  -b\tdisable background sound" << endl;
-		cout << "  -c\thide mouse cursor in window" << endl;
-		cout << "  -e\tenable Esc as boss key" << endl;
-		cout << "  -d\tdisable auto demo" << endl;
-		cout << "  -f\tenable full screen mode" << endl;
-		cout << "  -h\tdisplay this help" << endl;
-		cout << "  -i\tplay internal (auto-generated) levels" << endl;
-		cout << "  -l\tleft handed play" << endl;
-		cout << "  -n\treset user (only if startet with -U)" << endl;
-		cout << "  -j\tuse joystick for input" << endl;
-		cout << "  -m\tuse mouse for input" << endl;
-		cout << "  -o\tdo not position window" << endl;
-		cout << "  -p\tdisable pause on focus out" << endl;
-		cout << "  -r\tdisable ramdomness" << endl;
-		cout << "  -s\tstart with sound disabled" << endl;
-		cout << "  -x\tdisable gimmick effects" << endl;
-		cout << "  -A\"playcmd\"\tspecify audio play command" << endl;
-		cout << "   \te.g. -A\"cmd=playsound -q %f; bgcmd=playsound -q %f %p; ext=wav\"" << endl;
-		cout << "  -C\tuse speed correction measurement" << endl;
-		cout << "  -F{F}\trun with settings for fast computer (turns on most {all} features)" << endl;
-		cout << "  -Rvalue\tset frame rate to 'value' fps [20,25,40,50,100,200]" << endl;
-		cout << "  -S\trun with settings for slow computer (turns off gimmicks/features)" << endl;
-		cout << "  -Uusername\tstart as user 'username'" << endl;
+		cout << "Usage:" << endl
+		     << "  " << name << " [level] [levelfile] [options]" << endl << endl
+		     << "\tlevel      [1, 10] startlevel" << endl
+		     << "\tlevelfile  name of levelfile (for testing a new level)" << endl
+		     << "Options:" << endl
+		     << "  -a\tuse alternate (penetrator like) ship image" << endl
+		     << "  -b\tdisable background sound" << endl
+		     << "  -c\thide mouse cursor in window" << endl
+		     << "  -e\tenable Esc as boss key" << endl
+		     << "  -d\tdisable auto demo" << endl
+		     << "  -f\tenable full screen mode" << endl
+		     << "  -h\tdisplay this help" << endl
+		     << "  -i\tplay internal (auto-generated) levels" << endl
+		     << "  -l\tleft handed play" << endl
+		     << "  -n\treset user (only if startet with -U)" << endl
+		     << "  -j\tuse joystick for input" << endl
+		     << "  -m\tuse mouse for input" << endl
+		     << "  -o\tdo not position window" << endl
+		     << "  -p\tdisable pause on focus out" << endl
+		     << "  -r\tdisable ramdomness" << endl
+		     << "  -s\tstart with sound disabled" << endl
+		     << "  -x\tdisable gimmick effects" << endl
+		     << "  -A\"playcmd\"\tspecify audio play command" << endl
+		     << "   \te.g. -A\"cmd=playsound -q %f; bgcmd=playsound -q %f %p; ext=wav\"" << endl
+		     << "  -C\tuse speed correction measurement" << endl
+		     << "  -F{F}\trun with settings for fast computer (turns on most {all} features)" << endl
+		     << "  -Rvalue\tset frame rate to 'value' fps [20,25,40,50,100,200]" << endl
+		     << "  -S\trun with settings for slow computer (turns off gimmicks/features)" << endl
+		     << "  -Uusername\tstart as user 'username'" << endl
 #ifndef NO_MULTIRES
-		cout << "  -Wwidthxheight\tuse screen size width x height" << endl;
-		cout << "  -W\tuse whole screen work area as screen size" << endl;
-		cout << "  -Wf\tuse full screen area as screen size" << endl;
+		     << "  -Wwidthxheight\tuse screen size width x height" << endl
+		     << "  -W\tuse whole screen work area as screen size" << endl
+		     << "  -Wf\tuse full screen area as screen size" << endl
 #endif
-		cout << "  -X\tturn off explosion sounds (for a more chilled experience)" << endl;
-		cout << endl;
-		cout << "  --classic\tplay in classic look (same color for landscape/sky/ground + outline)" << endl;
-		cout << "  --help\tprint out this text and exit" << endl;
-		cout << "  --info\tprint out some runtime information and exit" << endl;
-		cout << "  --version\tprint out version  and exit" << endl;
+		     << "  -X\tturn off explosion sounds (for a more chilled experience)" << endl
+		     << endl
+		     << "  --classic\tplay in classic look (same color for landscape/sky/ground + outline)" << endl
+		     << "  --help\tprint out this text and exit" << endl
+		     << "  --info\tprint out some runtime information and exit" << endl
+		     << "  --version\tprint out version  and exit" << endl;
 		exit( EXIT_SUCCESS );
 	}
 	if ( info )
 	{
-		cout << "fltkWaitDelay = " << _waiter.fltkWaitDelay() << endl;
-		cout << "USE_FLTK_RUN  = " <<  _USE_FLTK_RUN << endl;
-		cout << "DX            = " << DX << endl;
-		cout << "FRAMES        = " <<  FRAMES << endl;
-		cout << "FPS           = " <<  FPS << endl;
-		cout << "Audio::cmd    = " << Audio::instance()->cmd() << endl;
-		cout << "Audio::bg_cmd = " << Audio::instance()->cmd( true ) << endl;
-		cout << "FLTK version  = " << Fl::version() << endl;
+		cout << "fltkWaitDelay = " << _waiter.fltkWaitDelay() << endl
+		     << "USE_FLTK_RUN  = " <<  _USE_FLTK_RUN << endl
+		     << "DX            = " << DX << endl
+		     << "FRAMES        = " <<  FRAMES << endl
+		     << "FPS           = " <<  FPS << endl
+		     << "Audio::cmd    = " << Audio::instance()->cmd() << endl
+		     << "Audio::bg_cmd = " << Audio::instance()->cmd( true ) << endl
+		     << "FLTK version  = " << Fl::version() << endl;
 #if FLTK_HAS_NEW_FUNCTIONS
 		cout << "FLTK_HAS_NEW_FUNCTIONS" << endl;
 #endif
@@ -3953,11 +3952,11 @@ void FltWin::add_score( unsigned score_ )
 void FltWin::position_spaceship()
 //-------------------------------------------------------------------------------
 {
-	int X = _spaceship->w() + 10;
+	int X = _spaceship->w() + 10; // on left side of terrain
 	int ground = T[X].ground_level();
 	int sky = T[X].sky_level();
-	int Y = ground + ( h() - ground - sky ) / 2;
-//	printf( "position_spaceship(): X=%d Y=%d h()-Y =%d sky=%d\n", X, Y, h() - Y, sky );
+	int Y = ground + ( h() - ground - sky ) / 2; // halfway between ground/sky
+	// position center of spaceship at X/Y
 	_spaceship->cx( X );
 	_spaceship->cy( h() - Y );
 }
@@ -4096,35 +4095,36 @@ const char* FltWin::iniValue( const string& id_,
 void FltWin::init_parameter()
 //-------------------------------------------------------------------------------
 {
-	static const char level_name[] = "level_name";
-	static const char rocket_start_prob[] =  "rocket_start_prob";
+	// all parameters we understand
+	static const char level_name[]              = "level_name";
+	static const char rocket_start_prob[]       = "rocket_start_prob";
 	static const char rocket_radar_start_prob[] = "rocket_radar_start_prob";
-	static const char rocket_start_speed[] = "rocket_start_speed";
-	static const char rocket_min_start_speed[] = "rocket_min_start_speed";
-	static const char rocket_max_start_speed[] = "rocket_max_start_speed";
-	static const char rocket_min_start_dist[] = "rocket_min_start_dist";
-	static const char rocket_max_start_dist[] = "rocket_max_start_dist";
-	static const char rocket_var_start_dist[] = "rocket_var_start_dist";
-	static const char rocket_dx_range[] = "rocket_dx_range";
-	static const char drop_start_prob[] = "drop_start_prob";
-	static const char drop_start_speed[] = "drop_start_speed";
-	static const char drop_min_start_speed[] = "drop_min_start_speed";
-	static const char drop_max_start_speed[] = "drop_max_start_speed";
-	static const char drop_min_start_dist[] = "drop_min_start_dist";
-	static const char drop_max_start_dist[] = "drop_max_start_dist";
-	static const char drop_var_start_dist[] = "drop_var_start_dist";
-	static const char drop_dx_range[] = "drop_dx_range";
-	static const char bady_start_speed[] = "bady_start_speed";
-	static const char bady_min_start_speed[] = "bady_min_start_speed";
-	static const char bady_max_start_speed[] = "bady_max_start_speed";
-	static const char bady_hits[] = "bady_hits";
-	static const char bady_min_hits[] = "bady_min_hits";
-	static const char bady_max_hits[] = "bady_max_hits";
-	static const char bady_dx_range[] = "bady_dx_range";
-	static const char cumulus_start_speed[] = "cumulus_start_speed";
+	static const char rocket_start_speed[]      = "rocket_start_speed";
+	static const char rocket_min_start_speed[]  = "rocket_min_start_speed";
+	static const char rocket_max_start_speed[]  = "rocket_max_start_speed";
+	static const char rocket_min_start_dist[]   = "rocket_min_start_dist";
+	static const char rocket_max_start_dist[]   = "rocket_max_start_dist";
+	static const char rocket_var_start_dist[]   = "rocket_var_start_dist";
+	static const char rocket_dx_range[]         = "rocket_dx_range";
+	static const char drop_start_prob[]         = "drop_start_prob";
+	static const char drop_start_speed[]        = "drop_start_speed";
+	static const char drop_min_start_speed[]    = "drop_min_start_speed";
+	static const char drop_max_start_speed[]    = "drop_max_start_speed";
+	static const char drop_min_start_dist[]     = "drop_min_start_dist";
+	static const char drop_max_start_dist[]     = "drop_max_start_dist";
+	static const char drop_var_start_dist[]     = "drop_var_start_dist";
+	static const char drop_dx_range[]           = "drop_dx_range";
+	static const char bady_start_speed[]        = "bady_start_speed";
+	static const char bady_min_start_speed[]    = "bady_min_start_speed";
+	static const char bady_max_start_speed[]    = "bady_max_start_speed";
+	static const char bady_hits[]               = "bady_hits";
+	static const char bady_min_hits[]           = "bady_min_hits";
+	static const char bady_max_hits[]           = "bady_max_hits";
+	static const char bady_dx_range[]           = "bady_dx_range";
+	static const char cumulus_start_speed[]     = "cumulus_start_speed";
 	static const char cumulus_min_start_speed[] = "cumulus_min_start_speed";
 	static const char cumulus_max_start_speed[] = "cumulus_max_start_speed";
-	static const char phaser_dx_range[] = "phaser_dx_range";
+	static const char phaser_dx_range[]         = "phaser_dx_range";
 
 	ostringstream defLevelName;
 	defLevelName << ( _internal_levels ? "Internal level" : "Level" )  << " " << _level;
@@ -4234,19 +4234,19 @@ bool FltWin::validDemoData( unsigned level_/* = 0*/ )
 unsigned FltWin::pickRandomDemoLevel( unsigned minLevel_/* = 0*/, unsigned maxLevel_/* = 0*/ )
 //-------------------------------------------------------------------------------
 {
-//	printf( "pickRandomDemoLevel [%u, %u]", minLevel_, maxLevel_ );
+	// pick a random level between [minLevel, maxLevel]
 	unsigned minLevel( minLevel_ ? minLevel_ : 1 );
 	unsigned maxLevel( maxLevel_ ? maxLevel_ : MAX_LEVEL );
-//	printf( " ==> [%u, %u]\n", minLevel, maxLevel );
 	vector<unsigned> possibleLevels;
 	for ( unsigned level = minLevel; level <= maxLevel; level++ )
 	{
 		if ( validDemoData( level ) )
 		{
-//			printf( "   found valid data for level %u\n", level );
+			// found valid data for level 'level' - store as possible candidate
 			possibleLevels.push_back( level );
 		}
 	}
+	// randomly pick one of the candidates..
 	if ( possibleLevels.size() )
 		return possibleLevels[ Random::pRand() % possibleLevels.size() ];
 	return minLevel;	// return a valid level even if there's no demo data
@@ -4465,7 +4465,7 @@ bool FltWin::loadLevel( unsigned level_, string& levelFileName_ )
 	ifstream f( levelFileName.c_str() );
 	if ( !f.is_open() )
 		return false;
-//	printf( "reading level %d from %s\n", level_, levelFileName.c_str() );
+	// read from level file...
 	unsigned long version;
 	f >> version;
 	f >> T.flags;
@@ -4769,13 +4769,6 @@ static void connectPoints( vector<Point> &terrain_, Terrain& T_, bool edgy_  )
 	static const int minDX = 20;	// 20
 	static const int minDY = 4;	// 4
 	static const int pertPerc = 8;	//	8
-#ifdef DEBUG
-	ofstream ofs ( "terrain.txt" );
-	for ( size_t i = 0; i < terrain_.size(); i++ )
-	{
-		ofs << i << ": " << terrain_[i].x << "/" << terrain_[i].y << endl;
-	}
-#endif
 	bool done( false );
 	while ( !done )
 	{
@@ -4827,13 +4820,6 @@ static void connectPoints( vector<Point> &terrain_, Terrain& T_, bool edgy_  )
 		x = xn;
 		y = yn;
 	}
-#ifdef  DEBUG
-	ofstream ofs1 ( "T.txt" );
-	for ( size_t i = 0; i < T_.size(); i++ )
-	{
-		ofs1 << i << "/ " << T_[i].ground_level() << endl;
-	}
-#endif
 }
 
 void FltWin::create_level()
@@ -4898,9 +4884,6 @@ void FltWin::create_level()
 	int cumulus = level_data[ set ].cumulus;
 	int phasers = level_data[ set ].phasers;
 	vector<Point> terrain;
-
-//	printf( "create level(): _level: %u _level_repeat: %u, sky = %d\n",
-//		_level, _level_repeat, level.sky );
 
 	//
 	// Generate ground
@@ -4989,7 +4972,6 @@ void FltWin::create_level()
 				sky = h() - ground - _spaceship->h() - 20;
 			if ( sky  < -1 || sky >= h() )
 			{
-//				printf( "sky: %d free: %d ground: %d top: %d:\n", sky, free, ground, top );
 				assert( sky  >= -1 && sky < h() );
 			}
 			T[i].sky_level( sky );
@@ -5005,10 +4987,7 @@ void FltWin::create_level()
 	if ( max_dist < _rocket.w() * 3 )
 		max_dist = _rocket.w() * 3;
 
-
-//	printf( "min_dist: %d\n", min_dist );
-//	printf( "max_dist: %d\n", max_dist );
-
+	// create object at x within 'max_dist', at least at 'min_dist'
 	int last_x = Random::Rand() % max_dist + min_dist;
 	int o = 0;
 	int retry = 3;	// retries if no suitable place for object here
@@ -5040,7 +5019,6 @@ void FltWin::create_level()
 					break;
 				}
 			}
-//			printf( "last_x: %d flat: %d\n", last_x, flat );
 			// pick an object if needed
 			if ( !o )
 			{
@@ -5075,7 +5053,7 @@ void FltWin::create_level()
 		}
 		else
 		{
-//			printf( "too low for objects\n" );
+			//	too low for objects
 		}
 
 		if ( !T[last_x].object() && retry )
@@ -5674,13 +5652,7 @@ void FltWin::draw_shaded_landscape( int xoff_, int W_ )
 	T.check();
 	int s = T.max_sky;
 	int g = T.max_ground;
-#ifdef DEBUG
-	if ( h() - g < s )
-	{
-		int overlap = s - h() + g;
-		printf( "ground and sky overlap by %d px!\n", overlap );
-	}
-#endif
+	assert ( h() - g >= s ); // no overlapping ground/sky allowed!
 
 	if ( s > 0 )
 	{
@@ -6189,12 +6161,12 @@ void FltWin::check_drop_hits()
 		{
 			if ( (*d)->x() > _spaceship->cx() + _spaceship->w() / 4 )	// front of ship
 			{
-//				printf( "drop deflected\n" );
+				//	drop deflected
 				(*d)->x( (*d)->x() + 10 );
 				++d;
 				continue;
 			}
-//			printf( "drop fully hit spaceship\n" );
+			//	drop fully hit spaceship
 			delete *d;
 			d = Drops.erase(d);
 			_collision = true;
@@ -6415,18 +6387,12 @@ void FltWin::create_objects()
 			r->dxRange( _rocket_dx_range );
 			Rockets.push_back( r );
 			o &= ~O_ROCKET;
-#ifdef DEBUG
-			printf( "#rockets: %lu\n", (unsigned long)Rockets.size() );
-#endif
 		}
 		if ( o & O_RADAR && i - _radar.w() / 2 < w() )
 		{
 			Radar *r = new Radar( i, h() - T[_xoff + i].ground_level() - _radar.h() / 2 );
 			Radars.push_back( r );
 			o &= ~O_RADAR;
-#ifdef DEBUG
-			printf( "#radars: %lu\n", (unsigned long)Radars.size() );
-#endif
 		}
 		if ( o & O_PHASER && i - _phaser.w() / 2 < w())
 		{
@@ -6434,9 +6400,6 @@ void FltWin::create_objects()
 			p->dxRange( _phaser_dx_range );
 			Phasers.push_back( p );
 			o &= ~O_PHASER;
-#ifdef DEBUG
-			printf( "#phaser: %lu\n", (unsigned long)Phasers.size() );
-#endif
 			Phasers.back()->bg_color( T.bg_color );
 			Phasers.back()->max_height( T[_xoff + i].sky_level() );
 			Phasers.back()->start();
@@ -6454,9 +6417,6 @@ void FltWin::create_objects()
 			d->dxRange( _drop_dx_range );
 			Drops.push_back( d );
 			o &= ~O_DROP;
-#ifdef DEBUG
-			printf( "#drops: %lu\n", (unsigned long)Drops.size() );
-#endif
 		}
 		if ( o & O_BADY && i - _bady.w() / 2 < w() )
 		{
@@ -6471,9 +6431,6 @@ void FltWin::create_objects()
 			b->stamina( rangedRandom( _bady_min_hits, _bady_max_hits ) );
 			b->dxRange( _bady_dx_range );
 			Badies.push_back( b );
-#ifdef DEBUG
-			printf( "#badies: %lu\n", (unsigned long)Badies.size() );
-#endif
 		}
 		if ( o & O_CUMULUS && i - _cumulus.w() / 2 < w() )
 		{
@@ -6486,9 +6443,6 @@ void FltWin::create_objects()
 			if ( turn )
 				c->turn();
 			Cumuluses.push_back( c );
-#ifdef DEBUG
-			printf( "#cumuluses: %lu\n", (unsigned long)Cumuluses.size() );
-#endif
 		}
 		T[_xoff + i].object( o );
 	}
@@ -6525,40 +6479,34 @@ void FltWin::update_badies()
 {
 	for ( size_t i = 0; i < Badies.size(); i++ )
 	{
+		Bady& badie = *Badies[i];
 		if ( !paused() )
-			Badies[i]->x( Badies[i]->x() - _xdelta );
+			badie.x( badie.x() - _xdelta );
 
-		int top = T[_xoff + Badies[i]->x() + Badies[i]->w() / 2].sky_level();
-		int bottom = h() - T[_xoff + Badies[i]->x() + Badies[i]->w() / 2].ground_level();
-		bool gone = Badies[i]->x() < -Badies[i]->w();
+		int top = T[_xoff + badie.x() + badie.w() / 2].sky_level();
+		int bottom = h() - T[_xoff + badie.x() + badie.w() / 2].ground_level();
+		bool gone = badie.x() < -badie.w();
 		if ( gone )
 		{
-#ifdef DEBUG
-			printf( " gone one bady from #%lu\n", (unsigned long)Badies.size() );
-#endif
 			Bady *b = Badies[i];
 			Badies.erase( Badies.begin() + i );
 			delete b;
 			i--;
 			continue;
 		}
-		else
+		else if ( !badie.started() )
 		{
 			// bady fall strategy: always start!
-			if ( !Badies[i]->started() )
-			{
-				int speed = rangedValue( rangedRandom( _bady_min_start_speed, _bady_max_start_speed ), 1, 10 );
-				Badies[i]->start( speed );
-				assert( Badies[i]->started() );
-			}
-			else
-			{
-				if ( ( Badies[i]->y() + Badies[i]->h() >= bottom &&
-				       !Badies[i]->turned() ) ||
-				      ( Badies[i]->y() <= top  &&
-				        Badies[i]->turned() ) )
-					Badies[i]->turn();
-			}
+			int speed = rangedValue( rangedRandom( _bady_min_start_speed, _bady_max_start_speed ), 1, 10 );
+			badie.start( speed );
+			assert( badie.started() );
+		}
+		else if ( ( badie.y() + badie.h() >= bottom &&
+		            !badie.turned() ) ||
+		          ( badie.y() <= top  &&
+		            badie.turned() ) )
+		{
+			badie.turn();
 		}
 	}
 }
@@ -6568,8 +6516,9 @@ void FltWin::update_bombs()
 {
 	for ( size_t i = 0; i < Bombs.size(); i++ )
 	{
-		bool gone = Bombs[i]->y() > h() ||
-		            Bombs[i]->y() + Bombs[i]->h() > h() - T[_xoff + Bombs[i]->x()].ground_level();
+		Bomb& bomb = *Bombs[i];
+		bool gone = bomb.y() > h() ||
+		            bomb.y() + bomb.h() > h() - T[_xoff + bomb.x()].ground_level();
 		if ( gone )
 		{
 			Bomb *b = Bombs[i];
@@ -6585,40 +6534,34 @@ void FltWin::update_cumuluses()
 {
 	for ( size_t i = 0; i < Cumuluses.size(); i++ )
 	{
+		Cumulus& cumulus = *Cumuluses[i];
 		if ( !paused() )
-			Cumuluses[i]->x( Cumuluses[i]->x() - _xdelta );
+			cumulus.x( cumulus.x() - _xdelta );
 
-		int top = T[_xoff + Cumuluses[i]->x() + Cumuluses[i]->w() / 2].sky_level();
-		int bottom = h() - T[_xoff + Cumuluses[i]->x() + Cumuluses[i]->w() / 2].ground_level();
-		bool gone = Cumuluses[i]->x() < -Cumuluses[i]->w();
+		int top = T[_xoff + cumulus.x() + cumulus.w() / 2].sky_level();
+		int bottom = h() - T[_xoff + cumulus.x() + cumulus.w() / 2].ground_level();
+		bool gone = cumulus.x() < -cumulus.w();
 		if ( gone )
 		{
-#ifdef DEBUG
-			printf( " gone one cumulus from #%lu\n", (unsigned long)Cumuluses.size() );
-#endif
 			Cumulus *c = Cumuluses[i];
 			Cumuluses.erase( Cumuluses.begin() + i );
 			delete c;
 			i--;
 			continue;
 		}
-		else
+		else if ( !cumulus.started() )
 		{
 			// cumulus fall strategy: always start!
-			if ( !Cumuluses[i]->started() )
-			{
-				int speed = rangedValue( rangedRandom( _cumulus_min_start_speed, _cumulus_max_start_speed ), 1, 10 );
-				Cumuluses[i]->start( speed );
-				assert( Cumuluses[i]->started() );
-			}
-			else
-			{
-				if ( ( Cumuluses[i]->y() + Cumuluses[i]->h() >= bottom &&
-				       !Cumuluses[i]->turned() ) ||
-				      ( Cumuluses[i]->y() <= top  &&
-				        Cumuluses[i]->turned() ) )
-					Cumuluses[i]->turn();
-			}
+			int speed = rangedValue( rangedRandom( _cumulus_min_start_speed, _cumulus_max_start_speed ), 1, 10 );
+			cumulus.start( speed );
+			assert( cumulus.started() );
+		}
+		else if ( ( cumulus.y() + cumulus.h() >= bottom &&
+		            !cumulus.turned() ) ||
+		          ( cumulus.y() <= top  &&
+		            cumulus.turned() ) )
+		{
+			cumulus.turn();
 		}
 	}
 }
@@ -6628,17 +6571,15 @@ void FltWin::update_drops()
 {
 	for ( size_t i = 0; i < Drops.size(); i++ )
 	{
+		Drop& drop = *Drops[i];
 		if ( !paused() )
-			Drops[i]->x( Drops[i]->x() - _xdelta );
+			drop.x( drop.x() - _xdelta );
 
-		int bottom = h() - T[_xoff + Drops[i]->x()].ground_level();
-		if ( 0 == bottom  ) bottom += Drops[i]->h();	// glide out completely if no ground
-		bool gone = Drops[i]->y() + Drops[i]->h() / 2 > bottom || Drops[i]->x() < -Drops[i]->w();
+		int bottom = h() - T[_xoff + drop.x()].ground_level();
+		if ( 0 == bottom  ) bottom += drop.h();	// glide out completely if no ground
+		bool gone = drop.y() + drop.h() / 2 > bottom || drop.x() < -drop.w();
 		if ( gone )
 		{
-#ifdef DEBUG
-			printf( " gone one drop from #%lu\n", (unsigned long)Drops.size() );
-#endif
 			Drop *d = Drops[i];
 			Drops.erase( Drops.begin() + i );
 			if ( d->x() + d->w() > 0 && bottom )
@@ -6654,26 +6595,23 @@ void FltWin::update_drops()
 		else
 		{
 			// drop fall strategy...
-			if ( Drops[i]->nostart() ) continue;
-			if ( Drops[i]->dropped() ) continue;
+			if ( drop.nostart() ) continue;
+			if ( drop.dropped() ) continue;
 			// if user has completed all 10 levels and revers, objects start later (which is harder)...
-			int dist = ( user_completed() / 2 ) ? Drops[i]->cx() - _spaceship->cx() // center distance S<->R
-			                                    : Drops[i]->x() - _spaceship->x();
-			int start_dist = (int)Drops[i]->data1();	// 400 - _level * 20 - Random::Rand() % 200;
+			int dist = ( user_completed() / 2 ) ? drop.cx() - _spaceship->cx() // center distance S<->R
+			                                    : drop.x() - _spaceship->x();
+			int start_dist = (int)drop.data1();	// 400 - _level * 20 - Random::Rand() % 200;
 			if ( dist <= 0 || dist >= start_dist ) continue;
-//			printf( "start drop #%ld, start_dist=%d?\n", i, start_dist );
-			// really start drop?
+			// start drop with probability drop_start_prob/start_dist
 			unsigned drop_prob = _drop_start_prob;
-//			printf( "drop_prob: %u\n", drop_prob );
 			if ( Random::Rand() % 100 < drop_prob )
 			{
 				int speed = rangedValue( rangedRandom( _drop_min_start_speed, _drop_max_start_speed ), 1, 10 );
-//				printf( "   drop with speed %d!\n", speed );
-				Drops[i]->start( speed );
-				assert( Drops[i]->dropped() );
+				drop.start( speed );
+				assert( drop.dropped() );
 				continue;
 			}
-			Drops[i]->nostart( true );
+			drop.nostart( true );
 		}
 	}
 }
@@ -6683,9 +6621,10 @@ void FltWin::update_explosions()
 {
 	for ( size_t i = 0; i < Explosions.size(); i++ )
 	{
+		Explosion& explosion = *Explosions[i];
 		if ( !paused() )
-			Explosions[i]->x( Explosions[i]->x() - _xdelta );
-		if ( Explosions[i]->done() )
+			explosion.x( explosion.x() - _xdelta );
+		if ( explosion.done() )
 		{
 			Explosion *e = Explosions[i];
 			Explosions.erase( Explosions.begin() + i );
@@ -6701,10 +6640,11 @@ void FltWin::update_missiles()
 {
 	for ( size_t i = 0; i < Missiles.size(); i++ )
 	{
-		bool gone = Missiles[i]->exhausted() ||
-		            Missiles[i]->x() > w() ||
-		            Missiles[i]->y() > h() - T[_xoff + Missiles[i]->x() + Missiles[i]->w()].ground_level() ||
-		            Missiles[i]->y() < T[_xoff + Missiles[i]->x() + Missiles[i]->w()].sky_level();
+		Missile& missile = *Missiles[i];
+		bool gone = missile.exhausted() ||
+		            missile.x() > w() ||
+		            missile.y() > h() - T[_xoff + missile.x() + missile.w()].ground_level() ||
+		            missile.y() < T[_xoff + missile.x() + missile.w()].sky_level();
 		if ( gone )
 		{
 			Missile *m = Missiles[i];
@@ -6720,15 +6660,13 @@ void FltWin::update_phasers()
 {
 	for ( size_t i = 0; i < Phasers.size(); i++ )
 	{
+		Phaser& phaser = *Phasers[i];
 		if ( !paused() )
-			Phasers[i]->x( Phasers[i]->x() - _xdelta );
+			phaser.x( phaser.x() - _xdelta );
 
-		bool gone = Phasers[i]->exploded() || Phasers[i]->x() < -Phasers[i]->w();
+		bool gone = phaser.exploded() || phaser.x() < -phaser.w();
 		if ( gone )
 		{
-#ifdef DEBUG
-			printf( " gone one phaser from #%lu\n", (unsigned long)Phasers.size() );
-#endif
 			Phaser *p = Phasers[i];
 			Phasers.erase( Phasers.begin() + i );
 			delete p;
@@ -6743,15 +6681,13 @@ void FltWin::update_radars()
 {
 	for ( size_t i = 0; i < Radars.size(); i++ )
 	{
+		Radar& radar = *Radars[i];
 		if ( !paused() )
-			Radars[i]->x( Radars[i]->x() - _xdelta );
+			radar.x( radar.x() - _xdelta );
 
-		bool gone = Radars[i]->exploded() || Radars[i]->x() < -Radars[i]->w();
+		bool gone = radar.exploded() || radar.x() < -radar.w();
 		if ( gone )
 		{
-#ifdef DEBUG
-			printf( " gone one radar from #%lu\n", (unsigned long)Radars.size() );
-#endif
 			Radar *r = Radars[i];
 			Radars.erase( Radars.begin() + i );
 			delete r;
@@ -6766,55 +6702,51 @@ void FltWin::update_rockets()
 {
 	for ( size_t i = 0; i < Rockets.size(); i++ )
 	{
+		Rocket& rocket = *Rockets[i];
 		if ( !paused() )
-			Rockets[i]->x( Rockets[i]->x() - _xdelta );
+			rocket.x( rocket.x() - _xdelta );
 
-		int top = T[_xoff + Rockets[i]->x()].sky_level();
-		if ( top < 0 ) top -= Rockets[i]->h();	// glide out completely if no sky ( <= -1 )
-		bool gone = Rockets[i]->exploded() || Rockets[i]->x() < -Rockets[i]->w();
+		int top = T[_xoff + rocket.x()].sky_level();
+		if ( top < 0 ) top -= rocket.h();	// glide out completely if no sky ( <= -1 )
+		bool gone = rocket.exploded() || rocket.x() < -rocket.w();
 		// NOTE: when there's no sky, explosion is not visible, but still occurs,
 		//       so checking exploded() suffices as end state for all rockets.
 		if ( gone )
 		{
-#ifdef DEBUG
-			printf( " gone one rocket from #%lu\n", (unsigned long)Rockets.size() );
-#endif
 			Rocket *r = Rockets[i];
 			Rockets.erase( Rockets.begin() + i );
 			delete r;
 			i--;
 			continue;
 		}
-		else if ( Rockets[i]->y() <= top && !Rockets[i]->exploding() )
+		else if ( rocket.y() <= top && !rocket.exploding() )
 		{
 			if ( _completed && !reversLevel() )
 			{
 				static const Fl_Color mega_explosion_colors[] = { FL_YELLOW, FL_WHITE, FL_RED, FL_GREEN };
-				Rockets[i]->explode();
-				create_explosion( Rockets[i]->cx(), Rockets[i]->cy(),
+				rocket.explode();
+				create_explosion( rocket.cx(), rocket.cy(),
 					Explosion::MC_FALLOUT_STRIKE, 1.2,
 				   mega_explosion_colors, nbrOfItems( mega_explosion_colors ) );
 			}
 			else
-				Rockets[i]->crash();
+				rocket.crash();
 		}
-		else if ( !Rockets[i]->exploding() )
+		else if ( !rocket.exploding() )
 		{
 			// rocket fire strategy...
-			if ( Rockets[i]->nostart() ) continue;
-			if ( Rockets[i]->lifted() ) continue;
+			if ( rocket.nostart() ) continue;
+			if ( rocket.lifted() ) continue;
 			// if user has completed all 10 levels and revers, objects start later (which is harder)...
-			int dist = ( user_completed() / 2 ) ? Rockets[i]->cx() - _spaceship->cx() // center distance S<->R
-			                                    : Rockets[i]->x() - _spaceship->x();
-			int start_dist = (int)Rockets[i]->data1();	// 400 - _level * 20 - Random::Rand() % 200;
+			int dist = ( user_completed() / 2 ) ? rocket.cx() - _spaceship->cx() // center distance S<->R
+			                                    : rocket.x() - _spaceship->x();
+			int start_dist = (int)rocket.data1();	// 400 - _level * 20 - Random::Rand() % 200;
 			if ( dist <= 0 || dist >= start_dist ) continue;
-//			printf( "start rocket #%ld, start_dist=%d?\n", i, start_dist );
-			// really start rocket?
+			// start rocket with probability rocket_start_prob/start_dist
 			unsigned lift_prob = _rocket_start_prob;
-//			printf( "lift prob: %u\n", lift_prob );
 			// if a radar is within start_dist then the
 			// probability gets much higher
-			int x = Rockets[i]->x();
+			int x = rocket.x();
 			for ( size_t ra = 0; ra < Radars.size(); ra++ )
 			{
 				if ( Radars[ra]->defunct() ) continue;
@@ -6822,18 +6754,16 @@ void FltWin::update_rockets()
 				if ( Radars[ra]->x() <= x - start_dist ) continue;
 				// there's a working radar within start_dist
 				lift_prob = _rocket_radar_start_prob;
-//				printf( "raise lift_prob to %f\n", lift_prob );
 				break;
 			}
 			if ( Random::Rand() % 100 < lift_prob )
 			{
 				int speed = rangedValue( rangedRandom( _rocket_min_start_speed, _rocket_max_start_speed ), 1, 10 );
-//				printf( "   lift with speed %d!\n", speed );
-				Rockets[i]->start( speed );
-				assert( Rockets[i]->lifted() );
+				rocket.start( speed );
+				assert( rocket.lifted() );
 				continue;
 			}
-			Rockets[i]->nostart( true );
+			rocket.nostart( true );
 		}
 	}
 }
@@ -7257,7 +7187,6 @@ void FltWin::cb_update( void *d_ )
 void FltWin::onActionKey()
 //-------------------------------------------------------------------------------
 {
-//	printf( "onActionKey\n" );
 	Fl::remove_timeout( cb_demo, this );
 	Fl::remove_timeout( cb_paused, this );
 	if ( _state == DEMO )
@@ -7274,14 +7203,11 @@ void FltWin::onActionKey()
 			_cfg->removeUser( _user.name );	// remove default user
 		if ( _user.name == DEFAULT_USER )
 			_user.name = _input;
-//		printf( "_user.name: '%s'\n", _user.name.c_str() );
-//		printf( "_input: '%s'\n", _input.c_str() );
-//		printf( "_score: '%u'\n", _user.score );
 		_cfg->writeUser( _user );
 		_cfg->flush();
 		_hiscore = _cfg->hiscore();
 		_hiscore_user = _cfg->best().name;
-//		printf( "score saved.\n" );
+		// score saved.
 	}
 
 	changeState();
@@ -7327,7 +7253,6 @@ void FltWin::onGotFocus()
 	if ( !_focus_out )
 		return;
 
-//	printf(" onGotFocus()\n" );
 	if ( _state == TITLE || _state == DEMO )
 	{
 		setPaused( false );
@@ -7350,7 +7275,6 @@ void FltWin::onLostFocus()
 	if ( !_focus_out )
 		return;
 
-//	printf(" onLostFocus()\n" );
 	_left = _right = _up = _down = false;	// invalidate keys
 	Fl::focus( 0 );
 	setPaused( true );	// (this also stops bg sound)
@@ -7364,7 +7288,7 @@ void FltWin::onLostFocus()
 void FltWin::onDemo()
 //-------------------------------------------------------------------------------
 {
-//	printf( "starting demo...\n" );
+	// starting demo...
 	_state = DEMO;
 	onNextScreen( true );
 }
@@ -7514,26 +7438,8 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 		if ( _state == LEVEL )
 			setBgSoundFile();
 	}
-	if ( _gimmicks )
-	{
-		if ( !_zoomoutShip || _zoomoutShip->src().name() != _spaceship->flt_image().name() )
-		{
-			delete _zoomoutShip;
-			_zoomoutShip = new ImageAnimation( _spaceship->flt_image(), 1.0,
-			                                   _effects > 1 && FPS >= 100 );
-			_zoomoutShip->setSizeMoveFromTo(
-			                 ImageAnimation::Rect( SCALE_X * 60, SCALE_Y * 40, w() - SCALE_X * 120, h() - SCALE_Y * 150 ),
-			                 ImageAnimation::Rect( _spaceship->x(), _spaceship->y(),
-			                                       _spaceship->w(), _spaceship->h() ) );
-		}
-		else
-		{
-			// update only destination position (keep images)
-			_zoomoutShip->stop();
-			_zoomoutShip->setMoveTo( _spaceship->x(), _spaceship->y() );
-		}
-		_zoomoutShip->start();
-	}
+	// start ship animation titlescreen->playscreen effect
+	zoomoutShip();
 
 	if ( Fl::focus() == this )
 		setPaused( false );
@@ -7544,49 +7450,89 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 	}
 }
 
+bool FltWin::zoominShip( bool updateOrigin_ )
+//-------------------------------------------------------------------------------
+{
+	if ( !_gimmicks )
+		return false;
+
+	if ( !_spaceship )
+		create_spaceship();
+
+	// start ship movin animation?
+	if ( _zoominShip && _zoominShip->src().name() == _spaceship->flt_image().name() )
+		if ( !_zoominShip->done() )
+			return false;
+
+	// start new animation
+	int x_origin = _zoominShip ? Random::pRand() % w() : _spaceship->x();
+	int y_origin = _zoominShip ? Random::pRand() % h() / 2 + h() / 2 : _spaceship->y();
+	if ( !_zoominShip || _zoominShip->src().name() != _spaceship->flt_image().name() )
+	{
+		// ship changed, need to re-create animation from new ship image
+		delete _zoominShip;
+
+		_zoominShip = new ImageAnimation( _spaceship->flt_image(), 1.0,
+	                                     _effects > 1 && FPS >= 100 );
+		_zoominShip->setSizeMoveFromTo(
+		                 ImageAnimation::Rect( x_origin, y_origin,
+		                                       _spaceship->w(), _spaceship->h() ),
+		                 ImageAnimation::Rect( SCALE_X * 60, SCALE_Y * 40, w() - SCALE_X * 120, h() - SCALE_Y * 150 ) );
+		_zoominShip->start();
+	}
+	else if ( updateOrigin_ )
+	{
+		// update only start position (keep images)
+		_zoominShip->stop();
+		_zoominShip->setMoveFrom( x_origin, y_origin );
+		_zoominShip->start();
+	}
+	return true;
+}
+
+bool FltWin::zoomoutShip()
+//-------------------------------------------------------------------------------
+{
+	if ( !_gimmicks )
+		return false;
+
+	if ( !_zoomoutShip || _zoomoutShip->src().name() != _spaceship->flt_image().name() )
+	{
+		// ship changed, need to re-create animation from new ship image
+		delete _zoomoutShip;
+		_zoomoutShip = new ImageAnimation( _spaceship->flt_image(), 1.0,
+		                                   _effects > 1 && FPS >= 100 );
+		_zoomoutShip->setSizeMoveFromTo(
+		                 ImageAnimation::Rect( SCALE_X * 60, SCALE_Y * 40, w() - SCALE_X * 120, h() - SCALE_Y * 150 ),
+		                 ImageAnimation::Rect( _spaceship->x(), _spaceship->y(),
+		                                       _spaceship->w(), _spaceship->h() ) );
+	}
+	else
+	{
+		// update only destination position (keep images)
+		_zoomoutShip->stop();
+		_zoomoutShip->setMoveTo( _spaceship->x(), _spaceship->y() );
+	}
+	_zoomoutShip->start();
+	return true;
+}
+
 void FltWin::onTitleScreen()
 //-------------------------------------------------------------------------------
 {
 	if ( _trainMode )
 		return;
-	bool zoomin = last_state() != TITLE && last_state() != NO_STATE;
+	bool enterTitle = last_state() != TITLE && last_state() != NO_STATE;
 	_state = TITLE;
 	_frame = 0;
 	Fl::remove_timeout( cb_demo, this );
 	if ( !G_paused && !_no_demo && Fl::focus() == this )
 	{
+		// set timeout for demo start
 		Fl::add_timeout( 20.0, cb_demo, this );
-		if ( _gimmicks )
-		{
-			// start ship movin animation?
-			if ( !_spaceship )
-				create_spaceship();
-			if ( _zoominShip && _zoominShip->src().name() == _spaceship->flt_image().name() )
-				if ( !_zoominShip->done() )
-					return;
 
-			int x_origin = _zoominShip ? Random::pRand() % w() : _spaceship->x();
-			int y_origin = _zoominShip ? Random::pRand() % h() / 2 + h() / 2 : _spaceship->y();
-			if ( !_zoominShip || _zoominShip->src().name() != _spaceship->flt_image().name() )
-			{
-				delete _zoominShip;
-
-				_zoominShip = new ImageAnimation( _spaceship->flt_image(), 1.0,
-			                                     _effects > 1 && FPS >= 100 );
-				_zoominShip->setSizeMoveFromTo(
-				                 ImageAnimation::Rect( x_origin, y_origin,
-				                                       _spaceship->w(), _spaceship->h() ),
-				                 ImageAnimation::Rect( SCALE_X * 60, SCALE_Y * 40, w() - SCALE_X * 120, h() - SCALE_Y * 150 ) );
-				_zoominShip->start();
-			}
-			else if ( zoomin )
-			{
-				// update only destination position (keep images)
-				_zoominShip->stop();
-				_zoominShip->setMoveFrom( x_origin, y_origin );
-				_zoominShip->start();
-			}
-		}
+		// start ship animation playscreen->titlescreen effect
+		zoominShip( enterTitle );
 	}
 }
 
@@ -7934,7 +7880,7 @@ int FltWin::handle( int e_ )
 
 	int c = Fl::event_key();
 
-//	printf( "event %d: key = 0x%x\n", e_, c );
+	//	handle event 'e' / key 'c'
 	if ( ( e_ == FL_KEYDOWN || e_ == FL_KEYUP ) && c == FL_Escape )
 	{
 		// get rid of escape key closing window (except in boss mode and title screen)
@@ -8104,7 +8050,7 @@ int FltWin::run()
 
 	if ( _USE_FLTK_RUN )
 	{
-//		printf( "Using Fl::run()\n" );
+		//	using Fl::run()
 		Fl::add_timeout( FRAMES, cb_update, this );
 		return Fl::run();
 	}
