@@ -5652,7 +5652,6 @@ void FltWin::draw_shaded_landscape( int xoff_, int W_ )
 	T.check();
 	int s = T.max_sky;
 	int g = T.max_ground;
-	assert ( h() - g >= s ); // no overlapping ground/sky allowed!
 
 	if ( s > 0 )
 	{
