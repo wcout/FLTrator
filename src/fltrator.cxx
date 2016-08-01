@@ -7609,7 +7609,8 @@ void FltWin::onUpdateDemo()
 bool FltWin::correctDX()
 //-------------------------------------------------------------------------------
 {
-	_DDX = ( SCALE_X * ( (double)_waiter.elapsedMilliSeconds() + 2 ) / 5 ) ;
+	// intended scroll rate: 800px in 4s => 0.2px / ms
+	_DDX = SCALE_X * (double)_waiter.elapsedMilliSeconds() * 0.2;
 	_DX = ceil( _DDX );
 #if 0
 	// set limit
