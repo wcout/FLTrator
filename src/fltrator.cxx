@@ -6053,7 +6053,12 @@ void FltWin::do_draw()
 		if ( !matte )
 			matte = new Fl_RGB_Image( screen, w(), h(), 4 );
 
-		double total_frames = _TO * FPS;
+		// determine real fps, in order to calculate total_frames
+		// (important when run with speed correction)
+		static double fps = FPS;
+		if ( _alpha_matte < 10 )
+			fps = ( (double)w() / _DDX ) / 4;
+		double total_frames = _TO * fps;
 		double perc = (double)_alpha_matte / total_frames;
 		int alpha = perc * 256;
 		if ( alpha > 255 )
