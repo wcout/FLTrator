@@ -7631,13 +7631,7 @@ void FltWin::onUpdate()
 {
 	if ( _mouseMode )
 	{
-		static int cnt = 0 ;
-		cnt += _DX;
-		if ( cnt >= 10 )
-		{
-			cnt = 0;
-			handle( TIMER_CALLBACK );
-		}
+		handle( TIMER_CALLBACK );
 	}
 
 	if ( _state == TITLE || _state == SCORE || G_paused )
@@ -7765,32 +7759,38 @@ int FltWin::handle( int e_ )
 		static int x0 = 0;
 		static int y0 = 0;
 		static bool dragging = false;
-		static bool maybe_missile = false;
-		static bool bomb = false;
-		static bool missile = false;
+		static int pushed = 0;
 		static int wheel = 0;
+		static bool bomb = false;
 
 		int x = Fl::event_x();
 		int y = Fl::event_y();
 		switch ( e_ )
 		{
 			case TIMER_CALLBACK:
-				if ( missile )
-					fireMissile();
-				if ( bomb )
+				// trigger bomb with longer, non-dragging button press
+				if ( pushed )
+					pushed += _DX;
+				if ( bomb || ( pushed > 40 * SCALE_X && !dragging ) )
+				{
 					dropBomb();
+					pushed = 0;
+				}
 				if ( wheel )
 				{
 					wheel--;
 					if ( !wheel )
-						{ _up = false; _down = false; }
+					{
+						_up = _down = false;
+					}
 				}
-				missile = false;
 				bomb = false;
 				return 1;
 				break;
 			case FL_LEAVE:
 				dragging = false;
+				pushed = 0;
+				bomb = false;
 				_left = _right = _up = _down = false;
 				break;
 			case FL_DRAG:
@@ -7802,25 +7802,45 @@ int FltWin::handle( int e_ )
 				dragging = true;
 				if ( dx == 0 && dy == 0 )
 					break;
-				missile = false;
-				maybe_missile = false;
-				bomb = false;
+
+				// try smoother x/y movement if one direction dominates...
 				if ( dy && abs( dx ) >= abs( dy ) * 4 )
-					{ dy = 0; }
+				{
+					dy = 0;
+				}
 				else if ( dx && abs( dy ) >= abs( dx ) * 4 )
-					{ dx = 0; }
+				{
+					dx = 0;
+				}
+				// determine movement of ship
 				if ( dx < 0 )
-					{ _left = true; _right = false; }
+				{
+					_left = true;
+					_right = false;
+				}
 				if ( dx > 0 )
-					{ _right = true; _left = false; }
+				{
+					_right = true;
+					_left = false;
+				}
 				if ( dy < 0 )
-					{ _up = true; _down = false; }
+				{
+					_up = true;
+					_down = false;
+				}
 				if ( dy > 0 )
-					{ _down = true; _up = false; }
+				{
+					_down = true;
+					_up = false;
+				}
 				if ( dx == 0 )
-					{ _left = _right = false; }
+				{
+					_left = _right = false;
+				}
 				if ( dy == 0 )
-					{ _up = _down = false; }
+				{
+					_up = _down = false;
+				}
 				x0 = x;
 				y0 = y;
 				break;
@@ -7833,26 +7853,28 @@ int FltWin::handle( int e_ )
 				}
 				wheel++;
 				if ( Fl::event_dy() < 0 )
-					{ _up = true; _down = false; }
+				{
+					_up = true;
+					_down = false;
+				}
 				else if ( Fl::event_dy() > 0 )
-					{ _down = true; _up = false; }
+				{
+					_down = true;
+					_up = false;
+				}
 				break;
 			case FL_PUSH:
 				setPaused( false );
 				dragging = false;
+				pushed = 1;
+				bomb = Fl::event_button3();	// always trigger bomb with right mouse
 				x0 = x;
 				y0 = y;
-				maybe_missile = Fl::event_button1() || ( x > w() - w() / 4 );
-				bomb = Fl::event_button3() || ( x < w() / 4 && y > h() / 4 );
-				if ( bomb )
-					maybe_missile = false;
-				if ( !bomb )
-					_left = _right = _up = _down = false;
 				break;
 			case FL_RELEASE:
 				if ( _state == TITLE || _state == SCORE || _state == DEMO || _done )
 				{
-					if ( x < 40 && y < 40 )
+					if ( x < 40 * SCALE_X && y < 40 * SCALE_Y )
 					{
 						hide();
 						return 1;
@@ -7865,14 +7887,15 @@ int FltWin::handle( int e_ )
 					}
 					break;
 				}
-				if ( !dragging )
-					missile = maybe_missile;
-				if ( maybe_missile)	//???
+				// trigger missile with short non-dragging button press
+				if ( pushed && !dragging )
+				{
 					_speed_right = 0;	//???
-				if ( !bomb )
-					_left = _right = _up = _down = false;
+					fireMissile();
+				}
+				_left = _right = _up = _down = false;
 				dragging = false;
-				maybe_missile = false;
+				pushed = 0;
 				bomb = false;
 				break;
 		}
