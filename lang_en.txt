@@ -9,7 +9,7 @@ mission_part=** WELL DONE! **
 
 space_to_restart=** hit space to restart **
 
-space_to_start=** hit space to start**
+space_to_start=** hit space to start **
 
 space_to_go_back=** hit space to go back **
 
@@ -49,11 +49,11 @@ bonus=Bonus: %u
 
 hiscores=Hiscores
 
-up_down=%c/%c	up/down
-left_right=%c/%c	left/right
-fire_missile=%c	fire missile
-drop_bomb=%c	drop bomb
-hold_game=7-9	hold game
+key_help=%c/%c	up/down\
+         %c/%c	left/right\
+         %c	fire missile\
+         space	drop bomb\
+         7-9	hold game
 
 title_help=%c/%c: toggle user     %c/%c: toggle ship     s: %s sound     b: %s music
 

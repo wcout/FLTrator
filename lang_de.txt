@@ -51,11 +51,11 @@ bonus=Bonus: %u
 
 hiscores=Bestenliste
 
-up_down=%c/%c	rauf/runter
-left_right=%c/%c	links/rechts
-fire_missile=%c	Laser feuern
-drop_bomb=%c	Bombe werfen
-hold_game=7-9	Spiel pausieren
+key_help=%c/%c	rauf/runter\
+         %c/%c	links/rechts\
+         %c	Laser feuern\
+         Leertaste	Bombe werfen\
+         7-9	Spiel pausieren
 
 title_help=%c/%c: User wechseln     %c/%c: Schiff wechseln     s: Sound %s     b: Musik %s
 

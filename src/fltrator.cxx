@@ -3125,6 +3125,7 @@ private:
 	int drawText( int x_, int y_, const char *text_, size_t sz_, Fl_Color c_, ... ) const;
 	int drawTextBlock( int x_, int y_, const char *text_, size_t sz_, int line_height_, Fl_Color c_, ... ) const;
 	int drawTable( int w_, int y_, const char *text_, size_t sz_, Fl_Color c_, ... ) const;
+	int drawTableBlock( int w_, int y_, const char *text_, size_t sz_, int line_height_, Fl_Color c_, ... ) const;
 	void draw_score();
 	void draw_scores();
 	void draw_title();
@@ -5297,6 +5298,40 @@ int FltWin::drawTable( int w_, int y_, const char *text_, size_t sz_, Fl_Color c
 	return x;
 }
 
+int FltWin::drawTableBlock( int w_, int y_, const char *text_, size_t sz_,
+                            int line_height_, Fl_Color c_, ... ) const
+//-------------------------------------------------------------------------------
+{
+	char buf[1024];
+	va_list argp;
+	va_start( argp, c_ );
+	vsnprintf( buf, sizeof( buf ), text_, argp );
+	va_end( argp );
+
+	int y = y_;
+	int x = -1;
+	char *text = buf;
+	while ( text )
+	{
+		char *nl = strchr( text, '\r' );
+		if ( !nl )
+			nl = strchr( text, '\n' );
+		if ( nl )
+			*nl = 0;
+		x = drawTable( w_, y, text, sz_, c_ );
+		y += line_height_;
+		if ( nl )
+		{
+			text = nl + 1;
+			if ( *nl == '\r' && *text == '\n' )
+				text++;
+		}
+		else
+			text = 0;
+	}
+	return x;
+}
+
 void FltWin::draw_score()
 //-------------------------------------------------------------------------------
 {
@@ -5564,7 +5599,7 @@ void FltWin::draw_title()
 		size_t n = _cfg->non_zero_scores();
 		if ( n > 6 )
 			n = 6;
-		int y = 330 - n / 2 * 40;
+		int y = 335 - n / 2 * 42;
 		drawText( -1, y, _texts.value( "hiscores", 20, "Hiscores" ), 35, FL_GREEN );
 		y += 50;
 		for ( size_t i = 0; i < n; i++ )
@@ -5573,7 +5608,7 @@ void FltWin::draw_title()
 			drawTable( 360, y, "%05u\t%s", 30,
 			              _cfg->users()[i].completed ? FL_YELLOW : FL_WHITE,
 			              _cfg->users()[i].score, name.empty() ? DEFAULT_USER : name.c_str() );
-			y += 40;
+			y += 42;
 		}
 	}
 	else
@@ -5584,15 +5619,20 @@ void FltWin::draw_title()
 		else if ( bgImage )
 			bgImage->draw( SCALE_X * 60, SCALE_Y * 40 );
 		fl_pop_clip();
-		int x = drawText( -1, 210, "%s (%u)", 30, _user.completed ? FL_YELLOW : FL_GREEN,
+		int x = drawText( -1, 220, "%s (%u)", 30, _user.completed ? FL_YELLOW : FL_GREEN,
 		          _user.name.empty() ? "N.N." : _user.name.c_str(), _first_level );
 		if ( reversLevel() )	// draw a down-arrow to denote going reverse levels
 			fl_draw_symbol( "@+22->", SCALE_X * ( x - 20 ), SCALE_Y * (210 - 15), SCALE_X * 20, SCALE_Y * 30, FL_RED );
-		drawTable( 360, 260, _texts.value( "up_down", 20, "%c/%c\tup/down" ), 30, FL_WHITE, KEY_UP, KEY_DOWN );
-		drawTable( 360, 310, _texts.value( "left_right", 20, "%c/%c\tleft/right" ), 30, FL_WHITE, KEY_LEFT, KEY_RIGHT );
-		drawTable( 360, 350, _texts.value( "fire_missile", 20, "%c\tfire missile" ), 30, FL_WHITE, KEY_RIGHT );
-		drawTable( 360, 390, _texts.value( "drop_bomb", 20, "space\tdrop bomb" ), 30, FL_WHITE );
-		drawTable( 360, 430, _texts.value( "hold_game", 20, "7-9\thold game" ), 30, FL_WHITE );
+		drawTableBlock( 390, 270, _texts.value( "key_help", 100,
+			"%c/%c\tup/down\n"
+		   "%c/%c\tleft/right\n"
+			"%c\tfire missile\n"
+			"space\tdrop bomb\n"
+			"7-9\thold game" ),
+		   30, 42, FL_WHITE,
+			KEY_UP, KEY_DOWN,
+			KEY_LEFT, KEY_RIGHT,
+			KEY_RIGHT );
 	}
 	if ( G_paused )
 		drawText( -1, -50, _texts.value( "paused_title", 20, "** PAUSED **" ), 40, FL_YELLOW );
@@ -7781,15 +7821,21 @@ int FltWin::handle( int e_ )
 					dropBomb();
 					pushed = 0;
 				}
-				if ( wheel )
+				bomb = false;
+				static int cnt = 0;
+				cnt += _DX;
+				if ( cnt >= 10 )
 				{
-					wheel--;
-					if ( !wheel )
+					cnt = 0;
+					if ( wheel )
 					{
-						_up = _down = false;
+						wheel--;
+						if ( !wheel )
+						{
+							_up = _down = false;
+						}
 					}
 				}
-				bomb = false;
 				return 1;
 				break;
 			case FL_LEAVE:
