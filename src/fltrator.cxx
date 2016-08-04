@@ -3601,7 +3601,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 				_bady = *new Bady();
 				_cumulus = *new Cumulus();
 				size( W, H );
-				setup( -1, false, false );
+				setup( FPS, false, false );
 			}
 		}
 #endif
