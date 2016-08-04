@@ -7917,7 +7917,7 @@ int FltWin::handle( int e_ )
 			case FL_PUSH:
 				setPaused( false );
 				dragging = false;
-				pushed = 1;
+				pushed = _state == LEVEL;
 				bomb = Fl::event_button3();	// always trigger bomb with right mouse
 				x0 = x;
 				y0 = y;
