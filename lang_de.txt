@@ -57,6 +57,10 @@ key_help=%c/%c	rauf/runter\
          Leertaste	Bombe werfen\
          7-9	Spiel pausieren
 
+mouse_mode=Mausmodus
+
+joystick_mode=Joystick-Modus
+
 title_help=%c/%c: User wechseln     %c/%c: Schiff wechseln     s: Sound %s     b: Musik %s
 
 disable=ausschalten

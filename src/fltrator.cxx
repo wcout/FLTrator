@@ -3756,6 +3756,16 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 #endif
 		exit( EXIT_SUCCESS );
 	}
+	// Issue warnings for non sensible option combinations
+	if ( _joyMode && _mouseMode )
+	{
+		cerr << "Warning: Both joystick AND mouse control enabled." << endl;
+	}
+	if ( _mouseMode && _hide_cursor)
+	{
+		cerr << "Warning: Both mouse control and hide cursor enabled." << endl;
+	}
+
 	if ( _joyMode )
 		_joystick.attach();
 
@@ -5633,6 +5643,10 @@ void FltWin::draw_title()
 			KEY_UP, KEY_DOWN,
 			KEY_LEFT, KEY_RIGHT,
 			KEY_RIGHT );
+		if ( _mouseMode || _joyMode )
+			drawText( -1, 500, _joyMode ? _texts.value( "joystick_mode", 30, "joystick mode" ) :
+			                              _texts.value( "mouse_mode", 30, "mouse mode" ),
+			          12, FL_YELLOW );
 	}
 	if ( G_paused )
 		drawText( -1, -50, _texts.value( "paused_title", 20, "** PAUSED **" ), 40, FL_YELLOW );

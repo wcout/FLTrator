@@ -55,6 +55,10 @@ key_help=%c/%c	up/down\
          space	drop bomb\
          7-9	hold game
 
+mouse_mode=mouse mode
+
+joystick_mode=joystick mode
+
 title_help=%c/%c: toggle user     %c/%c: toggle ship     s: %s sound     b: %s music
 
 disable=disable
