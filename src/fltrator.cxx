@@ -8220,10 +8220,26 @@ string FltWin::firstTimeSetup()
 			                            "NOTE: You can always toggle fullscreen mode\n"
 			                            "on game title screen with F10.",
 				NULL, "NO", "YES" );
-			if ( fullscreen == 2 )
+			if ( fullscreen == 2 )	// YES
+			{
 				cmd += " -f";
-			else if ( speed == 2 )
+				if ( speed == 2 )	// very fast computer
+					cmd += " -Wf -R50";
+			}
+			else if ( speed == 2 )	// very fast computer
 				cmd += " -W -R50";
+
+			if ( speed == 2 )	// very fast computer
+			{
+				int all_effects = fl_choice( "Turn on ALL effects?\n\n",
+					NULL, "NO", "YES" );
+				if ( all_effects == 2 ) // YES
+				{
+					size_t pos = cmd.find( "-FF" );
+					if ( pos != string::npos )
+						cmd.insert( pos + 1, "F" );
+				}
+			}
 		}
 
 		trim( cmd );
