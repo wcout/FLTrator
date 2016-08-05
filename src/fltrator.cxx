@@ -706,9 +706,11 @@ public:
 	unsigned hiscore() const { return best().score; }
 	const vector<User>& users() const { return _users; }
 	const string& last_user() const { return _last_user; }
+	const string& pathName() const { return _pathName; }
 private:
 	vector<User> _users;
 	string _last_user;
+	string _pathName;
 };
 typedef Cfg::User User;
 
@@ -719,6 +721,12 @@ Cfg::Cfg( const char *vendor_, const char *appl_ ) :
 	Inherited( USER, vendor_, appl_ )
 //-------------------------------------------------------------------------------
 {
+	char buf[ 1024 ];
+	buf[0] = 0;
+	getUserdataPath( buf, sizeof( buf ) );
+	_pathName = buf;
+	_pathName += appl_;
+	_pathName += ".prefs";
 	load();
 }
 
@@ -1021,7 +1029,7 @@ static void parseAudioCmd( const string &cmd_,
 	else if ( "ext" == type )
 		ext_ = arg;
 	else
-		fprintf( stderr, "Invalid audio command: '%s'\n", arg.c_str() );
+		cerr << "Invalid audio command: '" << arg.c_str() << "'" << endl;
 }
 
 static void parseAudioCmdLine( const string &cmd_,
@@ -3509,7 +3517,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 			_cfg->flush();
 		}
 	}
-	else
+	if ( defaultArgs.empty() )
 	{
 		defaultArgs = value;
 	}
@@ -4061,7 +4069,7 @@ bool FltWin::collision( const Object& o_, int w_, int h_ ) const
 #ifdef DEBUG_COLLISION
 	if ( collided )
 	{
-		printf( "collision at %d + %d / %d + %d !\n", o_.x(), xc, o_.y(), yc  );
+		printf( "collision at %d + %d / %d + %d !\n", o_.x(), xc, o_.y(), yc );
 		printf( "object %dx%d xoff=%d yoff=%d\n", o_.w(), o_.h(), xoff, yoff );
 		printf( "X=%d, Y=%d, W=%d, H=%d\n", X, Y, W, H );
 		printf( "r/g/b=%d/%d/%d\n", xr, xg, xb );
@@ -4509,7 +4517,7 @@ bool FltWin::loadLevel( unsigned level_, string& levelFileName_ )
 		if ( filler >= 0 )
 		{
 			subfill += subfiller;
-			if ( subfill >= 10  )
+			if ( subfill >= 10 )
 			{
 				T.push_back( TerrainPoint( g, s , 0 ) );
 				subfill -= 10;
@@ -4622,7 +4630,7 @@ bool FltWin::create_terrain()
 	string levelFile( _levelFile );
 	bool loaded( false );
 	errno = 0;
-	if ( _internal_levels  )
+	if ( _internal_levels )
 	{
 		// always create internal level, to keep random generator in sync
 		T.clear();
@@ -4749,7 +4757,7 @@ bool FltWin::revert_level()
 				{
 					if ( j <= i )
 						return true;
-					if (  T[j].has_object( O_COLOR_CHANGE ) )
+					if ( T[j].has_object( O_COLOR_CHANGE ) )
 					{
 						Fl_Color s = T[j].sky_color;
 						Fl_Color g = T[j].ground_color;
@@ -4774,7 +4782,7 @@ bool FltWin::revert_level()
 	return false;
 }
 
-static void connectPoints( vector<Point> &terrain_, Terrain& T_, bool edgy_  )
+static void connectPoints( vector<Point> &terrain_, Terrain& T_, bool edgy_ )
 //-------------------------------------------------------------------------------
 {
 	static const int minDX = 20;	// 20
@@ -4964,7 +4972,7 @@ void FltWin::create_level()
 
 		bott1 = bott2;
 	}
-	T.resize( terrain.back().x, TerrainPoint( 0  ) );
+	T.resize( terrain.back().x, TerrainPoint( 0 ) );
 	connectPoints( terrain, T, !!level.edgy );
 
 	//
@@ -6634,7 +6642,7 @@ void FltWin::update_drops()
 			drop.x( drop.x() - _xdelta );
 
 		int bottom = h() - T[_xoff + drop.x()].ground_level();
-		if ( 0 == bottom  ) bottom += drop.h();	// glide out completely if no ground
+		if ( 0 == bottom ) bottom += drop.h();	// glide out completely if no ground
 		bool gone = drop.y() + drop.h() / 2 > bottom || drop.x() < -drop.w();
 		if ( gone )
 		{
@@ -7739,7 +7747,7 @@ void FltWin::onUpdate()
 	}
 	if ( _up )
 		_spaceship->up();
-	if ( _down  )
+	if ( _down )
 		_spaceship->down();
 	if ( _zoomoutShip && !_zoomoutShip->done() )
 		_zoomoutShip->setMoveTo( _spaceship->x(), _spaceship->y() );
@@ -8161,7 +8169,10 @@ string FltWin::firstTimeSetup()
 	int fast_slow = fl_choice( "Do you have a fast computer?\n\n"
 	                           "If you have any recent hardware\n"
 	                           "you should answer 'yes'.",
-		"ASK ME LATER",  "NO", "YES" );
+	                           "ASK ME LATER",  "NO", "YES" );
+	if ( !fast_slow )	// abort by Esc or "ask me later'
+		return cmd;
+
 	int speed = 0;
 	if ( fast_slow == 2 )
 	{
@@ -8172,7 +8183,7 @@ string FltWin::firstTimeSetup()
 		                   "'Normal' disables drawing effects\n\n"
 		                   "NOTE: You don't need a gaming pc\n"
 		                   "to answer with 'very fast'..",
-			"NORMAL", "FAST", "VERY FAST" );
+		                   "NORMAL", "FAST", "VERY FAST" );
 		switch ( speed )
 		{
 			case 0: // NORMAL
@@ -8191,7 +8202,7 @@ string FltWin::firstTimeSetup()
 		                   "'Slow' lowers the frame rate,\n"
 		                   "'Very slow' enables frame correction,\n"
 		                   "'Creepy slow' will disable sound too.",
-			"SLOW", "VERY SLOW", "CREEPY SLOW" );
+		                   "SLOW", "VERY SLOW", "CREEPY SLOW" );
 		switch ( speed )
 		{
 			case 0: // SLOW
@@ -8204,51 +8215,51 @@ string FltWin::firstTimeSetup()
 				cmd = "-SCsbe";
 		}
 	}
-	if ( fast_slow )
+	fl_message_title( title );
+	int ship = fl_choice( "Use penetrator like spaceship type?\n\n"
+	                      "'No' uses the standard ship.",
+	                      NULL, "NO", "YES" );
+	if ( ship == 2 )
+		cmd += " -a";
+
+	if ( fast_slow == 2 )
 	{
 		fl_message_title( title );
-		int ship = fl_choice( "Use penetrator like spaceship type?\n\n"
-		                      "'No' uses the standard ship.",
-			NULL, "NO", "YES" );
-		if ( ship == 2 )
-			cmd += " -a";
+		int fullscreen = fl_choice( "Start in fullscreen mode?\n\n"
+		                            "NOTE: You can always toggle fullscreen mode\n"
+		                            "on game title screen with F10.",
+		                            NULL, "NO", "YES" );
+		if ( fullscreen == 2 )	// YES
+		{
+			cmd += " -f";
+			if ( speed == 2 )	// very fast computer
+				cmd += " -Wf -R50";
+		}
+		else if ( speed == 2 )	// very fast computer
+			cmd += " -W -R50";
 
-		if ( fast_slow == 2 )
+		if ( speed == 2 )	// very fast computer
 		{
 			fl_message_title( title );
-			int fullscreen = fl_choice( "Start in fullscreen mode?\n\n"
-			                            "NOTE: You can always toggle fullscreen mode\n"
-			                            "on game title screen with F10.",
-				NULL, "NO", "YES" );
-			if ( fullscreen == 2 )	// YES
+			int all_effects = fl_choice( "Turn on ALL effects?\n\n",
+			                             NULL, "NO", "YES" );
+			if ( all_effects == 2 ) // YES
 			{
-				cmd += " -f";
-				if ( speed == 2 )	// very fast computer
-					cmd += " -Wf -R50";
-			}
-			else if ( speed == 2 )	// very fast computer
-				cmd += " -W -R50";
-
-			if ( speed == 2 )	// very fast computer
-			{
-				int all_effects = fl_choice( "Turn on ALL effects?\n\n",
-					NULL, "NO", "YES" );
-				if ( all_effects == 2 ) // YES
-				{
-					size_t pos = cmd.find( "-FF" );
-					if ( pos != string::npos )
-						cmd.insert( pos + 1, "F" );
-				}
+				size_t pos = cmd.find( "-FF" );
+				if ( pos != string::npos )
+					cmd.insert( pos + 1, "F" );
 			}
 		}
-
-		trim( cmd );
-		_cfg->set( "defaultArgs", cmd.c_str() );
-		fl_message_title( title );
-		fl_message( "Configuration saved.\n\n"
-		            "To re-run next time start with\n"
-		            "'Control-Left' key pressed." );
 	}
+
+	trim( cmd );
+	_cfg->set( "defaultArgs", cmd.c_str() );
+	fl_message_title( title );
+	fl_message( "Configuration saved to\n"
+	            "'%s'.\n\n"
+	            "To re-run next time start with\n"
+	            "'Control-Left' key pressed.",
+	            _cfg->pathName().c_str() );
 	return cmd;
 }
 
