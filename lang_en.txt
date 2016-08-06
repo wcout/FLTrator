@@ -1,4 +1,5 @@
-; translations
+; english translations (enable in levels/ini.txt)
+
 demo=*** DEMO - Hit space to cancel ***
 
 paused=*** PAUSED ***

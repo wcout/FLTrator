@@ -1,4 +1,5 @@
-; translations
+; german translations (enable in levels/ini.txt)
+
 demo=*** DEMO - Abbruch mit Leertaste ***
 
 paused=*** PAUSIERT ***

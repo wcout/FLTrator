@@ -1,9 +1,20 @@
-== Default Parameter for all levels (can be overriden in level file)
+# This file holds some configurable values
+# (lines starting with '#', ';' or '=' are comments)
+
+== Default parameters for all levels (can be overriden in level file)
+
+# rocket x movement variation
 rocket_dx_range=0
+
+# bady x movement variation
 bady_dx_range=2
 
-; general parameters
+== General parameters
+
+# language file to use: {fltrator-home-dir}/lang_xx.txt
 #lang=de
+
+# some ship definitions
 ships=4
 spaceship0.bomb_x_offset=10
 spaceship1.bomb_x_offset=14
@@ -15,6 +26,7 @@ spaceship3.explosion_color=0xcccccc
 
 spaceship2.missile_color=0xff4600
 
+# use alternate font (normal/italic)
 #font=BComic Sans MS
 #ifont=PComic Sans MS
 
