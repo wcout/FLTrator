@@ -14,6 +14,11 @@ bady_dx_range=2
 # language file to use: {fltrator-home-dir}/lang_xx.txt
 #lang=de
 
+# display size limits
+#MAX_SCREEN_W=1920
+#MIN_SCREEN_W=320
+#MAX_SCREEN_H=1200
+
 # some ship definitions
 ships=4
 spaceship0.bomb_x_offset=10
@@ -30,5 +35,5 @@ spaceship2.missile_color=0xff4600
 #font=BComic Sans MS
 #ifont=PComic Sans MS
 
-#font= Bscreen
+#font=Bscreen
 #ifont=Pscreen

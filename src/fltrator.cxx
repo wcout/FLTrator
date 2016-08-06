@@ -179,6 +179,9 @@ static double _DDX = DX;	// floating scroll offset
 static double SCALE_X = (double)SCREEN_W / 800;
 static double SCALE_Y = (double)SCREEN_H / 600;
 static double _YF = 1.;		// ratio screen ratio/original screen ratio
+static int MAX_SCREEN_W = 1920;
+static int MIN_SCREEN_W = 320;
+static int MAX_SCREEN_H = 1200;
 #endif
 
 #define KEY_LEFT   KEYSET[G_leftHanded].left
@@ -219,7 +222,8 @@ static void flt_font( int f_, int s_ ) { fl_font( f_, lround( SCALE_X * s_ ) ); 
 static bool setupScreenSize( int W_, int H_ )
 //-------------------------------------------------------------------------------
 {
-	if ( W_ >= 320 && W_ <= 1920 && H_ >= W_ / 2 && H_ <= 1200 && W_ >= H_ )
+	if ( W_ >= MIN_SCREEN_W && W_ <= MAX_SCREEN_W &&
+	     H_ >= W_ / 2 && H_ <= MAX_SCREEN_H && W_ >= H_ )
 	{
 //		cout << "W x H = " << W << " x " << H << endl;
 		SCREEN_W = W_;
@@ -3500,6 +3504,21 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	bool info( false );
 	bool fullscreen( false );
 
+	// read ini file
+	loadDefaultIniParameter();
+	_ini = _defaultIniParameter;
+	_lang = _ini.value( "lang", 3, "" );
+	loadTranslations();
+
+	Fl::set_font( FL_HELVETICA, _ini.value( "font", 50, " Verdana" ) );
+	Fl::set_font( FL_HELVETICA_BOLD_ITALIC, _ini.value( "ifont", 50, "PVerdana" ) );
+
+#ifndef NO_MULTIRES
+	MAX_SCREEN_W = _ini.value( "MAX_SCREEN_W", 800, 3840, 1920 );
+	MIN_SCREEN_W = _ini.value( "MIN_SCREEN_W", 320, 640, 320 );
+	MAX_SCREEN_H = _ini.value( "MAX_SCREEN_H", 600, 2160, 1200 );
+#endif
+
 	string defaultArgs;
 	string cfgName( "fltrator" );
 	_cfg = new Cfg( "CG", cfgName.c_str() );
@@ -3810,14 +3829,6 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_hiscore = _cfg->hiscore();
 	_hiscore_user = _cfg->best().name;
 	wavPath.ext( Audio::instance()->ext() );
-
-	loadDefaultIniParameter();
-	_ini = _defaultIniParameter;	// TODO: why is neccessary to work first time?
-	_lang = _ini.value( "lang", 3, "" );	// TODO: really from ini?
-	loadTranslations();
-
-	Fl::set_font( FL_HELVETICA, _ini.value( "font", 50, " Verdana" ) );
-	Fl::set_font( FL_HELVETICA_BOLD_ITALIC, _ini.value( "ifont", 50, "PVerdana" ) );
 
 	fl_make_path( demoPath().c_str() );	// create demo path for sure
 
