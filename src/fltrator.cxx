@@ -234,6 +234,19 @@ static bool setupScreenSize( int W_, int H_ )
 //		cout << "SCALE_Y: " << SCALE_Y << endl;
 		return true;
 	}
+	else
+	{
+		cerr << "Warning: Requested screen size " << W_ << " x " << H_
+		     << " exceeds limits " << MIN_SCREEN_W << "/" << MAX_SCREEN_W
+		     << " x " << MAX_SCREEN_H << endl;
+		if ( W_ > 1920 )
+		{
+			cerr << endl;
+			cerr << "   Using a larger screen size than 1920x1200 requires a" << endl
+			     << "   really powerful computer and you need to change the" << endl
+			     << "   allowed sizes in the file 'ini.txt' (in 'levels' dir)" << endl;
+		}
+	}
 	return false;
 }
 
