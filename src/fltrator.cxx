@@ -3746,13 +3746,20 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		     << "  --version\tprint out version  and exit" << endl;
 		exit( EXIT_SUCCESS );
 	}
+
+	if ( _internal_levels )
+		cfgName += "_internal";	// don't mix internal levels with real levels
+	_cfg = new Cfg( "CG", cfgName.c_str() );
+
 	if ( info )
 	{
 		cout << "fltkWaitDelay = " << _waiter.fltkWaitDelay() << endl
-		     << "USE_FLTK_RUN  = " <<  _USE_FLTK_RUN << endl
+		     << "USE_FLTK_RUN  = " << _USE_FLTK_RUN << endl
 		     << "DX            = " << DX << endl
-		     << "FRAMES        = " <<  FRAMES << endl
-		     << "FPS           = " <<  FPS << endl
+		     << "FRAMES        = " << FRAMES << endl
+		     << "FPS           = " << FPS << endl
+		     << "Home dir      = " << homeDir() << endl
+		     << "Config dir    = " << _cfg->pathName() << endl
 		     << "Audio::cmd    = " << Audio::instance()->cmd() << endl
 		     << "Audio::bg_cmd = " << Audio::instance()->cmd( true ) << endl
 		     << "FLTK version  = " << Fl::version() << endl;
@@ -3782,9 +3789,6 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	else
 		_levelFile.erase();
 
-	if ( _internal_levels )
-		cfgName += "_internal";	// don't mix internal levels with real levels
-	_cfg = new Cfg( "CG", cfgName.c_str() );
 	if ( _user.name.empty() && !_trainMode )
 		_user.name = _cfg->last_user();
 
