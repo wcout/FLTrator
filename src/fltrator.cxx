@@ -3523,8 +3523,11 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_lang = _ini.value( "lang", 3, "" );
 	loadTranslations();
 
-	Fl::set_font( FL_HELVETICA, _ini.value( "font", 50, " Verdana" ) );
-	Fl::set_font( FL_HELVETICA_BOLD_ITALIC, _ini.value( "ifont", 50, "PVerdana" ) );
+	// use Verdana as application font (or value from ini file)
+	static string font = _ini.value( "font", 50, " Verdana" );
+	static string ifont = _ini.value( "ifont", 50, "PVerdana" );
+	Fl::set_font( FL_HELVETICA,  font.c_str() );	// font name must be static!
+	Fl::set_font( FL_HELVETICA_BOLD_ITALIC, ifont.c_str() );
 
 #ifndef NO_MULTIRES
 	MAX_SCREEN_W = _ini.value( "MAX_SCREEN_W", 800, 3840, 1920 );
