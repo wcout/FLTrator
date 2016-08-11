@@ -44,7 +44,7 @@ private:
 			{
 				r = start_r + random() % std::min( len, 5 );
 				dot = len <= 5;
-				DBG(( "particle %f, %f, %f", end_r, angle, speed ));
+				DBG( "particle " << end_r << ", " << angle << ", " <<  speed );
 			}
 			double start_r;
 			double end_r;
@@ -76,7 +76,7 @@ private:
 			_explosion_type( - 1 ),
 			_done( false )
 		{
-			DBG(( "Fl_Firework_Rocket %p", this ));
+			DBG( "Fl_Firework_Rocket " <<  this );
 			box( FL_NO_BOX );
 			color( c_ );
 			_explode_color = explode_color( c_ );
@@ -84,7 +84,7 @@ private:
 		}
 		void update()
 		{
-			DBG(( "Fl_Firework_Rocket::update() %p  r=%d (%d)", this, _r, _explosion_radius ));
+			DBG( "Fl_Firework_Rocket::update() " << this  << " r="<<  _r << " (" <<  _explosion_radius << ")" );
 			if ( y() >= -h() && !_started )
 			{
 				_started = true;
@@ -132,7 +132,7 @@ private:
 		}
 		static bool update_particles( double center_x_, double center_y_, std::vector<Fl_Firework_Particle>& p_ )
 		{
-			DBG(( "ENTER update_particles %lu", p_.size() ));
+			DBG( "ENTER update_particles " << p_.size() );
 			bool done( true );
 			for ( size_t i = 0; i < p_.size(); i++ )
 			{
@@ -174,7 +174,7 @@ private:
 					i--;
 				}
 			}
-			DBG(( "LEAVE update_particles %lu", p_.size() ));
+			DBG( "LEAVE update_particles " <<  p_.size() );
 			return done;
 		}
 		void draw_particles()
@@ -202,7 +202,7 @@ private:
 		}
 		void draw()
 		{
-			DBG(( "Fl_Firework_Rocket::draw() %p r=%d", this, _r ));
+			DBG( "Fl_Firework_Rocket::draw() " << this << " r=" << _r );
 			if ( _r < 10 )
 			{
 				double sx( scale_x() < 0.6 ? 0.6 : scale_x() > 1.5 ? 1.5 : scale_x() );
@@ -254,8 +254,8 @@ private:
 			_explode_h = parent()->h() - parent()->h() / 5 - random() % ( parent()->h() / 4 );
 			double r = atan( (double)_dx / (double)_dy ) * 180. / M_PI;
 			_angle = r;
-			DBG(( "%p _explode_h: %d _angle: %f, dx: %d dy:%d",
-				this, _explode_h, _angle, _dx, _dy ));
+			DBG( this << " _explode_h: " << _explode_h << " _angle: " << _angle
+		             << ", dx: " << _dx << " dy: " << _dy );
 		}
 		void explode( int explosion_type_ = -1 )
 		{
@@ -263,7 +263,7 @@ private:
 			bool dot = _explosion_type == 1;
 			int particles = explosion_type_ <  0 ? ( w() * h() * ( 2 * dot + 1 ) ) / 16 :
 				( w() * h() * ( 2 * dot + 1 ) ) / 32;
-			DBG(( "create %d particles, dot=%d", particles, dot ));
+			DBG( "create " << particles << " particles, dot=" <<  dot );
 			for ( int i = 0; i < particles; i++ )
 			{
 				int speed = dot ? random() % 10 + 1 : random() % 5 + 3;
@@ -300,7 +300,7 @@ public:
 		_baseWin( &baseWin_ ),
 		_max_count( ceil( duration_ / POLL_DELAY ) )
 	{
-		DBG(( "Fl_Fireworks" ));
+		DBG( "Fl_Fireworks" );
 		color( FL_BLACK );
 
 		srandom( time( 0 ) );
@@ -317,9 +317,9 @@ public:
 		end();
 
 		baseWin_.insert ( *this, 0 );
-		DBG(( "before show" ));
+		DBG( "before show" );
 		show();
-		DBG(( "after show" ));
+		DBG( "after show" );
 
 		Fl::add_timeout( 0.1, cb_poll, this );
 	}
@@ -334,7 +334,7 @@ protected:
 	virtual double scale_y() const { return 1.; }
 	int handle( int e_ )
 	{
-		DBG(( "handle %d key: 0x%x", e_, Fl::event_key() ));
+		DBG( "handle " << e_ << " key: 0x" << hex << Fl::event_key()  << dec );
 		if ( e_ == 9999 )
 		{
 			if ( --_max_count <= 0 )
@@ -365,7 +365,7 @@ protected:
 private:
 	void terminate()
 	{
-		DBG(( "terminate" ));
+		DBG( "terminate" );
 		hide();
 		Fl::remove_timeout( cb_poll, this );
 		for ( size_t i = 0; i < rockets.size(); i++ )
@@ -379,7 +379,7 @@ private:
 	}
 	static void cb_poll( void *d_ )
 	{
-		DBG(( "cb_poll" ));
+		DBG( "cb_poll" );
 		((Fl_Fireworks *)d_)->handle( 9999 );
 		Fl::repeat_timeout( POLL_DELAY, cb_poll, d_ );
 	}

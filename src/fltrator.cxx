@@ -230,8 +230,8 @@ static bool setupScreenSize( int W_, int H_ )
 		SCREEN_H = H_;
 		SCALE_X = (double)SCREEN_W / 800;
 		SCALE_Y = (double)SCREEN_H / 600;
-//		cout << "SCALE_X: " << SCALE_X << endl;
-//		cout << "SCALE_Y: " << SCALE_Y << endl;
+		LOG( "SCALE_X: " << SCALE_X );
+		LOG( "SCALE_Y: " << SCALE_Y );
 		return true;
 	}
 	else
@@ -278,6 +278,7 @@ static bool setupScreenSize( const string& cmd_, int& W_, int& H_ )
 	{
 		W_ = W;
 		H_ = H;
+		LOG( "setupScreenSize " << W << "x" << H );
 		return true;
 	}
 	return false;
@@ -335,10 +336,12 @@ static void setup( int fps_, bool have_slow_cpu_, bool use_fltk_run_  = true )
 		FPS /= 2;
 	}
 	SCORE_STEP = lround( SCALE_X * SCORE_STEP );
+	LOG( "setup: FRAMES = " << FRAMES << " _DDX = " << _DDX << " SCORE_STEP = " << SCORE_STEP );
 #ifndef NO_MULTIRES
 	double ro = (double)SCREEN_NORMAL_W / SCREEN_NORMAL_H;
 	double r =  (double)SCREEN_W / SCREEN_H;
 	_YF = ro / r;
+	LOG( "_YF = " << _YF );
 #endif
 }
 
@@ -354,6 +357,7 @@ static const string& homeDir()
 		     access( "images", R_OK ) == 0 )
 		{
 			home = "./";
+			LOG( "use local home dir: " << home );
 		}
 		else
 		{
@@ -367,7 +371,9 @@ static const string& homeDir()
 			if ( access( (home + "wav").c_str(), R_OK ) == 0  &&
 			     access( (home + "levels").c_str(), R_OK ) == 0 &&
 			     access( (home + "images").c_str(), R_OK ) == 0 )
-				;
+			{
+				LOG( "use installed home dir: " << home );
+			}
 			else
 			{
 				fl_message( "%s", "Required resources not in place!\nAborting..." );
@@ -442,11 +448,11 @@ public:
 		}
 #ifndef WIN32
 #ifdef _POSIX_MONOTONIC_CLOCK
-		// using clock_gettime()
+		LOG( "using clock_gettime()" );
 		clock_gettime( CLOCK_MONOTONIC, &ts );
 		startTime = ts.tv_sec * 1000L + ts.tv_nsec / 1000000L;
 #else
-		// using gettimeofday()
+		LOG( "using gettimeofday()" );
 		gettimeofday( &tv, NULL );
 		startTime = tv.tv_sec * 1000 + tv.tv_usec / 1000;
 #endif // _POSIX_MONOTONIC_CLOCK
@@ -663,9 +669,7 @@ public:
 	int y() const { return _y; }
 	int w() const { return _w; }
 	int h() const { return _h; }
-#ifdef DEBUG_COLLISION
 	virtual std::ostream &printOn( std::ostream &os_ ) const;
-#endif
 private:
 	static bool within( int x_, int y_, const Rect& r_ )
 	{
@@ -679,7 +683,6 @@ private:
 	int _h;
 };
 
-#ifdef DEBUG_COLLISION
 inline std::ostream &operator<<( std::ostream &os_, const Rect &r_ )
 { return r_.printOn( os_ ); }
 
@@ -690,7 +693,6 @@ ostream &Rect::printOn( ostream &os_ ) const
 	os_ << "Rect(" << x() << "/" << y() <<  "-" << w() << "x" << h() << ")";
 	return os_;
 } // printOn
-#endif
 
 //-------------------------------------------------------------------------------
 class Cfg : public Fl_Preferences
@@ -744,6 +746,7 @@ Cfg::Cfg( const char *vendor_, const char *appl_ ) :
 	_pathName = buf;
 	_pathName += appl_;
 	_pathName += ".prefs";
+	LOG( "cfg: " << _pathName );
 	load();
 }
 
@@ -1447,6 +1450,7 @@ public:
 //				if ( _image )
 //					_image->release();
 				ii.image = image;
+				LOG( "image '" << image_ << "' " << image->w() << "x" << image->h() << " cached" );
 //				delete _imageForDrawing;
 //				_imageForDrawing = 0;
 //				delete _origImageForDrawing;
@@ -1535,7 +1539,8 @@ public:
 	Object( ObjectType o_, int x_, int y_, const char *image_ = 0, int w_ = 0, int h_ = 0 );
 	virtual ~Object();
 	void animate();
-	bool collision( const Object& o_ ) const;
+	// check for collision with other object
+	bool collisionWithObject( const Object& o_ ) const;
 	void stop_animate() { Fl::remove_timeout( cb_animate, this ); }
 	bool hit();
 	int hits() const { return _hits; }
@@ -1664,47 +1669,24 @@ void Object::animate()
 	_image.nextFrame();
 }
 
-bool Object::collision( const Object& o_ ) const
+bool Object::collisionWithObject( const Object& o_ ) const
 //-------------------------------------------------------------------------------
 {
 	if ( rect().intersects( o_.rect() ) )
 	{
+		// if rectangles intersect, check for touch
 		const Rect ir( rect().intersection_rect( o_.rect() ) );
 		const Rect r_this( rect().relative_rect( ir ) );
 		const Rect r_that( o_.rect().relative_rect( ir ) );
-#ifdef DEBUG_COLLISION
-		cout << rect() << "/" << o_.rect() << ": ir (" << ir << " : r_this " << r_this << " r_that " << r_that << endl;
-		fl_color( FL_GREEN );
-		fl_rect( ir.x(), ir.y(), ir.w(), ir.h() );
-#endif
 		for ( int y = 0; y < r_this.h(); y++ )
 		{
 			for ( int x = 0; x < r_this.w(); x++ )
 			{
-#ifndef DEBUG_COLLISION
 				if ( !isTransparent( r_this.x() + x, r_this.y() + y ) &&
 				     !o_.isTransparent( r_that.x() + x, r_that.y() + y ) )
 					return true;
 			}
 		}
-#else
-				bool p_this = isTransparent( r_this.x() + x, r_this.y() + y );
-				bool p_that = o_.isTransparent( r_that.x() + x, r_that.y() + y );
-				if ( p_this && p_that )
-					printf( "%c", '.' );
-				else if ( !p_this && !p_that )
-					printf( "%c", 'X');
-				else if ( !p_this )
-					printf( "%c", 'R' );
-				else if ( !p_that )
-					printf( "%c", 'S' );
-				else
-					printf( "%c", '?' );
-			}
-			printf( "\n" );
-		}
-		printf( "\n" );
-#endif
 	}
 	return false;
 }
@@ -1755,12 +1737,6 @@ void Object::draw()
 	{
 		_image.draw( x(), y() );
 	}
-#ifdef DEBUG_COLLISION
-	fl_color( FL_YELLOW );
-	Rect r( rect() );
-	fl_rect( r.x(), r.y(), r.w(), r.h() );
-	fl_point( cx(), cy() );
-#endif
 	if ( _exploding || _hit )
 		draw_collision();
 }
@@ -2027,11 +2003,6 @@ public:
 		if ( dx() > lround( SCALE_X * 350 ) )
 			c = fl_darker( c );
 		fl_rectf( x(), y(), w(), h(), c );
-#ifdef DEBUG_COLLISION
-		fl_color(FL_YELLOW);
-		Rect r(rect());
-		fl_rect(r.x(), r.y(), r.w(), r.h());
-#endif
 	}
 private:
 	int _ox;
@@ -3113,7 +3084,7 @@ private:
 	string demoFileName( unsigned  level_ = 0 ) const;
 	bool loadDemoData( unsigned level_ = 0, bool dryrun_ = false );
 	bool saveDemoData() const;
-	bool collision( const Object& o_, int w_, int h_ ) const;
+	bool collisionWithTerrain( const Object& o_ ) const;
 
 	void create_explosion( int x_, int y_, Explosion::ExplosionType type_,
 		                    double strength_ = 1.0, const Fl_Color *colors_ = 0, int nColors = 0 );
@@ -3561,6 +3532,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_cfg = 0;
 	trim( defaultArgs );
 
+	LOG( "defaultArgs: '" << defaultArgs << "'" );
 	while ( defaultArgs.size() || argc > 1 )
 	{
 		if ( unknown_option.size() )
@@ -4032,7 +4004,7 @@ void FltWin::addScrolloutZone()
 		T.push_back( T.back() );
 }
 
-bool FltWin::collision( const Object& o_, int w_, int h_ ) const
+bool FltWin::collisionWithTerrain( const Object& o_ ) const
 //-------------------------------------------------------------------------------
 {
 	int xoff = 0;
@@ -4042,6 +4014,7 @@ bool FltWin::collision( const Object& o_, int w_, int h_ ) const
 	int W = o_.w();
 	int H = o_.h();
 
+	// determine object's rectangle to read from screen
 	if ( X < 0 )
 	{
 		xoff = -X;
@@ -4055,23 +4028,21 @@ bool FltWin::collision( const Object& o_, int w_, int h_ ) const
 		H -= yoff;
 	}
 
-	W = X - xoff + W < w_ ? W : w_ - ( X - xoff );
-	H = Y - yoff + H < h_ ? H : h_ - ( Y - yoff );
+	W = X - xoff + W < w() ? W : w() - ( X - xoff );
+	H = Y - yoff + H < h() ? H : h() - ( Y - yoff );
 
+	// read image from screen
 	const uchar *screen = fl_read_image( 0, X, Y, W, H );
 
-	const int d = 3;
+	static const int d = 3;
 	bool collided = false;
 
-	// background color r/g/b
+	// get current background color r/g/b
 	unsigned char  R, G, B;
 	Fl::get_color( T.bg_color, R, G, B );
 
-#ifdef DEBUG_COLLISION
-	int xc = 0;
-	int yc = 0;
-	unsigned char xr, xg, xb = 0;
-#endif
+	// all transparent pixels of object must have
+	// background color, otherwise object touches landscape
 	for ( int y = 0; y < H; y++ ) // lines
 	{
 		long index = y * W * d; // line start offset
@@ -4085,32 +4056,15 @@ bool FltWin::collision( const Object& o_, int w_, int h_ ) const
 			     !( r == R && g == G && b == B ) )
 			{
 				collided = true;
-#ifdef DEBUG_COLLISION
-				xc = x;
-				yc = y;
-				xr = r;
-				xg = g;
-				xb = b;
-#endif
 				break;
 			}
 		}
 		if ( collided ) break;
 	}
-#ifdef DEBUG_COLLISION
-	if ( collided )
-	{
-		printf( "collision at %d + %d / %d + %d !\n", o_.x(), xc, o_.y(), yc );
-		printf( "object %dx%d xoff=%d yoff=%d\n", o_.w(), o_.h(), xoff, yoff );
-		printf( "X=%d, Y=%d, W=%d, H=%d\n", X, Y, W, H );
-		printf( "r/g/b=%d/%d/%d\n", xr, xg, xb );
-		printf( "R/G/B=%d/%d/%d\n", R, G, B );
-	}
-#endif
 	delete[] screen;
 
 	return collided;
-} // collision
+} // collisionWithTerrain
 
 int FltWin::iniValue( const string& id_,
                       int min_, int max_, int default_ )
@@ -4598,6 +4552,7 @@ Fl_Image *FltWin::terrain_as_image()
 	Fl_RGB_Image *image = img_surf->image();
 	delete img_surf;
 	Fl_Display_Device::display_device()->set_current(); // direct graphics requests back to the display
+	LOG( "terrain_as_image " << image->w() << "x" << image->h() );
 	return image;
 }
 #endif
@@ -6071,7 +6026,7 @@ void FltWin::do_draw()
 
 	if ( !G_paused && !paused() && !_done && !_collision )
 	{
-		_collision |= collision( *_spaceship, w(), h() );
+		_collision |= collisionWithTerrain( *_spaceship );
 		if ( _collision )
 			onCollision();
 	}
@@ -6254,7 +6209,7 @@ void FltWin::check_drop_hits()
 			++d;
 			continue;
 		}
-		if ( (*d)->collision( *_spaceship ) )
+		if ( (*d)->collisionWithObject( *_spaceship ) )
 		{
 			if ( (*d)->x() > _spaceship->cx() + _spaceship->w() / 4 )	// front of ship
 			{
@@ -6407,7 +6362,7 @@ void FltWin::check_rocket_hits()
 		if ( !(*r)->exploding() &&
 		  	(*r)->lifted() && (*r)->rect().intersects( _spaceship->rect() ) )
 		{
-			if ( (*r)->collision( *_spaceship ) )
+			if ( (*r)->collisionWithObject( *_spaceship ) )
 			{
 				// rocket hit by spaceship
 				(*r)->explode( 0.5 );
@@ -8337,6 +8292,10 @@ int main( int argc_, const char *argv_[] )
 #endif
 	installSignalHandler();
 
+	string cmd;
+	for ( int i = 1; i < argc_; i++ )
+		cmd += ( i > 1 ? (string)" " : (string)"" + argv_[i] );
+	LOG( "cmd: '" << cmd << "'" );
 	fl_register_images();
 	Fl::scheme( "gtk+" );
 	int seed = time( 0 );

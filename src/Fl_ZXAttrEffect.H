@@ -59,7 +59,7 @@ public:
 		_screen( 0 ),
 		_bgImage( 0 )
 	{
-		DBG(( "Fl_ZXAttrEffect" ));
+		DBG( "Fl_ZXAttrEffect" );
 		color( FL_BLACK );
 		make_attr();
 
@@ -71,9 +71,9 @@ public:
 		end();
 
 		baseWin_.insert ( *this, 0 );
-		DBG(( "before show" ));
+		DBG( "before show" );
 		show();
-		DBG(( "after show" ));
+		DBG( "after show" );
 
 		Fl::add_timeout( POLL_DELAY, cb_poll, this );
 	}
@@ -110,7 +110,7 @@ protected:
 	}
 	int handle( int e_ )
 	{
-		DBG(( "handle %d key: 0x%x", e_, Fl::event_key() ));
+		DBG( "handle " << e_ << " key: 0x" << hex << Fl::event_key() << dec );
 		if ( e_ == 9999 )
 		{
 			if ( --_max_count <= 0 )
@@ -126,7 +126,7 @@ protected:
 private:
 	void terminate()
 	{
-		DBG(( "terminate" ));
+		DBG( "terminate" );
 		hide();
 		Fl::remove_timeout( cb_poll, this );
 		if ( _baseWin )
@@ -137,7 +137,7 @@ private:
 	}
 	static void cb_poll( void *d_ )
 	{
-		DBG(( "cb_poll" ));
+		DBG( "cb_poll" );
 		((Fl_ZXAttrEffect *)d_)->handle( 9999 );
 		Fl::repeat_timeout( POLL_DELAY, cb_poll, d_ );
 	}

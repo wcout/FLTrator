@@ -5,7 +5,7 @@ static BOOL    bPrevSet = FALSE;
 
 BOOL SetScreenResolution(INT nWidth, INT nHeight)
 {
-	DBG(( "SetScreenResolution %d x %d", nWidth, nHeight ));
+	DBG( "SetScreenResolution " << nWidth << " x " << nHeight );
 	DEVMODE devMode;
 
 	ZeroMemory(&devMode, sizeof(DEVMODE));
@@ -15,7 +15,7 @@ BOOL SetScreenResolution(INT nWidth, INT nHeight)
 		return FALSE;
 
 	CopyMemory(&devPrevMode, &devMode, sizeof(DEVMODE));
-	DBG(( "prevMode: %d x %d", devPrevMode.dmPelsWidth, devPrevMode.dmPelsHeight ));
+	DBG( "prevMode: " <<  devPrevMode.dmPelsWidth << " x " << devPrevMode.dmPelsHeight );
 	devMode.dmPelsHeight = nHeight;
 	bPrevSet             = TRUE;
 	devMode.dmPelsWidth  = nWidth;
@@ -27,7 +27,7 @@ BOOL RestoreScreenResolution(VOID)
 {
 	if(bPrevSet)
 	{
-		DBG(( "RestoreScreenResolution" ));
+		DBG( "RestoreScreenResolution" );
 		if (ChangeDisplaySettingsEx(NULL, &devPrevMode, NULL, 0, NULL) == DISP_CHANGE_SUCCESSFUL)
 		{
 			bPrevSet = FALSE;

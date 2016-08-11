@@ -1,5 +1,3 @@
-#ifndef NDEBUG
-
 #include <cstdio>
 #include <cstdlib>
 #include <cstdarg>
@@ -26,7 +24,7 @@ public:
 		if ( !_name )
 			return;
 
-		char buf[200];
+		char buf[1024];
 		va_list argp;
 		va_start( argp, s_ );
 		vsnprintf( buf, sizeof( buf ), s_, argp );
@@ -43,7 +41,10 @@ private:
 };
 
 static Debug dbg;
-#define DBG(x) dbg.write x
-#else
+#define LOG(x) { std::ostringstream os; os << "!" << x; dbg.write( os.str().c_str() ); }
+
+#ifndef NDEBUG
+#define DBG(x) { std::ostringstream os; os << x; dbg.write( os.str().c_str() ); }
+#else // ifndef NDEBUG
 #define DBG(x)
-#endif
+#endif // NDEBUG
