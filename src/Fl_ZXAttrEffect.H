@@ -111,16 +111,6 @@ protected:
 	int handle( int e_ )
 	{
 		DBG( "handle " << e_ << " key: 0x" << hex << Fl::event_key() << dec );
-		if ( e_ == 9999 )
-		{
-			if ( --_max_count <= 0 )
-			{
-				terminate();
-				return 1;
-			}
-			redraw();
-			return 1;
-		}
 		return Inherited::handle( e_ );
 	} // handle
 private:
@@ -135,10 +125,19 @@ private:
 			_baseWin = 0;
 		}
 	}
+	void onUpdate()
+	{
+		if ( --_max_count <= 0 )
+		{
+			terminate();
+			return;
+		}
+		redraw();
+	}
 	static void cb_poll( void *d_ )
 	{
 		DBG( "cb_poll" );
-		((Fl_ZXAttrEffect *)d_)->handle( 9999 );
+		((Fl_ZXAttrEffect *)d_)->onUpdate();
 		Fl::repeat_timeout( POLL_DELAY, cb_poll, d_ );
 	}
 	void make_attr()
