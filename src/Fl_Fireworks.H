@@ -332,22 +332,21 @@ public:
 protected:
 	virtual double scale_x() const { return 1.; }
 	virtual double scale_y() const { return 1.; }
+	void onUpdate()
+	{
+		if ( --_max_count <= 0 )
+		{
+			terminate();
+			return;
+		}
+		do_callback( this, -1 );
+		for ( size_t i = 0; i < rockets.size(); i++ )
+			rockets[i]->update();
+		redraw();
+	}
 	int handle( int e_ )
 	{
 		DBG( "handle " << e_ << " key: 0x" << hex << Fl::event_key()  << dec );
-		if ( e_ == 9999 )
-		{
-			if ( --_max_count <= 0 )
-			{
-				terminate();
-				return 1;
-			}
-			do_callback( this, -1 );
-			for ( size_t i = 0; i < rockets.size(); i++ )
-				rockets[i]->update();
-			redraw();
-			return 1;
-		}
 		if ( e_ == FL_FOCUS || e_ == FL_UNFOCUS )
 			return 1;
 		if ( e_ == FL_KEYDOWN || e_ == FL_SHORTCUT || e_ == FL_RELEASE )
@@ -380,7 +379,7 @@ private:
 	static void cb_poll( void *d_ )
 	{
 		DBG( "cb_poll" );
-		((Fl_Fireworks *)d_)->handle( 9999 );
+		((Fl_Fireworks *)d_)->onUpdate();
 		Fl::repeat_timeout( POLL_DELAY, cb_poll, d_ );
 	}
 private:
