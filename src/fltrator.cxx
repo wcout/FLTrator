@@ -84,6 +84,8 @@
 #define _access access
 
 #include "debug.H"
+// macro to send error output to cerr AND logfile
+#define PERR(x) { cerr << x << endl; LOG(x) }
 
 static const unsigned MAX_LEVEL = 10;
 static const unsigned MAX_LEVEL_REPEAT = 3;
@@ -225,7 +227,6 @@ static bool setupScreenSize( int W_, int H_ )
 	if ( W_ >= MIN_SCREEN_W && W_ <= MAX_SCREEN_W &&
 	     H_ >= W_ / 2 && H_ <= MAX_SCREEN_H && W_ >= H_ )
 	{
-//		cout << "W x H = " << W << " x " << H << endl;
 		SCREEN_W = W_;
 		SCREEN_H = H_;
 		SCALE_X = (double)SCREEN_W / 800;
@@ -236,15 +237,15 @@ static bool setupScreenSize( int W_, int H_ )
 	}
 	else
 	{
-		cerr << "Warning: Requested screen size " << W_ << " x " << H_
-		     << " exceeds limits " << MIN_SCREEN_W << "/" << MAX_SCREEN_W
-		     << " x " << MAX_SCREEN_H << endl;
+		PERR( "Warning: Requested screen size " << W_ << " x " << H_ <<
+		      " exceeds limits " << MIN_SCREEN_W << "/" << MAX_SCREEN_W <<
+		      " x " << MAX_SCREEN_H );
 		if ( W_ > 1920 )
 		{
-			cerr << endl;
-			cerr << "   Using a larger screen size than 1920x1200 requires a" << endl
-			     << "   really powerful computer and you need to change the" << endl
-			     << "   allowed sizes in the file 'ini.txt' (in 'levels' dir)" << endl;
+			PERR( "" );
+			PERR( "   Using a larger screen size than 1920x1200 requires a" << endl <<
+			      "   really powerful computer and you need to change the" << endl <<
+			      "   allowed sizes in the file 'ini.txt' (in 'levels' dir)" );
 		}
 	}
 	return false;
@@ -983,7 +984,7 @@ Audio::~Audio()
 	stop_bg();
 	if ( _retry_bgpidfile.size() )
 	{
-		cerr << "Waiting to stop " << _retry_bgpidfile.size() << " bgsound(s)" << endl;
+		PERR( "Waiting to stop " << _retry_bgpidfile.size() << " bgsound(s)" );
 #ifndef WIN32
 //		NOTE: WIN32 has no sleep(sec) - it has Sleep(msec).
 //		      But anyway this waiting makes only sense for aplay (Linux).
@@ -1049,7 +1050,7 @@ static void parseAudioCmd( const string &cmd_,
 	else if ( "ext" == type )
 		ext_ = arg;
 	else
-		cerr << "Invalid audio command: '" << arg.c_str() << "'" << endl;
+		PERR( "Invalid audio command: '" << arg.c_str() << "'" );
 }
 
 static void parseAudioCmdLine( const string &cmd_,
@@ -3781,11 +3782,11 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	// Issue warnings for non sensible option combinations
 	if ( _joyMode && _mouseMode )
 	{
-		cerr << "Warning: Both joystick AND mouse control enabled." << endl;
+		PERR( "Warning: Both joystick AND mouse control enabled." );
 	}
 	if ( _mouseMode && _hide_cursor)
 	{
-		cerr << "Warning: Both mouse control and hide cursor enabled." << endl;
+		PERR( "Warning: Both mouse control and hide cursor enabled." );
 	}
 
 	if ( _joyMode )
@@ -4277,7 +4278,7 @@ bool FltWin::loadDemoData( unsigned level_/* = 0*/, bool dryrun_/* = false*/ )
 		return false;
 	if ( dryrun_ )
 		return true;
-//	cout << "using demo data " <<  demoFileName().c_str() << endl;
+	LOG( "using demo data " <<  demoFileName().c_str() );
 	_demoData.seed( seed );
 	unsigned long flags;
 	f >> flags;
@@ -4323,7 +4324,7 @@ bool FltWin::saveDemoData() const
 	ofstream f( demoFileName().c_str() );
 	if ( !f.is_open() )
 		return false;
-//	cout << "save to demo data " << demoFileName().c_str() << endl;
+	LOG( "save to demo data " << demoFileName().c_str() );
 	f << _demoData.seed() << endl;
 	f << _ship << endl;
 	f << DX << endl;
@@ -4423,7 +4424,7 @@ static void loadParameter( ifstream& f_, IniParameter& ini_ )
 			value.push_back( '\n' );
 			value += line;
 		}
-//		cout << "add ini parameter '" << name << "' = '" << value << "'" << endl;
+		DBG( "add ini parameter '" << name << "' = '" << value << "'" );
 		ini_[ name ] = value;
 	}
 }
@@ -4432,7 +4433,7 @@ bool FltWin::loadDefaultIniParameter()
 //-------------------------------------------------------------------------------
 {
 	string iniFileName( levelPath( "ini.txt" ) );
-//	cout << "iniFileName: '" << iniFileName.c_str() << "'" << endl;
+	LOG( "iniFileName: '" << iniFileName.c_str() << "'" );
 	ifstream f( iniFileName.c_str() );
 	if ( !f.is_open() )
 		return false;
@@ -4446,9 +4447,9 @@ bool FltWin::loadTranslations()
 	if ( _lang.empty() )
 		return false;
 
-	string iniFileName( homeDir() + "lang_" + _lang + ".txt" );
-//	cout << "iniFileName: '" << iniFileName.c_str() << "'" << endl;
-	ifstream f( iniFileName.c_str() );
+	string langFileName( homeDir() + "lang_" + _lang + ".txt" );
+	LOG( "langFileName: '" << langFileName.c_str() << "'" );
+	ifstream f( langFileName.c_str() );
 	if ( !f.is_open() )
 		return false;
 	loadParameter( f, _texts );
@@ -4572,9 +4573,9 @@ bool FltWin::create_terrain()
 	     || user_completed() != lastCachedUserCompleted )
 	{
 		// level must be recreated
-//		cout << "level " << _level << " must be re-created "
-//		     << lastCachedTerrainLevel << " " << classic() << ":" << lastCachedClassic
-//         << " " << user_completed() << ":" << lastCachedUserCompleted << endl;
+		DBG( "level " << _level << " must be re-created "
+		     << lastCachedTerrainLevel << " " << classic() << ":" << lastCachedClassic
+           << " " << user_completed() << ":" << lastCachedUserCompleted );
 		_ini = _defaultIniParameter;
 		T.clear();
 		lastCachedTerrainLevel = 0;
@@ -4605,7 +4606,7 @@ bool FltWin::create_terrain()
 			_demoData.seed( seed );
 		}
 	}
-//	cout << "seed #" << _level << ": " << seed << endl;
+	DBG(  "seed #" << _level << ": " << seed );
 	Random::Srand( seed );
 
 	_cheatMode = getenv( "FLTRATOR_CHEATMODE" );
@@ -4641,7 +4642,7 @@ bool FltWin::create_terrain()
 	if ( (int)T.size() < w() )
 	{
 		string err( T.empty() && errno ? strerror( errno ) : "File is not a valid level file" );
-		cerr << "Failed to load level file " << levelFile << ": " << err.c_str() << endl;
+		PERR( "Failed to load level file " << levelFile << ": " << err.c_str() );
 		return false;
 	}
 	else if ( !_internal_levels && loaded )
@@ -4901,7 +4902,7 @@ void FltWin::create_level()
 	int bott = ( h() / 3 ) * hardestFactor;
 	int range = ceil( (double)maxGround * hardestFactor );
 
-//	cout << "range: " << range << " bott: " << bott << " hardestfactor: " << hardestFactor << endl;
+	DBG( "range: " << range << " bott: " << bott << " hardestfactor: " << hardestFactor );
 
 	static const size_t INTERNAL_TERRAIN_SIZE( 9 * SCREEN_W );
 	size_t X = 0;
@@ -6887,7 +6888,7 @@ void FltWin::setUser()
 			_first_level = 1;
 	}
 	_level = _first_level;
-//	cout << "user " << _user.name << " completed: " << _user.completed << endl;
+	DBG( "user " << _user.name << " completed: " << _user.completed );
 }
 
 void FltWin::resetUser()
@@ -6994,7 +6995,7 @@ bool FltWin::setFullscreen( bool fullscreen_ )
 	Fl::screen_work_area( X, Y, W, H );
 	if ( W == (int)SCREEN_W && H == (int)SCREEN_H )
 	{
-		cerr << "Use full screen work area " << X << "/" << Y << " " << W << "x" << H << endl;
+		PERR( "Use full screen work area " << X << "/" << Y << " " << W << "x" << H );
 		border( 0 );
 		position( X, Y );
 		show();
@@ -7029,8 +7030,8 @@ bool FltWin::setFullscreen( bool fullscreen_ )
 				else
 				{
 					border( 1 );
-					cerr << "Failed to set resolution to " << SCREEN_W << "x"<< SCREEN_H <<
-						" (is: " << W << "x" << H << ")" << endl;
+					PERR( "Failed to set resolution to " << SCREEN_W << "x"<< SCREEN_H <<
+					      " (is: " << W << "x" << H << ")" );
 				}
 			}
 			show();
@@ -7348,7 +7349,7 @@ void FltWin::onDemo()
 void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 //-------------------------------------------------------------------------------
 {
-//	cout << "onNextScreen(" << fromBegin_ << ") " << _first_level << endl;
+	DBG( "onNextScreen(" << fromBegin_ << ") " << _first_level );
 	delete _spaceship;
 	_spaceship = 0;
 	delete _anim_text;
@@ -7471,8 +7472,8 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 		if ( _demoData.size() && (int)_demoData.size() < _final_xoff - w() / 2 )
 		{
 			// clear incomplete demo data
-			cerr << "demo " << demoFileName() << " is corrupt"
-			     << " (" << _demoData.size() << "<" << _final_xoff - w() / 2 << ")" << endl;
+			PERR( "demo " << demoFileName() << " is corrupt" <<
+			      " (" << _demoData.size() << "<" << _final_xoff - w() / 2 << ")" );
 			_demoData.clear();
 		}
 
@@ -8132,11 +8133,12 @@ int FltWin::run()
 
 	if ( _USE_FLTK_RUN )
 	{
-		//	using Fl::run()
+		LOG( "using Fl::run()" );
 		Fl::add_timeout( FRAMES, cb_update, this );
 		return Fl::run();
 	}
 
+	LOG( "using own main loop" );
 	while ( Fl::first_window() )
 	{
 		_waiter.wait();
@@ -8266,7 +8268,7 @@ static void signalHandler( int sig_ )
 {
 	signal( sig_, SIG_DFL );
 	if ( sig_ != SIGINT && sig_ != SIGTERM )
-		cerr << endl << "Sorry, FLTrator crashed (signal " << sig_ << ")." << endl;
+		PERR(  endl << "Sorry, FLTrator crashed (signal " << sig_ << ")." );
 	cleanup();
 	exit( EXIT_FAILURE );
 }
