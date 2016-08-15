@@ -14,7 +14,7 @@
 // See the GNU General Public License for more details:
 // http://www.gnu.org/licenses/.
 //
-#define VERSION "2.3r"
+#define VERSION "2.3"
 
 #ifdef WIN32
 // needed for mingw 4.6 to accept AttachConsole()
