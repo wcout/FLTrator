@@ -3953,6 +3953,8 @@ void FltWin::onStateChange( State from_state_ )
 			_TO = TO;
 			Fl::add_timeout( TO, cb_paused, this );
 			changeState( PAUSED );
+			if ( _joyMode && !_joystick.isAttached() )
+				_joystick.attach();
 			break;
 		}
 		case PAUSED:

@@ -31,6 +31,7 @@ public:
 	Fl_Joystick();
 	~Fl_Joystick();
 	bool attach( const char *device_ = NULL );
+	bool isAttached() const { return fd() >= 0; }
 	bool detach();
 	virtual void onEvent();
 private:
