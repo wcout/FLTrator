@@ -407,6 +407,44 @@ static string mkPath( const string& dir_, const string& sub_ = "",
 	return homeDir() + dir + sub + file_;
 }
 
+static int grad( int value_, int max_, int s_, int e_ )
+//-------------------------------------------------------------------------------
+{
+	return s_ + ( e_ - s_ ) * value_ / max_;
+}
+
+typedef struct rgb_color { uchar r;	uchar g;	uchar b; } RGB_COLOR;
+
+static void grad_rect( int x_, int y_, int w_, int h_, int H_, bool rev_,
+                       RGB_COLOR& c1_, RGB_COLOR& c2_ )
+//-------------------------------------------------------------------------------
+{
+	int H = h_;
+	int offs = rev_ ? H_ - h_ : 0;
+	// gradient from color c1 (top) ==> color c2 (bottom)
+	for ( int h = 0; h < H; h++ )
+	{
+		unsigned char r = grad( h + offs, H_, c1_.r, c2_.r );
+		unsigned char g = grad( h + offs, H_, c1_.g, c2_.g );
+		unsigned char b = grad( h + offs, H_, c1_.b, c2_.b );
+		fl_color( fl_rgb_color( r, g, b ) );
+		fl_xyline( x_, y_ + h, x_ + w_ );
+	}
+}
+
+static void grad_rect( int x_, int y_, int w_, int h_, int H_, bool rev_,
+                       unsigned long c1_, unsigned long c2_ )
+//-------------------------------------------------------------------------------
+{
+	RGB_COLOR c1 = { uchar( ( c1_ & 0xff0000 ) >> 16 ),
+	                 uchar( ( c1_ & 0xff00 ) >> 8 ),
+	                 uchar( c1_ & 0xff ) };
+	RGB_COLOR c2 = { uchar( ( c2_ & 0xff0000 ) >> 16 ),
+	                 uchar( ( c2_ & 0xff00 ) >> 8 ),
+	                 uchar( c2_ & 0xff ) };
+	grad_rect( x_, y_, w_, h_, H_, rev_, c1, c2 );
+}
+
 //-------------------------------------------------------------------------------
 class Waiter
 //-------------------------------------------------------------------------------
@@ -3065,6 +3103,7 @@ public:
 	bool trainMode() const { return _trainMode; }
 	bool isFullscreen() const { return fullscreen_active() || !border(); }
 	bool gimmicks() const { return _gimmicks; }
+	void draw_scanlines() const;
 private:
 	void add_score( unsigned score_ );
 	void position_spaceship();
@@ -3289,6 +3328,7 @@ private:
 	bool _joyMode;
 	bool _gimmicks;
 	int _effects;
+	bool _scanlines;
 	bool _classic;
 	bool _correct_speed;
 	bool _no_demo;
@@ -3335,9 +3375,9 @@ class Fireworks : public Fl_Fireworks
 {
 typedef Fl_Fireworks Inherited;
 public:
-	Fireworks( Fl_Window& win_, const char *greeting_ = "", bool fullscreen_ = false ) :
+	Fireworks( FltWin& win_, const char *greeting_ = "", bool fullscreen_ = false ) :
 		Inherited( win_, fullscreen_ ? 20.0 : 10.0 ),
-		_text( 0 )
+		_text( 0 ), _fltwin( &win_ )
 	{
 		callback( cb_fireworks );
 		string yearStr;
@@ -3372,6 +3412,7 @@ public:
 	{
 		Inherited::draw();
 		_text->draw();
+		_fltwin->draw_scanlines();
 	}
 	int handle( int e_ )
 	{
@@ -3414,6 +3455,7 @@ public:
 	double scale_y() const { return SCALE_Y; }
 private:
 	AnimText *_text;
+	FltWin *_fltwin;
 };
 
 //-------------------------------------------------------------------------------
@@ -3455,6 +3497,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_joyMode( false ),
 	_gimmicks( true ),
 	_effects( 0 ),
+	_scanlines( false ),
 	_classic( false ),
 	_correct_speed( false ),
 	_no_demo( false ),
@@ -3788,6 +3831,9 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	{
 		PERR( "Warning: Both mouse control and hide cursor enabled." );
 	}
+
+	// let user disable scanline effect (or turn it on with -FFF )
+	_scanlines = _ini.value( "scanlines", 0, 1, ( _effects > 2 ) );
 
 	if ( _joyMode )
 		_joystick.attach();
@@ -5338,6 +5384,28 @@ int FltWin::drawTableBlock( int w_, int y_, const char *text_, size_t sz_,
 	return x;
 }
 
+void FltWin::draw_scanlines() const
+//-------------------------------------------------------------------------------
+{
+	if ( _scanlines )
+	{
+		static int bytes = w() * h() * 4;
+		static Fl_RGB_Image *scanlines = 0;
+		if ( !scanlines )
+		{
+			uchar *lines = new uchar[ bytes ];
+			memset( lines, 0, bytes );
+			scanlines = new Fl_RGB_Image( lines, w(), h(), 4 );
+			int step = ceil( SCALE_Y * 2 );
+			if ( step < 2 )
+				step = 2;
+			for ( int y = 0; y < h(); y += step )
+				memset( &lines[y * w() * 4], 32, w() * 4 );
+		}
+		scanlines->draw( 0, 0 );
+	}
+}
+
 void FltWin::draw_score()
 //-------------------------------------------------------------------------------
 {
@@ -5531,6 +5599,9 @@ void FltWin::draw_scores()
 		          32, FL_GREEN, _user.name.c_str() );
 	drawText( -1, -50, _texts.value( "space_to_continue", 30, "** hit space to continue **" ),
 	          40, FL_YELLOW );
+
+	// scanline effect
+	draw_scanlines();
 }
 
 void FltWin::draw_title()
@@ -5584,7 +5655,23 @@ void FltWin::draw_title()
 		reveal_height = h();
 	}
 	else
-		fl_rectf( border_w, border_h, w() - 2 * border_w, h() - dborder_h + 1, fl_rgb_color( 32, 32, 32 ) );
+	{
+		// draw menu background rectangle
+		static long title_color = _ini.value( "title_color", 0, 0xffffff, 0x202020 );
+		if ( _effects > 1 )
+		{
+			// gradient top/bottom 'title_color_beg' => 'title_color'
+			static long title_color_beg = _ini.value( "title_color_beg", 0, 0xffffff, 0x808080 );
+			grad_rect( border_w, border_h, w() - 2 * border_w, h() - dborder_h + 1, h(),
+			           false, title_color_beg, title_color );
+		}
+		else
+		{
+			// single color 'title_color'
+			fl_rectf( border_w, border_h, w() - 2 * border_w, h() - dborder_h + 1,
+			          title_color << 8 );
+		}
+	}
 	if ( _spaceship && _spaceship->origImage() && !bgImage )
 	{
 #if FLTK_HAS_NEW_FUNCTIONS
@@ -5669,31 +5756,9 @@ void FltWin::draw_title()
 		fl_rectf( border_w, border_h + reveal_height, w() - 2 * border_w, h() - reveal_height - border_h * 2, FL_BLACK );
 		reveal_height += 6 * _DX;
 	}
-}
 
-static int grad( int value_, int max_, int s_, int e_ )
-//-------------------------------------------------------------------------------
-{
-	return s_ + ( e_ - s_ ) * value_ / max_;
-}
-
-typedef struct rgb_color { uchar r;	uchar g;	uchar b; } RGB_COLOR;
-
-static void grad_rect( int x_, int y_, int w_, int h_, int H_, bool rev_,
-	RGB_COLOR& c1_, RGB_COLOR& c2_ )
-//-------------------------------------------------------------------------------
-{
-	int H = h_;
-	int offs = rev_ ? H_ - h_ : 0;
-	// gradient from color c1 (top) ==> color c2 (bottom)
-	for ( int h = 0; h < H; h++ )
-	{
-		unsigned char r = grad( h + offs, H_, c1_.r, c2_.r );
-		unsigned char g = grad( h + offs, H_, c1_.g, c2_.g );
-		unsigned char b = grad( h + offs, H_, c1_.b, c2_.b );
-		fl_color( fl_rgb_color( r, g, b ) );
-		fl_xyline( x_, y_ + h, x_ + w_ );
-	}
+	// scanline effect
+	draw_scanlines();
 }
 
 void FltWin::draw_shaded_landscape( int xoff_, int W_ )
@@ -6070,23 +6135,7 @@ void FltWin::do_draw()
 		_zoomoutShip->draw();
 
 	// scanline effect
-	if ( _effects > 2 )
-	{
-		static int bytes = w() * h() * 4;
-		static Fl_RGB_Image *scanlines = 0;
-		if ( !scanlines )
-		{
-			uchar *lines = new uchar[ bytes ];
-			memset( lines, 0, bytes );
-			scanlines = new Fl_RGB_Image( lines, w(), h(), 4 );
-			int step = ceil( SCALE_Y * 2 );
-			if ( step < 2 )
-				step = 2;
-			for ( int y = 0; y < h(); y += step )
-				memset( &lines[y * w() * 4], 32, w() * 4 );
-		}
-		scanlines->draw( 0, 0 );
-	}
+	draw_scanlines();
 
 	// fade out effect
 	if ( _effects > 1 && _state == PAUSED && !_done )
