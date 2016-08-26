@@ -38,7 +38,8 @@ static bool HAVE_PIDFILE =
 #endif
 	;
 
-void cleanup()
+static void cleanup()
+//-------------------------------------------------------------------------------
 {
 	if ( !HAVE_PIDFILE && pidFileName )
 	{
@@ -46,7 +47,21 @@ void cleanup()
 	}
 }
 
-void playSound( const char *file_, const char *pidFileName_ )
+static void writePidFile( unsigned long pid_ )
+//-------------------------------------------------------------------------------
+{
+	FILE *f = fopen( pidFileName, "wb" );
+	if ( f )
+	{
+		char buf[30];
+		snprintf( buf, sizeof( buf ), "%lu", pid_ );
+		fwrite( buf, strlen( buf ), 1, f );
+		fclose( f );
+	}
+}
+
+static void playSound( const char *file_, const char *pidFileName_ )
+//-------------------------------------------------------------------------------
 {
 	atexit( cleanup );
 	pidFileName = pidFileName_;
@@ -58,15 +73,8 @@ void playSound( const char *file_, const char *pidFileName_ )
 	}
 	if ( pidFileName_ )
 	{
-		unsigned long pid = GetCurrentProcessId();
-		FILE *f = fopen( pidFileName_, "wb" );
-		if ( f )
-		{
-			char buf[100];
-			snprintf( buf, sizeof(buf), "%lu", pid );
-			fwrite( buf, strlen(buf), 1, f );
-			fclose( f );
-		}
+		// must create "pid file" on our own
+		writePidFile( GetCurrentProcessId() );
 	}
 	PlaySound( file_, NULL, SND_FILENAME | SND_SYNC | SND_NOSTOP );
 #else
@@ -77,6 +85,7 @@ void playSound( const char *file_, const char *pidFileName_ )
 	}
 	else if ( pid == 0 )
 	{
+		// child process
 		static const char wav_player[] = "aplay";
 		static const char ogg_player[] = "ogg123";
 
@@ -87,28 +96,28 @@ void playSound( const char *file_, const char *pidFileName_ )
 		const char *player = ogg ? ogg_player : wav_player;
 
 		if ( pidFileName && HAVE_PIDFILE )
-			execlp( player, player, "-q", file_,	"--process-id-file", pidFileName, (const char *) NULL );
+			execlp( player, player, "-q", file_, "--process-id-file", pidFileName, (const char *)NULL );
 		else
-			execlp( player, player, "-q", file_, (const char*) NULL );
+			execlp( player, player, "-q", file_, (const char*)NULL );
+
+		// should not be reached
 		exit( EXIT_FAILURE );
 	}
+	// parent process
 	if ( pidFileName_ && !HAVE_PIDFILE )
 	{
-		FILE *f = fopen( pidFileName_, "wb" );
-		if ( f )
-		{
-			char buf[100];
-			snprintf( buf, sizeof(buf), "%u", pid );
-			fwrite( buf, strlen(buf), 1, f );
-			fclose( f );
-		}
+		// create a "pid file" if aplay has no support for --process-id-file
+		writePidFile( pid );
 	}
+	// no zombies
 	if ( pid > 0 )
 		waitpid( pid, 0, 0 );
 #endif
 }
 
+//-------------------------------------------------------------------------------
 int main( int argc_, const char *argv_[] )
+//-------------------------------------------------------------------------------
 {
 	if ( argc_ > 1 )
 	{

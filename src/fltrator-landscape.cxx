@@ -1764,6 +1764,13 @@ bool LSEditor::get_nearest_color_change_marker( int x_,
 			sky_color_ = _ls->point( X ).sky_color;
 			bg_color_ = _ls->point( X ).bg_color;
 			ground_color_ = _ls->point( X ).ground_color;
+			if ( !sky_color_ && !bg_color_ && !ground_color_ )
+			{
+				// a "restore" object (0/0/0) => change to original colors
+				sky_color_ = _ls->sky_color();
+				bg_color_ = _ls->bg_color();
+				ground_color_ = _ls->ground_color();
+			}
 			return true;
 		}
 		--X;
@@ -1963,6 +1970,7 @@ int main( int argc_, const char *argv_[] )
 #ifdef WIN32
 	Console console;	// output goes to command window (if started from there)
 #endif
+	Fl::scheme( "gtk+" );
 	LSEditor editor( argc_, argv_ );
 	cout << "ready!" << endl;
 	Fl::run();

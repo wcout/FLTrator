@@ -1,5 +1,5 @@
-Changes in V2.3r (unreleased)
-================
+Changes in V2.3
+===============
 
 - Scale down/up to arbitary screen sizes between 320x200 and 1920x1200
 - Extended game with a "way home" mode
@@ -12,6 +12,7 @@ Changes in V2.3r (unreleased)
 - move fireworks screen into main loop
 - drops/phaser can move/fire slightly horizontal
 - add objects to level 6
+- Better mouse control using just one button
 - Minor bugfixes and improvements
 
 Changes in V2.2

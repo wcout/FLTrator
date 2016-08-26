@@ -149,6 +149,14 @@ static bool _USE_FLTK_RUN =
 #endif
 ;
 
+static bool _HAVE_SLOW_CPU =
+#ifdef HAVE_SLOW_CPU
+	HAVE_SLOW_CPU
+#else
+	0
+#endif
+;
+
 #ifdef WIN32
 #if USE_FLTK_RUN
 static unsigned FPS = 40;
@@ -288,9 +296,11 @@ static bool setupScreenSize( const string& cmd_, int& W_, int& H_ )
 #define flt_font( f_, s_ ) fl_font( f_, s_ )
 #endif
 
-static void setup( int fps_, bool have_slow_cpu_, bool use_fltk_run_  = true )
+static void setup( int fps_, bool have_slow_cpu_, bool use_fltk_run_ )
 //-------------------------------------------------------------------------------
 {
+	_HAVE_SLOW_CPU = have_slow_cpu_;
+	_USE_FLTK_RUN = use_fltk_run_;
 	if ( fps_ && fps_ != -1 )
 	{
 		int fps( fps_ );
@@ -310,22 +320,6 @@ static void setup( int fps_, bool have_slow_cpu_, bool use_fltk_run_  = true )
 			round_up ? fps++ : fps--;
 		}
 	}
-	else if ( have_slow_cpu_ )
-	{
-		use_fltk_run_ = true;
-		FPS = SLOW_FPS;
-	}
-	else
-	{
-		FPS = FAST_FPS;
-	}
-
-#ifdef WIN32
-	if ( use_fltk_run_ )
-		FPS = 40;
-#endif
-	_USE_FLTK_RUN = use_fltk_run_;
-
 	while ( 1 )
 	{
 		FRAMES = 1. / FPS;
@@ -469,7 +463,6 @@ public:
 		_fltkWaitDelay(
 #ifndef WIN32
 			0.0005
-//			0.001
 #else
 		0.0
 #endif
@@ -482,7 +475,7 @@ public:
 			double fltkWaitDelay;
 			ss << fltkWaitDelayEnv;
 			ss >> fltkWaitDelay;
-			if ( fltkWaitDelay >= 0.0 && fltkWaitDelay <= 0.001 )
+			if ( fltkWaitDelay >= 0.0 && fltkWaitDelay <= 0.01 )
 				_fltkWaitDelay = fltkWaitDelay;
 		}
 #ifndef WIN32
@@ -549,8 +542,11 @@ public:
 		_elapsedMilliSeconds = elapsedMilliSeconds;
 		return elapsedMilliSeconds;
 	}
+
 	unsigned int elapsedMilliSeconds() const { return _elapsedMilliSeconds; }
 	double fltkWaitDelay() const { return _fltkWaitDelay; }
+	void fltkWaitDelay( double fltkWaitDelay_ ) { _fltkWaitDelay = fltkWaitDelay_; }
+
 private:
 	unsigned int _elapsedMilliSeconds;
 	double _fltkWaitDelay;
@@ -620,7 +616,7 @@ static int rangedValue( int value_, int min_, int max_ )
 	return v;
 }
 
-static int rangedValue( double value_, double min_, double max_ )
+static double rangedValue( double value_, double min_, double max_ )
 //-------------------------------------------------------------------------------
 {
 	double v( value_ );
@@ -779,11 +775,17 @@ Cfg::Cfg( const char *vendor_, const char *appl_ ) :
 	Inherited( USER, vendor_, appl_ )
 //-------------------------------------------------------------------------------
 {
+	// Hack to determine the filepath where the preferences
+	// are stored. Currently Fl_Preferences has no method to
+	// retrieve it other than to request a userdata directory
+	// and deduce the location of the .prefs file from that.
+	// (Note: This will create a currently unneeded sub-directory)
+	// Really shouldn't use Fl_Preferences.
 	char buf[ 1024 ];
 	buf[0] = 0;
 	getUserdataPath( buf, sizeof( buf ) );
 	_pathName = buf;
-	_pathName += appl_;
+	_pathName.erase( _pathName.size() - 1 );	// remove last '/'
 	_pathName += ".prefs";
 	LOG( "cfg: " << _pathName );
 	load();
@@ -1083,7 +1085,7 @@ static void parseAudioCmd( const string &cmd_,
 	// command 'type' with argument 'arg'
 	if ( type.empty() || "cmd" == type )
 		playCmd_ = arg;
-	else if ( "bgcmd" == type)
+	else if ( "bgcmd" == type )
 		bgPlayCmd_ = arg;
 	else if ( "ext" == type )
 		ext_ = arg;
@@ -1209,18 +1211,27 @@ bool Audio::play( const char *file_, bool bg_/* = false*/, bool repeat_/* = true
 
 		// execute command 'cmd'
 #ifdef WIN32
-		STARTUPINFO si = { 0 };
-		si.cb = sizeof(si);
-		si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW;
-		si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
-		si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
-		si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
-		si.wShowWindow = SW_HIDE;
-		PROCESS_INFORMATION pi;
-		ret = !CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE,
-		                     CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP, NULL, NULL, &si, &pi);
-		CloseHandle(pi.hProcess);
-		CloseHandle(pi.hThread);
+		static STARTUPINFO si = { 0 };
+		static DWORD dwCreationFlags = CREATE_NO_WINDOW | CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS;
+		if ( !si.cb )
+		{
+			si.cb = sizeof(si);
+			si.dwFlags = STARTF_USESTDHANDLES | STARTF_USESHOWWINDOW | STARTF_FORCEOFFFEEDBACK;
+			si.hStdInput = GetStdHandle(STD_INPUT_HANDLE);
+			si.hStdOutput = GetStdHandle(STD_OUTPUT_HANDLE);
+			si.hStdError = GetStdHandle(STD_ERROR_HANDLE);
+			si.wShowWindow = SW_HIDE;
+
+			if ( !getenv( "PLAYSOUND_STANDARD_PRIORITY" ) )
+				dwCreationFlags |= ABOVE_NORMAL_PRIORITY_CLASS;
+		}
+		PROCESS_INFORMATION pi = { 0 };
+		if ( ( ret = !CreateProcess(NULL, (LPSTR)cmd.c_str(), NULL, NULL, FALSE,
+		                            dwCreationFlags, NULL, NULL, &si, &pi) ) == 0 )
+		{
+			CloseHandle(pi.hProcess);
+			CloseHandle(pi.hThread);
+		}
 #elif __APPLE__
 		ret = system( cmd.c_str() );
 #else
@@ -3545,10 +3556,15 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	Fl::set_font( FL_HELVETICA_BOLD_ITALIC, ifont.c_str() );
 
 #ifndef NO_MULTIRES
+	// override max allowed screen dimensions from ini
 	MAX_SCREEN_W = _ini.value( "MAX_SCREEN_W", 800, 3840, 1920 );
 	MIN_SCREEN_W = _ini.value( "MIN_SCREEN_W", 320, 640, 320 );
 	MAX_SCREEN_H = _ini.value( "MAX_SCREEN_H", 600, 2160, 1200 );
 #endif
+
+	// override fltkWaitDelay from ini
+	double fltkWaitDelay = _ini.value( "fltk_wait_delay", 0.0, 0.01, _waiter.fltkWaitDelay() );
+	_waiter.fltkWaitDelay( fltkWaitDelay );
 
 	string defaultArgs;
 	string cfgName( "fltrator" );
@@ -3577,6 +3593,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	trim( defaultArgs );
 
 	LOG( "defaultArgs: '" << defaultArgs << "'" );
+	string defaultArgsSave = defaultArgs;	// needed for --info
 	while ( defaultArgs.size() || argc > 1 )
 	{
 		if ( unknown_option.size() )
@@ -3637,13 +3654,9 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		{
 			_user.name = arg.substr( 2, 10 );
 		}
-		else if ( arg.find( "-R" ) == 0 )
+		else if ( arg.find( "-R" ) == 0 || arg.find( "-r" ) == 0 )
 		{
-#ifdef WIN32
-			setup( atoi( arg.substr( 2 ).c_str() ), false, false );
-#else
-			setup( atoi( arg.substr( 2 ).c_str() ), false, true );
-#endif
+			setup( atoi( arg.substr( 2 ).c_str() ), _HAVE_SLOW_CPU, arg[1] == 'r' );
 		}
 #ifndef NO_MULTIRES
 		else if ( arg.find( "-W" ) == 0 )
@@ -3660,7 +3673,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 				_bady = *new Bady();
 				_cumulus = *new Cumulus();
 				size( W, H );
-				setup( FPS, false, false );
+				setup( FPS, _HAVE_SLOW_CPU, _USE_FLTK_RUN );
 			}
 		}
 #endif
@@ -3696,7 +3709,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 						G_leftHanded = true;
 						break;
 					case 'F':
-						setup( -1, false, false );
+						setup( -1, _HAVE_SLOW_CPU, _USE_FLTK_RUN );
 						_gimmicks = true;
 						_effects++;
 						break;
@@ -3728,7 +3741,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 						_gimmicks = false;
 						break;
 					case 'S':
-						setup( -1, true );
+						setup( -1, true, _USE_FLTK_RUN );
 						_gimmicks = false;
 						_effects = 0;
 						break;
@@ -3769,19 +3782,19 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		     << "  -h\tdisplay this help" << endl
 		     << "  -i\tplay internal (auto-generated) levels" << endl
 		     << "  -l\tleft handed play" << endl
-		     << "  -n\treset user (only if startet with -U)" << endl
 		     << "  -j\tuse joystick for input" << endl
 		     << "  -m\tuse mouse for input" << endl
+		     << "  -n\treset user (only if startet with -U)" << endl
 		     << "  -o\tdo not position window" << endl
 		     << "  -p\tdisable pause on focus out" << endl
-		     << "  -r\tdisable ramdomness" << endl
+		     << "  -q\tdisable ramdomness" << endl
 		     << "  -s\tstart with sound disabled" << endl
 		     << "  -x\tdisable gimmick effects" << endl
 		     << "  -A\"playcmd\"\tspecify audio play command" << endl
 		     << "   \te.g. -A\"cmd=playsound -q %f; bgcmd=playsound -q %f %p; ext=wav\"" << endl
 		     << "  -C\tuse speed correction measurement" << endl
 		     << "  -F{F}\trun with settings for fast computer (turns on most {all} features)" << endl
-		     << "  -Rvalue\tset frame rate to 'value' fps [20,25,40,50,100,200]" << endl
+		     << "  -R/r{value}\tset runtype (r=FLTK, R=custom) and frame rate to 'value' fps [20,25,40,50,100,200]" << endl
 		     << "  -S\trun with settings for slow computer (turns off gimmicks/features)" << endl
 		     << "  -Uusername\tstart as user 'username'" << endl
 #ifndef NO_MULTIRES
@@ -3810,9 +3823,10 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		     << "FRAMES        = " << FRAMES << endl
 		     << "FPS           = " << FPS << endl
 		     << "Home dir      = " << homeDir() << endl
-		     << "Config dir    = " << _cfg->pathName() << endl
-		     << "Audio::cmd    = " << Audio::instance()->cmd() << endl
-		     << "Audio::bg_cmd = " << Audio::instance()->cmd( true ) << endl
+		     << "Config file   = " << _cfg->pathName() << endl
+		     << "Default cmd   = '" << defaultArgsSave << "'" << endl
+		     << "Audio::cmd    = '" << Audio::instance()->cmd() << "'" << endl
+		     << "Audio::bg_cmd = '" << Audio::instance()->cmd( true ) << "'" << endl
 		     << "FLTK version  = " << Fl::version() << endl;
 #if FLTK_HAS_NEW_FUNCTIONS
 		cout << "FLTK_HAS_NEW_FUNCTIONS" << endl;
@@ -5505,14 +5519,14 @@ void FltWin::draw_score()
 				s = _texts.value( "praise_completed", 200,
 			                     "You bravely mastered all challenges\n"
 			                     "and deserve to be called a REAL HERO.\n"
-			                     "Well done! Take some rest now, or ...");
+			                     "Well done! Take some rest now, or ..." );
 			else
 				s = _texts.value( "praise", 200,
 		                        "You succeeded to conquer all hazards\n"
 			                     "and have reached your destination!\n"
 				                  "\n"
 			 	                  "What a pity, that you have to get back\n"
-			                     "now from where you started....");
+			                     "now from where you started...." );
 			drawTextBlock( -1, 150, s.c_str(), 30, 40, FL_WHITE );
 			if ( revers_level )
 				s = _texts.value( "space_to_restart", 50, "** hit space to restart **" );
@@ -5742,9 +5756,9 @@ void FltWin::draw_title()
 		drawText( -1, -26, _texts.value( "title_help", 90, "%c/%c: toggle user     %c/%c: toggle ship     s: %s sound     b: %s music" ),
 			10, FL_GRAY,
 			KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN,
-			Audio::instance()->enabled() ? _texts.value( "disable", 12, "disable") :
+			Audio::instance()->enabled() ? _texts.value( "disable", 12, "disable" ) :
 			                               _texts.value( "enable", 12, "enable" ),
-			Audio::instance()->bg_enabled() ? _texts.value( "disable", 12, "disable") :
+			Audio::instance()->bg_enabled() ? _texts.value( "disable", 12, "disable" ) :
 			                               _texts.value( "enable", 12, "enable" ) );
 		drawText( -90, -26, "fps=%d", 8, FL_CYAN, FPS );
 	}
@@ -8087,10 +8101,10 @@ int FltWin::handle( int e_ )
 			else if ( 'd' == c )
 				cb_demo( this );
 			else if ( '-' == Fl::event_text()[0] )
-				setup( FPS - 1, false, _USE_FLTK_RUN );
+				setup( FPS - 1, _HAVE_SLOW_CPU, _USE_FLTK_RUN );
 			else if ( '+' == Fl::event_text()[0] )
 			{
-				setup( -FPS - 1, false, _USE_FLTK_RUN );
+				setup( -FPS - 1, _HAVE_SLOW_CPU, _USE_FLTK_RUN );
 			}
 		}
 		if ( ( e_ == FL_KEYDOWN && ' ' == c ) ||
@@ -8273,10 +8287,18 @@ string FltWin::firstTimeSetup()
 		{
 			cmd += " -f";
 			if ( speed == 2 )	// very fast computer
+#ifdef WIN32
+				cmd += " -Wf -r40";
+#else
 				cmd += " -Wf -R50";
+#endif
 		}
 		else if ( speed == 2 )	// very fast computer
+#ifdef WIN32
+			cmd += " -W -r40";
+#else
 			cmd += " -W -R50";
+#endif
 
 		if ( speed == 2 )	// very fast computer
 		{
