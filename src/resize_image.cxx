@@ -1,5 +1,6 @@
 #include <FL/Fl_Image.H>
 #include <string.h>
+#include <stdint.h> // uint64_t
 
 // Written (c) by Roman Kantor
 // The code is Free software distributed under LGPL license with FLTK exceptions, see http://www.fltk.org/COPYING.php

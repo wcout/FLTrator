@@ -759,6 +759,7 @@ public:
 	const User& best() const;
 	unsigned hiscore() const { return best().score; }
 	const vector<User>& users() const { return _users; }
+	bool existsUser( const string& user_ ) const;
 	const string& last_user() const { return _last_user; }
 	const string& pathName() const { return _pathName; }
 private:
@@ -842,6 +843,15 @@ void Cfg::load()
 			_last_user.erase();
 		}
 	}
+}
+
+bool Cfg::existsUser( const string& user_ ) const
+//-------------------------------------------------------------------------------
+{
+	for ( size_t i = 0; i < _users.size(); i++ )
+		if ( _users[i].name == user_ )
+			return true;
+	return false;
 }
 
 void Cfg::writeUser( const string& user_,
@@ -3114,7 +3124,8 @@ public:
 	bool trainMode() const { return _trainMode; }
 	bool isFullscreen() const { return fullscreen_active() || !border(); }
 	bool gimmicks() const { return _gimmicks; }
-	void draw_scanlines() const;
+	void draw_tv() const;
+	void draw_tvmask() const;
 private:
 	void add_score( unsigned score_ );
 	void position_spaceship();
@@ -3217,6 +3228,7 @@ private:
 
 	void setIcon();
 	void setTitle();
+	void newUser();
 	void setUser();
 	void resetUser();
 	bool toggleFullscreen();
@@ -3340,6 +3352,7 @@ private:
 	bool _gimmicks;
 	int _effects;
 	bool _scanlines;
+	bool _tvmask;
 	bool _classic;
 	bool _correct_speed;
 	bool _no_demo;
@@ -3423,7 +3436,7 @@ public:
 	{
 		Inherited::draw();
 		_text->draw();
-		_fltwin->draw_scanlines();
+		_fltwin->draw_tv();
 	}
 	int handle( int e_ )
 	{
@@ -3509,6 +3522,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_gimmicks( true ),
 	_effects( 0 ),
 	_scanlines( false ),
+	_tvmask( false ),
 	_classic( false ),
 	_correct_speed( false ),
 	_no_demo( false ),
@@ -3549,12 +3563,6 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_lang = _ini.value( "lang", 3, "" );
 	loadTranslations();
 
-	// use Verdana as application font (or value from ini file)
-	static string font = _ini.value( "font", 50, " Verdana" );
-	static string ifont = _ini.value( "ifont", 50, "PVerdana" );
-	Fl::set_font( FL_HELVETICA,  font.c_str() );	// font name must be static!
-	Fl::set_font( FL_HELVETICA_BOLD_ITALIC, ifont.c_str() );
-
 #ifndef NO_MULTIRES
 	// override max allowed screen dimensions from ini
 	MAX_SCREEN_W = _ini.value( "MAX_SCREEN_W", 800, 3840, 1920 );
@@ -3591,8 +3599,14 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	delete _cfg;
 	_cfg = 0;
 	trim( defaultArgs );
-
 	LOG( "defaultArgs: '" << defaultArgs << "'" );
+
+	// use Verdana as application font (or value from ini file)
+	static string font = _ini.value( "font", 50, " Verdana" );
+	static string ifont = _ini.value( "ifont", 50, "PVerdana" );
+	Fl::set_font( FL_HELVETICA,  font.c_str() );	// font name must be static!
+	Fl::set_font( FL_HELVETICA_BOLD_ITALIC, ifont.c_str() );
+
 	string defaultArgsSave = defaultArgs;	// needed for --info
 	while ( defaultArgs.size() || argc > 1 )
 	{
@@ -3602,7 +3616,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		{
 			arg = argv_[argi++];
 			--argc;
-			if ( arg[0] == '-' && arg != "-i" )
+			if ( arg[0] == '-' && ( arg != "-i" && arg[1] != 'U' ) )
 				defaultArgs.erase();
 		}
 		else
@@ -3848,6 +3862,8 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 
 	// let user disable scanline effect (or turn it on with -FFF )
 	_scanlines = _ini.value( "scanlines", 0, 1, ( _effects > 2 ) );
+	// tvmask effect can only be turned on with ini file currently
+	_tvmask = _ini.value( "tvmask", 0, 1, false );
 
 	if ( _joyMode )
 		_joystick.attach();
@@ -5400,26 +5416,64 @@ int FltWin::drawTableBlock( int w_, int y_, const char *text_, size_t sz_,
 	return x;
 }
 
-void FltWin::draw_scanlines() const
+void FltWin::draw_tvmask() const
+//-------------------------------------------------------------------------------
+{
+	// Note: the idea for screen mask display and the mask values are taken from:
+	//       https://sourceforge.net/projects/view64/
+	//       (the KISS implementation is my own).
+	static const char *tvmask_data[] = {
+		// r/g/b/a values of a 6x4 pixel repeatable color mask
+		"\xda\xda\xda\x20\xda\xda\xda\x20\xda\xda\xda\x20\xff\xda\xda\x20\xda\xff\xda\x20\xda\xda\xff\x20",
+		"\xff\xda\xda\x20\xda\xff\xda\x20\xda\xda\xff\x20\xff\xda\xda\x20\xda\xff\xda\x20\xda\xda\xff\x20",
+		"\xff\xda\xda\x20\xda\xff\xda\x20\xda\xda\xff\x20\xda\xda\xda\x20\xda\xda\xda\x20\xda\xda\xda\x20",
+		"\xff\xda\xda\x20\xda\xff\xda\x20\xda\xda\xff\x20\xff\xda\xda\x20\xda\xff\xda\x20\xda\xda\xff\x20"
+	};
+	static const int d = 4;
+	static const int tvmask_w = strlen( tvmask_data[0] ) / d;
+	static const int tvmask_h = nbrOfItems( tvmask_data );
+	static int bytes = w() * h() * d;
+	static Fl_RGB_Image *tvmask = 0;
+	if ( !tvmask )
+	{
+		uchar *data = new uchar[ bytes ];
+		tvmask = new Fl_RGB_Image( data, w(), h(), d );
+		for ( int line = 0; line < h(); line++ )
+		{
+			for ( int col = 0; col < w(); col += tvmask_w )
+			{
+				int n = min( tvmask_w, w() - col ) * d;
+				memcpy( data, tvmask_data[line % tvmask_h], n );
+				data += n;
+			}
+		}
+	}
+	tvmask->draw( 0, 0 );
+}
+
+void FltWin::draw_tv() const
 //-------------------------------------------------------------------------------
 {
 	if ( _scanlines )
 	{
-		static int bytes = w() * h() * 4;
+		static const int d = 4;
+		static int bytes = w() * h() * d;
 		static Fl_RGB_Image *scanlines = 0;
 		if ( !scanlines )
 		{
-			uchar *lines = new uchar[ bytes ];
-			memset( lines, 0, bytes );
-			scanlines = new Fl_RGB_Image( lines, w(), h(), 4 );
+			uchar *data = new uchar[ bytes ];
+			memset( data, 0, bytes );
+			scanlines = new Fl_RGB_Image( data, w(), h(), d );
 			int step = ceil( SCALE_Y * 2 );
 			if ( step < 2 )
 				step = 2;
 			for ( int y = 0; y < h(); y += step )
-				memset( &lines[y * w() * 4], 32, w() * 4 );
+				memset( &data[y * w() * 4], 0x20, w() * d ); // rgba=0x20202020
 		}
 		scanlines->draw( 0, 0 );
 	}
+	if ( _tvmask )
+		draw_tvmask();
 }
 
 void FltWin::draw_score()
@@ -5617,7 +5671,7 @@ void FltWin::draw_scores()
 	          40, FL_YELLOW );
 
 	// scanline effect
-	draw_scanlines();
+	draw_tv();
 }
 
 void FltWin::draw_title()
@@ -5774,7 +5828,7 @@ void FltWin::draw_title()
 	}
 
 	// scanline effect
-	draw_scanlines();
+	draw_tv();
 }
 
 void FltWin::draw_shaded_landscape( int xoff_, int W_ )
@@ -6151,7 +6205,7 @@ void FltWin::do_draw()
 		_zoomoutShip->draw();
 
 	// scanline effect
-	draw_scanlines();
+	draw_tv();
 
 	// fade out effect
 	if ( _effects > 1 && _state == PAUSED && !_done )
@@ -6937,6 +6991,15 @@ void FltWin::setTitle()
 	copy_label( os.str().c_str() );
 }
 
+void FltWin::newUser()
+//-------------------------------------------------------------------------------
+{
+	_user.name = DEFAULT_USER;
+	setUser();
+	keyClick();
+	changeState( TITLE, true );	// immediate display + reset demo timer
+}
+
 void FltWin::setUser()
 //-------------------------------------------------------------------------------
 {
@@ -7318,6 +7381,14 @@ void FltWin::onActionKey()
 	{
 		if ( _input.empty() )
 			_input = DEFAULT_USER;
+		else
+		{
+			if ( _user.name == DEFAULT_USER && _cfg->existsUser( _input ) )
+			{
+				// do not allow overwriting existing user
+				return;
+			}
+		}
 		if ( _user.name == DEFAULT_USER && _input != DEFAULT_USER )
 			_cfg->removeUser( _user.name );	// remove default user
 		if ( _user.name == DEFAULT_USER )
@@ -8098,6 +8169,8 @@ int FltWin::handle( int e_ )
 				toggleShip();
 			else if ( 'r' == c )
 				resetUser();
+			else if ( 'n' == c )
+				newUser();
 			else if ( 'd' == c )
 				cb_demo( this );
 			else if ( '-' == Fl::event_text()[0] )
