@@ -3637,20 +3637,33 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 			trim( defaultArg );
 			arg = defaultArg;
 		}
-		if ( "--help" == arg || "-h" == arg )
+		if ( arg.find( "--" ) == 0 )
 		{
-			usage = true;
-			break;
-		}
-		if ( "--info" == arg )
-		{
-			info = true;
-			break;
-		}
-		if ( "--version" == arg )
-		{
-			cout << VERSION << endl;
-			exit( EXIT_SUCCESS );
+			string longopt = arg.substr( 2 );
+			if ( (string("help")).find( longopt ) == 0 || "-h" == arg )
+			{
+				usage = true;
+				break;
+			}
+			else if ( (string("info")).find( longopt ) == 0 )
+			{
+				info = true;
+				break;
+			}
+			else if ( (string("version")).find( longopt ) == 0 )
+			{
+				cout << VERSION << endl;
+				exit( EXIT_SUCCESS );
+			}
+			else if ( (string("classic")).find( longopt ) == 0 )
+			{
+				_classic = true;
+			}
+			else
+			{
+				unknown_option = arg;
+			}
+			continue;
 		}
 		int level = atoi( arg.c_str() );
 		if ( level > 0 && level <= (int)MAX_LEVEL )
@@ -3658,8 +3671,6 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 			_first_level = level;
 			_trainMode = true;
 		}
-		else if ( "--classic" == arg )
-			_classic = true;
 		else if ( arg.find( "-A" ) == 0 )
 		{
 			Audio::instance()->cmd( arg.substr( 2 ) );
