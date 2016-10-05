@@ -953,7 +953,8 @@ public:
 	void cmd( const string& cmd_ );
 	string cmd( bool bg_ = false ) const { return bg_ ? _bgPlayCmd : _playCmd; }
 	string ext() const { return _ext; }
-	void noExplosions( bool no_explosions_ = true ) { _no_explosions = no_explosions_; }
+	void noExplosions( bool no_explosions_ ) { _no_explosions = no_explosions_; }
+	bool noExplosions() const { return _no_explosions; }
 	void stop_bg();
 	void check( bool killOnly = false );
 	void shutdown();
@@ -8128,26 +8129,38 @@ int FltWin::handle( int e_ )
 		return 1;
 	}
 
-	if ( e_ == FL_KEYUP && _state != SCORE && 's' == c )
+	if ( e_ == FL_KEYUP )
 	{
-		if ( _state == TITLE )
-			keyClick();
-		toggleSound();
-		if ( _state == TITLE )
+		if ( _state != SCORE )
 		{
-			keyClick();
-			onTitleScreen();	// update display
+			if ( 's' == c )
+			{
+				if ( _state == TITLE )
+					keyClick();
+				toggleSound();
+				if ( _state == TITLE )
+				{
+					keyClick();
+					onTitleScreen();	// update display
+				}
+			}
+			else if ( 'b' == c )
+			{
+				if ( _state == TITLE )
+					keyClick();
+				toggleBgSound();
+			}
+			else if ( 'x' == c )
+			{
+				if ( _state == TITLE )
+					keyClick();
+				Audio::instance()->noExplosions( !Audio::instance()->noExplosions() );
+			}
 		}
-	}
-	if ( e_ == FL_KEYUP && _state != SCORE && 'b' == c )
-	{
-		if ( _state == TITLE )
-			keyClick();
-		toggleBgSound();
-	}
-	if ( e_ == FL_KEYUP && F10_KEY == c && ( _state != LEVEL || G_paused ) )
-	{
-		toggleFullscreen();
+		else if ( F10_KEY == c && ( _state != LEVEL || G_paused ) )
+		{
+			toggleFullscreen();
+		}
 	}
 	if ( _state == TITLE || _state == SCORE || _state == DEMO || _done )
 	{
