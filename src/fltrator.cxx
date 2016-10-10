@@ -7728,10 +7728,11 @@ void FltWin::onTitleScreen()
 	_state = TITLE;
 	_frame = 0;
 	Fl::remove_timeout( cb_demo, this );
-	if ( !G_paused && !_no_demo && Fl::focus() == this )
+	if ( !G_paused && Fl::focus() == this )
 	{
 		// set timeout for demo start
-		Fl::add_timeout( 20.0, cb_demo, this );
+		if ( !_no_demo )
+			Fl::add_timeout( 20.0, cb_demo, this );
 
 		// start ship animation playscreen->titlescreen effect
 		zoominShip( enterTitle );
