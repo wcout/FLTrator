@@ -312,7 +312,7 @@ public:
 				random() % 200 + 56,
 				random() % 200 + 56 );
 			int sh = -H * random() % 3;
-			rockets.push_back( new Fl_Firework_Rocket( (i + 1) * w() / anz_, sh, W, H, c ) );
+			_rockets.push_back( new Fl_Firework_Rocket( (i + 1) * w() / anz_, sh, W, H, c ) );
 		}
 		end();
 
@@ -340,8 +340,8 @@ protected:
 			return;
 		}
 		do_callback( this, -1 );
-		for ( size_t i = 0; i < rockets.size(); i++ )
-			rockets[i]->update();
+		for ( size_t i = 0; i < _rockets.size(); i++ )
+			_rockets[i]->update();
 		redraw();
 	}
 	int handle( int e_ )
@@ -367,9 +367,9 @@ private:
 		DBG( "terminate" );
 		hide();
 		Fl::remove_timeout( cb_poll, this );
-		for ( size_t i = 0; i < rockets.size(); i++ )
-			delete rockets[i];
-		rockets.clear();
+		for ( size_t i = 0; i < _rockets.size(); i++ )
+			delete _rockets[i];
+		_rockets.clear();
 		if ( _baseWin )
 		{
 			_baseWin->remove( *this );
@@ -383,7 +383,7 @@ private:
 		Fl::repeat_timeout( POLL_DELAY, cb_poll, d_ );
 	}
 private:
-	std::vector <Fl_Firework_Rocket *> rockets;
+	std::vector <Fl_Firework_Rocket *> _rockets;
 	Fl_Window *_baseWin;
 	int _max_count;
 	Fl_Color _explodeColor;
