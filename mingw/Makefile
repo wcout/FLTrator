@@ -59,8 +59,10 @@ CXXDEFS+=-DHAVE_SLOW_CPU=$(HAVE_SLOW_CPU)
 CXXFLAGS+=$(CXXDEFS) -g -Wall -pedantic $(INCLUDE) $(FLTKCXXFLAGS)
 #OPT=
 OPT=-O3 -DNDEBUG
-GIT_VERSION := $(shell git describe --abbrev=4 --dirty --always --tags)
+GIT_VERSION := $(shell git describe --abbrev=4 --dirty --always --tags 2>/dev/null)
+ifneq "$(GIT_VERSION)" ""
 OPT+=-DVERSION=\"$(GIT_VERSION)\"
+endif
 
 CP=cp
 MV=mv
