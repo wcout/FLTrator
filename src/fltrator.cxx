@@ -14,7 +14,9 @@
 // See the GNU General Public License for more details:
 // http://www.gnu.org/licenses/.
 //
-#define VERSION "2.3"
+#ifndef VERSION
+#define VERSION "v2.3"
+#endif
 
 #ifdef WIN32
 // needed for mingw 4.6 to accept AttachConsole()
@@ -3487,7 +3489,7 @@ private:
 // class FltWin : public Fl_Double_Window
 //-------------------------------------------------------------------------------
 FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
-	Inherited( SCREEN_W, SCREEN_H, "FL-Trator v"VERSION ),
+	Inherited( SCREEN_W, SCREEN_H, "FL-Trator "VERSION ),
 	_state( START ),
 	_last_state( NO_STATE ),
 	_xoff( 0 ),
@@ -5828,7 +5830,7 @@ void FltWin::draw_title()
 			                               _texts.value( "enable", 12, "enable" ) );
 		drawText( -90, -26, "fps=%d", 8, FL_CYAN, FPS );
 	}
-	drawText( 45, 34, "v"VERSION, 8, FL_CYAN );
+	drawText( 45, 34, VERSION, 8, FL_CYAN );
 
 	if ( _title_anim )
 		_title_anim->draw();

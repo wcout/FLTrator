@@ -52,6 +52,8 @@ endif
 CXXFLAGS+=$(CXXDEFS) -g -Wall -pipe -pedantic $(INCLUDE) $(FLTKCXXFLAGS)
 #OPT=
 OPT=-O3 -DNDEBUG
+GIT_VERSION := $(shell git describe --abbrev=4 --dirty --always --tags)
+OPT+=-DVERSION=\"$(GIT_VERSION)\"
 
 CXX=g++
 CP=cp
