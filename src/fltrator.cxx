@@ -63,6 +63,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <algorithm> // max
 #include <ctime>
 #include <cstring>
 #include <cassert>
@@ -412,7 +413,7 @@ static int grad( int value_, int max_, int s_, int e_ )
 typedef struct rgb_color { uchar r;	uchar g;	uchar b; } RGB_COLOR;
 
 static void grad_rect( int x_, int y_, int w_, int h_, int H_, bool rev_,
-                       RGB_COLOR& c1_, RGB_COLOR& c2_ )
+                       const RGB_COLOR& c1_, const RGB_COLOR& c2_ )
 //-------------------------------------------------------------------------------
 {
 	int H = h_;
@@ -7134,15 +7135,18 @@ bool FltWin::setFullscreen( bool fullscreen_ )
 	static int oy = 0;
 	int X, Y, W, H;
 
-	// Check special case resolution matches work area
-	Fl::screen_work_area( X, Y, W, H );
-	if ( W == (int)SCREEN_W && H == (int)SCREEN_H )
+	if ( fullscreen_ )
 	{
-		PERR( "Use full screen work area " << X << "/" << Y << " " << W << "x" << H );
-		border( 0 );
-		position( X, Y );
-		show();
-		return true;
+		// Check special case resolution matches work area
+		Fl::screen_work_area( X, Y, W, H );
+		if ( fullscreen_ && W == (int)SCREEN_W && H == (int)SCREEN_H )
+		{
+			PERR( "Use full screen work area " << X << "/" << Y << " " << W << "x" << H );
+			border( 0 );
+			position( X, Y );
+			show();
+			return true;
+		}
 	}
 
 	bool isFull = fullscreen_active();
@@ -7941,7 +7945,7 @@ public:
 int FltWin::handle( int e_ )
 //-------------------------------------------------------------------------------
 {
-#define F10_KEY 0xffc7
+#define F10_KEY  (FL_F + 10)
 	static bool ignore_space = false;
 	static int repeated_right = -1;
 
@@ -8160,7 +8164,7 @@ int FltWin::handle( int e_ )
 				Audio::instance()->noExplosions( !Audio::instance()->noExplosions() );
 			}
 		}
-		else if ( F10_KEY == c && ( _state != LEVEL || G_paused ) )
+		if ( F10_KEY == c && ( _state != LEVEL || G_paused ) )
 		{
 			toggleFullscreen();
 		}
