@@ -3130,6 +3130,7 @@ public:
 	bool gimmicks() const { return _gimmicks; }
 	void draw_tv() const;
 	void draw_tvmask() const;
+	bool focus_out() const { return _focus_out; }
 private:
 	void add_score( unsigned score_ );
 	void position_spaceship();
@@ -3425,12 +3426,16 @@ public:
 		welcome << "CG\n© " << crYearStr << "\n\n" << greeting_;
 		(_text = new AnimText( 0, win_.h(), win_.w(), welcome.str().c_str(),
 			FL_GRAY, FL_RED, 50, 40, false ))->start();
-		while ( Fl::first_window() && win_.children() && Fl::focus() == &win_ )
+		while ( Fl::first_window() && win_.children() )
+		{
+			if ( Fl::focus() != &win_ && win_.focus_out() )
+				break;
 #ifndef WIN32
 			Fl::wait( 0.0005 );
 #else
 			Fl::wait( 0.0 );
 #endif
+		}
 	}
 	~Fireworks()
 	{
@@ -7458,7 +7463,7 @@ void FltWin::onContinued()
 void FltWin::onGotFocus()
 //-------------------------------------------------------------------------------
 {
-	if ( !_focus_out )
+	if ( !_focus_out && !_showFirework )
 		return;
 
 	if ( _state == TITLE || _state == DEMO )
@@ -7953,12 +7958,12 @@ int FltWin::handle( int e_ )
 	{
 		Fl::focus( this );
 		onGotFocus();
-		return Inherited::handle( e_ );
+		return 1;
 	}
 	if ( FL_UNFOCUS == e_ )
 	{
 		onLostFocus();
-		return Inherited::handle( e_ );
+		return 1;
 	}
 
 	if ( _disableKeys )
@@ -8322,19 +8327,22 @@ string FltWin::firstTimeSetup()
 //-------------------------------------------------------------------------------
 {
 	string cmd;
-	char title[] = "FLTrator first time setup";
-	fl_message_title( title );
+	fl_message_title_default( "FLTrator first time setup" );
+	static const char YES[] = "YES";
+	static const char NO[] = "NO";
 	int fast_slow = fl_choice( "Do you have a fast computer?\n\n"
 	                           "If you have any recent hardware\n"
 	                           "you should answer 'yes'.",
-	                           "ASK ME LATER",  "NO", "YES" );
+	                           "ASK ME LATER",  NO, YES );
 	if ( !fast_slow )	// abort by Esc or "ask me later'
+	{
+		fl_message_title_default( 0 );
 		return cmd;
+	}
 
 	int speed = 0;
 	if ( fast_slow == 2 )
 	{
-		fl_message_title( title );
 		speed = fl_choice( "*How* fast is your computer?\n\n"
 		                   "'Very fast' enables all features,\n"
 		                   "'Fast' most features.\n"
@@ -8355,7 +8363,6 @@ string FltWin::firstTimeSetup()
 	}
 	else if ( fast_slow == 1 )
 	{
-		fl_message_title( title );
 		speed = fl_choice( "*How* slow is your computer?\n\n"
 		                   "'Slow' lowers the frame rate,\n"
 		                   "'Very slow' enables frame correction,\n"
@@ -8373,20 +8380,18 @@ string FltWin::firstTimeSetup()
 				cmd = "-SCsbe";
 		}
 	}
-	fl_message_title( title );
 	int ship = fl_choice( "Use penetrator like spaceship type?\n\n"
 	                      "'No' uses the standard ship.",
-	                      NULL, "NO", "YES" );
+	                      NULL, NO, YES );
 	if ( ship == 2 )
 		cmd += " -a";
 
 	if ( fast_slow == 2 )
 	{
-		fl_message_title( title );
 		int fullscreen = fl_choice( "Start in fullscreen mode?\n\n"
 		                            "NOTE: You can always toggle fullscreen mode\n"
 		                            "on game title screen with F10.",
-		                            NULL, "NO", "YES" );
+		                            NULL, NO, YES );
 		if ( fullscreen == 2 )	// YES
 		{
 			cmd += " -f";
@@ -8406,9 +8411,8 @@ string FltWin::firstTimeSetup()
 
 		if ( speed == 2 )	// very fast computer
 		{
-			fl_message_title( title );
 			int all_effects = fl_choice( "Turn on ALL effects?\n\n",
-			                             NULL, "NO", "YES" );
+			                             NULL, NO, YES );
 			if ( all_effects == 2 ) // YES
 			{
 				size_t pos = cmd.find( "-FF" );
@@ -8420,12 +8424,12 @@ string FltWin::firstTimeSetup()
 
 	trim( cmd );
 	_cfg->set( "defaultArgs", cmd.c_str() );
-	fl_message_title( title );
 	fl_message( "Configuration saved to\n"
 	            "'%s'.\n\n"
 	            "To re-run next time start with\n"
 	            "'Control-Left' key pressed.",
 	            _cfg->pathName().c_str() );
+	fl_message_title_default( 0 );
 	return cmd;
 }
 
