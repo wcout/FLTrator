@@ -1,5 +1,5 @@
 //
-// Copyright 2015-2016 Christian Grabner.
+// Copyright 2015-2017 Christian Grabner.
 //
 // This file is part of FLTrator.
 //
@@ -30,6 +30,7 @@
 #include <FL/Fl_Sys_Menu_Bar.H>
 #include <FL/Fl_File_Chooser.H>
 #include <FL/Fl_Hor_Slider.H>
+#include <FL/Fl_Help_Dialog.H>
 #include <FL/filename.H>
 #include <FL/Fl.H>
 #include <FL/fl_draw.H>
@@ -62,26 +63,7 @@ enum ObjectType
    O_COLOR_CHANGE = 64
 };
 
-static const char *HelpText = \
-"         === Landscape Editor Help ===\n\n \
-Move view with Left/Right/Pg Up/Pg Down/Home/End.\n \
-Double click in preview to jump that position.\n \
-Toggle mode PLACE/EDIT with key 'm'.\n\n \
-In EDIT mode draw the ground by dragging mouse\n \
-with left button or the sky with right button.\n \
-Set 'Scroll Lock' to move the view automatically.\n \
-Use 'Shift' to set single points.\n \
-Use 'Shift-Ctrl' to draw line from last point.\n \
-Use 'Ctrl' to draw horizontal lines.\n \
-Undo drawings with 'Bsp' or 'Del'.\n\n \
-Double click on landscape to select colors for\n \
-ground/land/sky (with 'Ctrl': outline colors).\n \
-Show/hide a magnifier window with 'z'.\n \
-Use key 'o' to change outline width.\n\n \
-In PLACE mode select object type to place with\n \
-'1'-'9' and place/remove objects with double click.\n\n \
-When closing the window all changes will be saved.\n \
-Press ESC if you want to exit *without* saving.";
+#include "ls_help.H"	// HTML help text
 
 static const string& homeDir()
 //-------------------------------------------------------------------------------
@@ -657,6 +639,7 @@ public:
 		Fl_Color& sky_color_, Fl_Color& bg_color_, Fl_Color& ground_color_ );
 	void selectColor( int x_, int y_ );
 	void setTitle();
+	void showHelp();
 	void undo();
 	void undoPush( int type_, int xoff_, int value_ );
 	void undoPush( int type_, int xoff_, vector<int>& value_ );
@@ -678,6 +661,7 @@ private:
 	static void save_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onSave();}
 	static void quit_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onQuit();}
 	static void xoff_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onXoff();}
+	static void help_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->showHelp();}
 private:
 	LS *_ls;
 	int _xoff;
@@ -701,6 +685,7 @@ private:
 	bool _menu_shown;
 	bool _dont_save;
 	vector<UndoEntry> _undoStack;
+	Fl_Help_Dialog *_help;
 };
 
 
@@ -904,7 +889,8 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_menu( 0 ),
 	_slider( 0 ),
 	_menu_shown( true ),
-	_dont_save( false )
+	_dont_save( false ),
+	_help( 0 )
 //--------------------------------------------------------------------------
 {
 	int argc( argc_ );
@@ -1041,7 +1027,8 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 				{0},
 			{ "Save level as..", 0, save_as_cb, this, 0 },
 			{ "Save", 0, save_cb, this, FL_MENU_DIVIDER },
-			{ "Exit without saving", 0, quit_cb, this, 0 },
+			{ "Exit without saving", 0, quit_cb, this, FL_MENU_DIVIDER },
+			{ "Help..", FL_F+1, help_cb, this, 0 },
 			{ 0 },
 		{ 0 }
 	};
@@ -1073,6 +1060,8 @@ void LSEditor::changed( bool changed_ )
 void LSEditor::hide()
 //--------------------------------------------------------------------------
 {
+	if ( _help )
+		_help->hide();
 	if ( _preview )
 		_preview->hide();
 	if ( _zoom )
@@ -1288,12 +1277,12 @@ int LSEditor::handle( int e_ )
 		{
 			int key = Fl::event_key();
 //			printf( "key: %X (%c)\n", key, key );
-			if ( 0xffbe == key ) // F1
+			if ( FL_F + 1 == key ) // F1
 			{
-				fl_alert( "%s", HelpText );
+				showHelp();
 				return 1;
 			}
-			if ( 0xffc7 == key ) // F10
+			if ( FL_F + 10 == key ) // F10
 			{
 				if ( _menu_shown )
 					_menu->hide();
@@ -1916,6 +1905,18 @@ void LSEditor::setTitle()
 		os << "                SCROLL";
 	t += " - " + os.str();
 	copy_label( t.c_str() );
+}
+
+void LSEditor::showHelp()
+//--------------------------------------------------------------------------
+{
+	if ( !_help )
+	{
+		_help = new Fl_Help_Dialog();
+		_help->resize( this->x() + 20, this->y() + 20, 800, 600 );
+		_help->value( HelpText );
+	}
+	_help->show();
 }
 
 void LSEditor::undo()
