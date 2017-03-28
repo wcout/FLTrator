@@ -3495,7 +3495,7 @@ private:
 // class FltWin : public Fl_Double_Window
 //-------------------------------------------------------------------------------
 FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
-	Inherited( SCREEN_W, SCREEN_H, "FL-Trator "VERSION ),
+	Inherited( SCREEN_W, SCREEN_H, "FL-Trator " VERSION ),
 	_state( START ),
 	_last_state( NO_STATE ),
 	_xoff( 0 ),
