@@ -2839,7 +2839,7 @@ protected:
 		if ( _decel > 0 )
 			_decel--;
 	}
-	Point missilePos()
+	Point missilePos() const
 	{
 		Point p( w(), h() / 2 );
 		// search rightmost row
@@ -2857,7 +2857,7 @@ protected:
 		}
 		return p;
 	}
-	Point bombPos()
+	Point bombPos() const
 	{
 		Point p( w() / 2, h() );
 		// search bottom line
@@ -5452,10 +5452,10 @@ void FltWin::draw_tvmask() const
 	static const int d = 4;
 	static const int tvmask_w = strlen( tvmask_data[0] ) / d;
 	static const int tvmask_h = nbrOfItems( tvmask_data );
-	static int bytes = w() * h() * d;
 	static Fl_RGB_Image *tvmask = 0;
 	if ( !tvmask )
 	{
+		int bytes = w() * h() * d;
 		uchar *data = new uchar[ bytes ];
 		tvmask = new Fl_RGB_Image( data, w(), h(), d );
 		for ( int line = 0; line < h(); line++ )
@@ -5477,10 +5477,10 @@ void FltWin::draw_tv() const
 	if ( _scanlines )
 	{
 		static const int d = 4;
-		static int bytes = w() * h() * d;
 		static Fl_RGB_Image *scanlines = 0;
 		if ( !scanlines )
 		{
+			int bytes = w() * h() * d;
 			uchar *data = new uchar[ bytes ];
 			memset( data, 0, bytes );
 			scanlines = new Fl_RGB_Image( data, w(), h(), d );
