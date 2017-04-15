@@ -2423,7 +2423,7 @@ public:
 		}
 	}
 	bool done() const { return _done; }
-	virtual double timeout() const { return started() ? 0.02 : 0.02; }
+	virtual double timeout() const { return started() ? 0.02 : 0.1; }
 	const char *text() const { return _text.c_str(); }
 private:
 	string _text;
@@ -4607,7 +4607,7 @@ bool FltWin::loadLevel( unsigned level_, string& levelFileName_ )
 				subfill -= 10;
 			}
 		}
-		if ( SCALE_X >= 1. || ( SCALE_X < 1. && ( obj || (int)(SCALE_X * ( cnt + 1 )) != (int)( SCALE_X * cnt ) ) ) )
+		if ( SCALE_X >= 1. || ( obj || (int)(SCALE_X * ( cnt + 1 )) != (int)( SCALE_X * cnt ) ) )
 			T.push_back( TerrainPoint( g, s, obj ) );
 		cnt++;
 		if ( obj & O_COLOR_CHANGE )
@@ -5527,7 +5527,7 @@ void FltWin::draw_score()
 
 	if ( !_effects )
 	{
-		n = snprintf( buf, sizeof( buf ), "L %u/%u Score: %06u", _level,
+		n = snprintf( buf, sizeof( buf ), "L %u/%u Score: %06d", _level,
 		              MAX_LEVEL_REPEAT - _level_repeat, _user.score );
 		flt_draw( buf, n, 20, -30 );
 		n = snprintf( buf, sizeof( buf ), "%d %%",
@@ -5536,7 +5536,7 @@ void FltWin::draw_score()
 	}
 	else
 	{
-		n = snprintf( buf, sizeof( buf ), "%u%s       Score: %06u",
+		n = snprintf( buf, sizeof( buf ), "%u%s       Score: %06d",
 	                 _level, ( _level < 10 ? " " : "" ), _user.score );
 		flt_draw( buf, n, 20, -30 );
 		int lifes = MAX_LEVEL_REPEAT - _level_repeat;
@@ -6195,7 +6195,7 @@ void FltWin::do_draw()
 	}
 
 	if ( !paused() || _frame % (FPS / 2) < FPS / 4 || _collision )
-		if ( !_zoomoutShip || ( _zoomoutShip && _zoomoutShip->done() ) )
+		if ( !_zoomoutShip || _zoomoutShip->done() )
 			_spaceship->draw();
 
 	draw_objects( false );	// objects AFTER collision check (=without collision)
@@ -8233,7 +8233,7 @@ int FltWin::handle( int e_ )
 		unsigned int button = _joystick.event().number;
 		if ( button > _joystick.numberOfButtons() / 2 )
 			fireMissile();
-		else if ( button <= _joystick.numberOfButtons() / 2 )
+		else
 			dropBomb();
 	}
 	else if ( FL_JOY_AXIS == e_ )

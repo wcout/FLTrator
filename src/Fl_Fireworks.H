@@ -225,7 +225,7 @@ private:
 				_X = x();
 				_Y = y();
 			}
-			else if ( _X != -1 )
+			else
 			{
 				// draw explosion
 				draw_particles();
