@@ -2718,7 +2718,7 @@ public:
 			if ( s > max_sky )
 				max_sky = s;
 			if ( g < min_ground )
-				min_ground = s;
+				min_ground = g;
 			if ( g > max_ground )
 				max_ground = g;
 		}
@@ -6045,7 +6045,7 @@ bool FltWin::draw_decoration() const
 		// shaded bg
 		int sky_min = T.min_sky;
 		int ground_min = T.min_ground;
-		int H = h() - sky_min - ground_min;
+		int H = h() - sky_min - ground_min + 1;
 		assert( H > 0 );
 		int y = 0;
 		int W = SCREEN_W;
