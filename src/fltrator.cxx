@@ -5573,7 +5573,7 @@ void FltWin::draw_score()
 				_completed = true;
 				revers_level = reversLevel() || _internal_levels || _trainMode;
 				Audio::instance()->enable();	// turn sound on
-				free( _terrain );	// switch to direct drawing for grayout!
+				delete _terrain;	// switch to direct drawing for grayout!
 				_terrain = 0;
 				if ( revers_level )
 					s = _texts.value( "mission_complete", 50, "** MISSION COMPLETE! **" );
