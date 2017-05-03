@@ -72,6 +72,7 @@
 #include <cmath>
 
 #ifdef WIN32
+#include <windows.h>
 #include <mmsystem.h>
 #include <io.h>	// _access
 #define random rand
