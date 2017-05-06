@@ -2547,11 +2547,11 @@ public:
 		_image = 0;
 		return _done;
 	}
-	void update()
+	bool update()
 	{
 		if ( _frame >= _frames )
 		{
-			stop();
+			return stop();
 		}
 		else
 		{
@@ -2576,6 +2576,7 @@ public:
 			}
 			_frame++;
 		}
+		return _done;
 	}
 	bool done() const { return _done; }
 	const FltImage& src() const { return _src; }
@@ -2583,8 +2584,8 @@ private:
 	static void cb_update( void *d_ )
 	{
 		ImageAnimation *this_ptr = (ImageAnimation *)d_;
-		this_ptr->update();
-		Fl::repeat_timeout( this_ptr->_duration / this_ptr->_frames, cb_update, d_ );
+		if ( !this_ptr->update() )
+			Fl::repeat_timeout( this_ptr->_duration / this_ptr->_frames, cb_update, d_ );
 	}
 private:
 	bool _done;
