@@ -5381,6 +5381,8 @@ int FltWin::drawTable( int w_, int y_, const char *text_, size_t sz_, Fl_Color c
 	fl_text_extents( l, xl, yl, wl, hl );
 	if ( r )
 		fl_text_extents( r, xr, yr, wr, hr );
+	if ( w_ <= 0 )	// just measure text
+		return lround( double( wl + wr ) / SCALE_X );
 
 	int x =  ( w() - w_ ) / 2;
 
@@ -5416,6 +5418,7 @@ int FltWin::drawTableBlock( int w_, int y_, const char *text_, size_t sz_,
 
 	int y = y_;
 	int x = -1;
+	int max_w = 0;
 	char *text = buf;
 	while ( text )
 	{
@@ -5425,6 +5428,8 @@ int FltWin::drawTableBlock( int w_, int y_, const char *text_, size_t sz_,
 		if ( nl )
 			*nl = 0;
 		x = drawTable( w_, y, text, sz_, c_ );
+		if ( w_ <=  0 && x > max_w ) // just measuring table width
+			max_w = x;
 		y += line_height_;
 		if ( nl )
 		{
@@ -5435,7 +5440,7 @@ int FltWin::drawTableBlock( int w_, int y_, const char *text_, size_t sz_,
 		else
 			text = 0;
 	}
-	return x;
+	return w_ < 0 ? max_w : x;
 }
 
 void FltWin::draw_tvmask() const
@@ -5808,7 +5813,8 @@ void FltWin::draw_title()
 		          _user.name.empty() ? "N.N." : _user.name.c_str(), _first_level );
 		if ( reversLevel() )	// draw a down-arrow to denote going reverse levels
 			fl_draw_symbol( "@+22->", SCALE_X * ( x - 20 ), SCALE_Y * (210 - 15), SCALE_X * 20, SCALE_Y * 30, FL_RED );
-		drawTableBlock( 390, 270, _texts.value( "key_help", 100,
+      static int TW = -1; // dynamic calc. of required table width for key table
+		int tw = drawTableBlock( TW, 270, _texts.value( "key_help", 100,
 			"%c/%c\tup/down\n"
 		   "%c/%c\tleft/right\n"
 			"%c\tfire missile\n"
@@ -5818,6 +5824,8 @@ void FltWin::draw_title()
 			KEY_UP, KEY_DOWN,
 			KEY_LEFT, KEY_RIGHT,
 			KEY_RIGHT );
+		if ( TW <= 0 )
+			TW = rangedValue( tw + 50, 390, 460 );
 		if ( _mouseMode || _joyMode )
 			drawText( -1, 500, _joyMode ? _texts.value( "joystick_mode", 30, "joystick mode" ) :
 			                              _texts.value( "mouse_mode", 30, "mouse mode" ),
