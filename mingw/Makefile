@@ -140,6 +140,7 @@ install: all
 	$(CP) -a ../README.md $(RSC_PATH)/.
 	$(CP) -a ../lang_*.txt $(RSC_PATH)/.
 	$(CP) -a ../levels/*.txt $(RSC_PATH)/levels/.
+	cd ..; tar -xvf images/deco.tar -C $(RSC_PATH)/images
 
 target: all
 	@echo TARGET_ROOT $(TARGET_ROOT)
@@ -185,6 +186,7 @@ target: all
 	$(CP) -a $(ROOT)/lang_*.txt $(TARGET_PATH)/.
 	$(CP) -a $(ROOT)/README.md $(TARGET_PATH)/.
 	$(CP) -a $(ROOT)/levels/*.txt $(TARGET_PATH)/levels/.
+	cd ..; tar -xvf images/deco.tar -C $(TARGET_PATH)/images
 	$(CP) -a $(ROOT)/rsc $(TARGET_PATH)
 	$(CP) -a *.ico $(TARGET_PATH)
 	cd $(TARGET_ROOT) && zip -r $(TARGET_PATH).zip $(TARGET_NAME)

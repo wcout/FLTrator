@@ -15,7 +15,7 @@
 // http://www.gnu.org/licenses/.
 //
 #ifndef VERSION
-#define VERSION "v2.3"
+#define VERSION "v2.4"
 #endif
 
 #ifdef WIN32
@@ -177,7 +177,7 @@ static double FRAMES = 1. / FPS;
 static unsigned DX = 200 / FPS;
 static unsigned SCORE_STEP = (int)( 200. / (double)DX ) * DX;
 
-static bool G_paused = true;
+static int G_paused = true;
 
 static bool G_leftHanded = false;
 
@@ -3131,6 +3131,7 @@ public:
 	bool trainMode() const { return _trainMode; }
 	bool isFullscreen() const { return fullscreen_active() || !border(); }
 	bool gimmicks() const { return _gimmicks; }
+	void draw_fadeout();
 	void draw_tv() const;
 	void draw_tvmask() const;
 	bool focus_out() const { return _focus_out; }
@@ -3172,6 +3173,8 @@ private:
 
 #ifndef NO_PREBUILD_LANDSCAPE
 	Fl_Image *terrain_as_image();
+	Fl_Image *landscape_as_image();
+	Fl_Image *background_as_image();
 #endif
 	bool create_terrain();
 	void create_level();
@@ -3195,11 +3198,12 @@ private:
 	void draw_score();
 	void draw_scores();
 	void draw_title();
+	void draw_shaded_background( int xoff_, int W_ );
 	void draw_shaded_landscape( int xoff_, int W_ );
 	void draw_outline( int xoff_, int W_, int outline_width_,
 	                   Fl_Color outline_color_sky_, Fl_Color outline_color_ground ) const;
 	void draw_landscape( int xoff_, int W_ );
-	bool draw_decoration() const;
+	bool draw_decoration();
 	void draw();
 	void do_draw();
 
@@ -3221,7 +3225,7 @@ private:
 	int handle( int e_ );
 	void keyClick() const;
 
-	void onActionKey();
+	void onActionKey( bool delay_ = true );
 	void onCollision();
 	void onPaused();
 	void onContinued();
@@ -3250,6 +3254,7 @@ private:
 
 	bool paused() const { return _state == PAUSED; }
 	void bombUnlock();
+	static void cb_action_key_delay( void *d_ );
 	static void cb_bomb_unlock( void *d_ );
 	static void cb_demo( void *d_ );
 	static void cb_paused( void *d_ );
@@ -3387,6 +3392,8 @@ private:
 	string _bgsound;
 	DemoData _demoData;
 	Fl_Image *_terrain;
+	Fl_Image *_landscape;
+	Fl_Image *_background;
 	User _user;
 	static Waiter _waiter;
 	Fl_Joystick _joystick;
@@ -3553,6 +3560,8 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_zoominShip( 0 ),
 	_disableKeys( false ),
 	_terrain( 0 ),
+	_landscape( 0 ),
+	_background( 0 ),
 	_showFirework( true ),
 	_alpha_matte( 0 ),
 	_TO( 0. ),
@@ -4657,7 +4666,100 @@ Fl_Image *FltWin::terrain_as_image()
 	LOG( "terrain_as_image " << image->w() << "x" << image->h() );
 	return image;
 }
-#endif
+
+static void color_to_transparence( Fl_Image *img_, Fl_Color c_, uchar alpha_ = 0 )
+//-------------------------------------------------------------------------------
+{
+	assert( img_ );
+	assert( img_->d() == 4 );
+
+	uchar r, g, b;
+	Fl::get_color( c_, r, g, b );
+
+	uchar *p = (uchar *)img_->data()[0];
+	uchar *e = p + img_->w() * img_->h() * img_->d();
+	while ( p < e )
+	{
+		if ( p[0] == r && p[1] == g && p[2] == b )
+		{
+			p[3] = alpha_; // set color c_ alpha value (0 = max. transparency)
+		}
+		p += 4;
+	}
+}
+
+static Fl_RGB_Image *read_RGBA_image( int W_, int H_ )
+//-------------------------------------------------------------------------------
+{
+	uchar *screen = fl_read_image( NULL, 0, 0, W_, H_, 255 );
+	Fl_RGB_Image *image = new Fl_RGB_Image( screen, W_, H_, 4 );
+	image->alloc_array = 1;
+	return image;
+}
+
+static const Fl_Color BlueBoxColor = fl_rgb_color( 254, 254, 254 );
+
+Fl_Image *FltWin::background_as_image()
+//-------------------------------------------------------------------------------
+{
+	int W = T.size();
+	int H = h();
+	Fl_Image_Surface img_surf( W, H );
+	img_surf.set_current();
+
+	// set screen to white to be used for transparency
+	fl_rectf( 0, 0, W, h(), BlueBoxColor );
+
+	if ( _effects > 1 && !classic() )
+	{
+		draw_shaded_background( 0, W );
+	}
+	else
+	{
+		fl_color( T.bg_color );
+		for ( int i = 0; i < W; i++ )
+		{
+			fl_yxline( i, T[i].sky_level(), h() - T[i].ground_level() );
+		}
+	}
+	Fl_Image *image = read_RGBA_image( W, H );
+	color_to_transparence( image, BlueBoxColor );
+	Fl_Display_Device::display_device()->set_current(); // direct graphics requests back to the display
+	LOG( "background_as_image " << image->w() << "x" << image->h() );
+	return image;
+}
+
+Fl_Image *FltWin::landscape_as_image()
+//-------------------------------------------------------------------------------
+{
+	int W = T.size();
+	int H = h();
+	Fl_Image_Surface img_surf( W, H );
+	img_surf.set_current();
+
+	if ( _effects && !classic() )
+	{
+		Fl_Color bg = T.bg_color;
+		T.bg_color = BlueBoxColor;
+		draw_shaded_landscape( 0, W );
+		T.bg_color = bg;
+	}
+	else
+	{
+		// draw bg in white to be used for transparency
+		fl_rectf( 0, 0, W, h(), BlueBoxColor );
+
+		// draw landscape
+		draw_landscape( 0, W );
+	}
+	Fl_Image *image = read_RGBA_image( W, H );
+	color_to_transparence( image, BlueBoxColor );
+	Fl_Display_Device::display_device()->set_current(); // direct graphics requests back to the display
+	LOG( "landscape_as_image " << image->w() << "x" << image->h() );
+	return image;
+}
+
+#endif //NO_PREBUILD_LANDSCAPE
 
 bool FltWin::create_terrain()
 //-------------------------------------------------------------------------------
@@ -4764,8 +4866,15 @@ bool FltWin::create_terrain()
 	if ( _level != lastCachedTerrainLevel || !_terrain )
 	{
 		delete _terrain;
+		delete _landscape;
+		delete _background;
 		// terrains with color change cannot be prebuild as image!
 		_terrain = T.hasColorChange() ? 0 : terrain_as_image();
+		if ( _terrain && _gimmicks && _effects && !_classic )
+		{
+			_landscape = landscape_as_image();
+			_background = background_as_image();
+		}
 	}
 #endif
 	if ( lastCachedTerrainLevel != _level )
@@ -5444,6 +5553,48 @@ int FltWin::drawTableBlock( int w_, int y_, const char *text_, size_t sz_,
 	return w_ < 0 ? max_w : x;
 }
 
+void FltWin::draw_fadeout()
+//-------------------------------------------------------------------------------
+{
+	if ( G_paused || ( _effects > 1 && _state == PAUSED && !_done ) )
+	{
+		static int bytes = w() * h() * 4;
+		static uchar *screen = 0;
+		static Fl_RGB_Image *matte = 0;
+
+		if ( !screen )
+		{
+			screen = new uchar[ bytes ];
+			memset( screen, 0, bytes );
+		}
+		if ( !matte )
+			matte = new Fl_RGB_Image( screen, w(), h(), 4 );
+
+		unsigned alpha = 128; // default grayout value for paused mode
+		if ( !G_paused )
+		{
+			// Calculate the current fadeout alpha value:
+			// determine real fps, in order to calculate total_frames
+			// (important when run with speed correction)
+			static double fps = FPS;
+			if ( _alpha_matte < 10 )
+				fps = ( (double)w() / _DDX ) / 4;
+			double total_frames = _TO * fps;
+			double perc = (double)_alpha_matte / total_frames;
+			alpha = perc * 256;
+			if ( alpha > 255 )
+				alpha = 255;
+			_alpha_matte++;
+		}
+		// change alpha in matte array
+		uchar *p = screen;
+		for ( int i = 0; i < bytes; i += 4, p += 4 )
+			*(p + 3) = alpha;
+		matte->uncache();
+		matte->draw( 0, 0 );
+	}
+}
+
 void FltWin::draw_tvmask() const
 //-------------------------------------------------------------------------------
 {
@@ -5832,8 +5983,10 @@ void FltWin::draw_title()
 			                              _texts.value( "mouse_mode", 30, "mouse mode" ),
 			          12, FL_YELLOW );
 	}
-	if ( G_paused )
+	if ( G_paused == true )
 		drawText( -1, -50, _texts.value( "paused_title", 20, "** PAUSED **" ), 40, FL_YELLOW );
+	else if ( G_paused == 2 )
+		drawText( -1, -50, _texts.value( "get_ready", 20, "GET READY!" ), 40, FL_YELLOW );
 	else
 	{
 		drawText( -1, -50, _texts.value( "space_to_start", 28, "** hit space to start **" ),
@@ -5860,6 +6013,44 @@ void FltWin::draw_title()
 
 	// scanline effect
 	draw_tv();
+
+	// fade out effect
+	draw_fadeout();
+}
+
+void FltWin::draw_shaded_background( int xoff_, int W_ )
+//-------------------------------------------------------------------------------
+{
+	// draw a shaded bg
+	T.check();
+	int sky_min = T.min_sky;
+	int ground_min = T.min_ground;
+	int H = h() - sky_min - ground_min + 1;
+	assert( H > 0 );
+	int y = 0;
+	int W = W_;
+	Fl_Color c = fl_lighter( T.bg_color );
+	while ( y < H )
+	{
+		int x = 0;
+		// Note: fl_color_average() does just the same as grad() - use it?
+		fl_color( fl_color_average( T.bg_color, c, float( y ) / H ) );
+		while ( x < W )
+		{
+			while ( x < W &&
+			        ( T[xoff_ + x].sky_level() > y + sky_min ||
+			        h() - T[xoff_ + x].ground_level() < y + sky_min ) )
+				x++;
+			int x0 = x;
+			while ( x < W &&
+			        ( T[xoff_ + x].sky_level() <= y + sky_min &&
+			        h() - T[xoff_ + x].ground_level() >= y + sky_min ) )
+				x++;
+			if ( x > x0 )
+				fl_xyline( x0, y + sky_min , x - 1 );
+		}
+		y++;
+	}
 }
 
 void FltWin::draw_shaded_landscape( int xoff_, int W_ )
@@ -5930,7 +6121,7 @@ void FltWin::draw_shaded_landscape( int xoff_, int W_ )
 		}
 	}
 
-	// background
+	// restore background
 	fl_color( T.bg_color );
 	for ( int i = 0; i < W_; i++ )
 	{
@@ -6047,43 +6238,10 @@ void FltWin::draw_landscape( int xoff_, int W_ )
 		draw_outline( xoff_, W_, outline_width, outline_color_sky, outline_color_ground );
 }
 
-bool FltWin::draw_decoration() const
+bool FltWin::draw_decoration()
 //-------------------------------------------------------------------------------
 {
 	bool redraw( false );
-	if ( _effects > 1 && !classic() )	// only if turned on additionally
-	{
-		// shaded bg
-		int sky_min = T.min_sky;
-		int ground_min = T.min_ground;
-		int H = h() - sky_min - ground_min + 1;
-		assert( H > 0 );
-		int y = 0;
-		int W = SCREEN_W;
-		Fl_Color c = fl_lighter( T.bg_color );
-		while ( y < H )
-		{
-			int x = 0;
-			// Note: fl_color_average() does just the same as grad() - use it?
-			fl_color( fl_color_average( T.bg_color, c, float( y ) / H ) );
-			while ( x < W )
-			{
-				while ( x < W &&
-				        ( T[_xoff + x].sky_level() > y + sky_min ||
-				        h() - T[_xoff + x].ground_level() < y + sky_min ) )
-					x++;
-				int x0 = x;
-				while ( x < W &&
-				        ( T[_xoff + x].sky_level() <= y + sky_min &&
-				        h() - T[_xoff + x].ground_level() >= y + sky_min ) )
-					x++;
-				if ( x > x0 )
-					fl_xyline( x0, y + sky_min , x - 1 );
-			}
-			y++;
-		}
-		redraw = true;
-	}
 	if ( TBG.flags & 2 )
 	{
 		// test starfield
@@ -6107,6 +6265,34 @@ bool FltWin::draw_decoration() const
 			}
 		}
 		redraw = true;
+	}
+	// test decoration object
+	if ( _effects && _gimmicks && _landscape && !_classic ) // only possible with image-cached terrain
+	{
+		static FltImage deco;
+		static int deco_x = -1;
+		static int deco_y = -1;
+		string name( deco.name() );
+		deco.get( imgPath.get( "deco.png" ).c_str(), 2 ); // scale deco images x 2
+		if ( ( !G_paused && _xoff < (int)_DX ) || deco_x == -1 || deco.name() != name )
+		{
+			// calc. a new random position for the deco object
+			deco_x = Random::pRand() % ( T.size() / 8 ) + T.size() / 16;
+			int H = h() - T.min_sky - T.min_ground + 1;
+			deco_y = Random::pRand() % ( H ? H / 2 : h() / 2 ) + H / 2 + T.min_ground / 3;
+		}
+		if ( deco.name().size() )
+		{
+			int xoff = _xoff / 4;	// scrollfactor 1/4
+			for ( int x = 0; x < (int)SCREEN_W + deco.image()->w(); x++ )
+			{
+				if ( xoff + (int)x == deco_x )
+				{
+					deco.image()->draw( x - deco.image()->w(), h() - deco_y - deco.image()->h() / 2 );
+				}
+			}
+			redraw = true;
+		}
 	}
 	if ( TBG.flags & 1 && !classic() )
 	{
@@ -6199,10 +6385,31 @@ void FltWin::do_draw()
 			onCollision();
 	}
 
-	if ( draw_decoration() )
+	if ( _landscape && _background )
 	{
+		// "blit" in pre-built images
+		_background->draw( 0, 0, w(), h(), _xoff );
+		draw_decoration();
+		_landscape->draw( 0, 0, w(), h(), _xoff );
+
 		// must redraw objects
 		draw_objects( true );
+	}
+	else
+	{
+		bool redraw_objects( false );
+		if ( _effects > 1 && !classic() )	// only if turned on additionally
+		{
+			// shaded bg
+			draw_shaded_background( _xoff, SCREEN_W );
+			redraw_objects = true;
+		}
+
+		if ( draw_decoration() || redraw_objects )
+		{
+			// must redraw objects
+			draw_objects( true );
+		}
 	}
 
 	if ( !paused() || _frame % (FPS / 2) < FPS / 4 || _collision )
@@ -6239,39 +6446,7 @@ void FltWin::do_draw()
 	draw_tv();
 
 	// fade out effect
-	if ( _effects > 1 && _state == PAUSED && !_done )
-	{
-		static int bytes = w() * h() * 4;
-		static uchar *screen = 0;
-		static Fl_RGB_Image *matte = 0;
-
-		if ( !screen )
-		{
-			screen = new uchar[ bytes ];
-			memset( screen, 0, bytes );
-		}
-		if ( !matte )
-			matte = new Fl_RGB_Image( screen, w(), h(), 4 );
-
-		// determine real fps, in order to calculate total_frames
-		// (important when run with speed correction)
-		static double fps = FPS;
-		if ( _alpha_matte < 10 )
-			fps = ( (double)w() / _DDX ) / 4;
-		double total_frames = _TO * fps;
-		double perc = (double)_alpha_matte / total_frames;
-		int alpha = perc * 256;
-		if ( alpha > 255 )
-			alpha = 255;
-		_alpha_matte++;
-
-		// change alpha in screen array
-		uchar *p = screen;
-		for ( int i = 0; i < bytes; i += 4, p += 4 )
-			*(p + 3) = alpha;
-		matte->uncache();
-		matte->draw( 0, 0 );
-	}
+	draw_fadeout();
 }
 
 void FltWin::check_bomb_hits()
@@ -7400,15 +7575,38 @@ void FltWin::cb_update( void *d_ )
 		Fl::repeat_timeout( FRAMES, cb_update, d_ );
 }
 
-void FltWin::onActionKey()
+/*static*/
+void FltWin::cb_action_key_delay( void *d_ )
+//-------------------------------------------------------------------------------
+{
+	FltWin *f = (FltWin *)d_;
+	f->onActionKey( false );
+}
+
+void FltWin::onActionKey( bool delay_/* = true*/ )
 //-------------------------------------------------------------------------------
 {
 	Fl::remove_timeout( cb_demo, this );
 	Fl::remove_timeout( cb_paused, this );
+	Fl::remove_timeout( cb_action_key_delay, this );
+	if ( delay_ )
+	{
+		// Delay handling of action key to allow re-entering mainloop
+		// for drawing updates.
+		// This has become necessary because creating the level images
+		// may take a while in higher resolutions, so some optical
+		// feedback is required.
+		Fl::add_timeout( 1. / 50, cb_action_key_delay, this );
+		G_paused = 2;	// signal: gray out screen
+		redraw();	// update the screen
+		return;
+	}
+
 	if ( _state == DEMO )
 	{
 		_demoData.clear();
 		_done = true;	// ensure ship gets reloaded in onNextScreen()
+		G_paused = false;
 		return;
 	}
 	if ( _state == SCORE )

@@ -69,3 +69,5 @@ enable=einschalten
 
 greeting=freut sich\
          zu präsentieren...
+
+get_ready=ES GEHT LOS!
