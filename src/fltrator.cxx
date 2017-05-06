@@ -1,5 +1,5 @@
 //
-// Copyright 2015-2016 Christian Grabner.
+// Copyright 2015-2017 Christian Grabner.
 //
 // This file is part of FLTrator.
 //
@@ -1441,7 +1441,7 @@ public:
 		drawImage()->draw( x_, y_, _w, _h, _ox, 0 );
 #endif
 	}
-	Fl_Image *get( const char *image_ )
+	Fl_Image *get( const char *image_, double scale_ = 1. )
 	{
 		ImageInfo ii = _icache[ image_ ];
 		if ( !ii.valid )
@@ -1504,7 +1504,8 @@ public:
 				}
 				else
 					w = lround( SCALE_X * w );
-				h = lround( SCALE_Y * h );
+				w *= scale_;
+				h = lround( SCALE_Y * h * scale_ );
 
 				// Scale pixmap image
 				image = Fl_Shared_Image::get( image_, w * ii.frames, h );
