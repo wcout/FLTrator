@@ -3172,6 +3172,7 @@ private:
 	bool correctDX();
 
 #ifndef NO_PREBUILD_LANDSCAPE
+	void clear_level_image_cache();
 	Fl_Image *terrain_as_image();
 	Fl_Image *landscape_as_image();
 	Fl_Image *background_as_image();
@@ -4645,6 +4646,17 @@ bool FltWin::loadLevel( unsigned level_, string& levelFileName_ )
 }
 
 #ifndef NO_PREBUILD_LANDSCAPE
+void FltWin::clear_level_image_cache()
+//-------------------------------------------------------------------------------
+{
+	delete _terrain;
+	delete _landscape;
+	delete _background;
+	_terrain = 0;
+	_landscape = 0;
+	_background = 0;
+}
+
 Fl_Image *FltWin::terrain_as_image()
 //-------------------------------------------------------------------------------
 {
@@ -4865,9 +4877,7 @@ bool FltWin::create_terrain()
 #ifndef NO_PREBUILD_LANDSCAPE
 	if ( _level != lastCachedTerrainLevel || !_terrain )
 	{
-		delete _terrain;
-		delete _landscape;
-		delete _background;
+		clear_level_image_cache();
 		// terrains with color change cannot be prebuild as image!
 		_terrain = T.hasColorChange() ? 0 : terrain_as_image();
 		if ( _terrain && _gimmicks && _effects && !_classic )
@@ -5732,8 +5742,7 @@ void FltWin::draw_score()
 				_completed = true;
 				revers_level = reversLevel() || _internal_levels || _trainMode;
 				Audio::instance()->enable();	// turn sound on
-				delete _terrain;	// switch to direct drawing for grayout!
-				_terrain = 0;
+				clear_level_image_cache();	// switch to direct drawing for grayout!
 				if ( revers_level )
 					s = _texts.value( "mission_complete", 50, "** MISSION COMPLETE! **" );
 				else
