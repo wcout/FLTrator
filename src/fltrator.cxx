@@ -215,6 +215,7 @@ using namespace std;
 enum ObjectType
 //-------------------------------------------------------------------------------
 {
+	O_UNDEF = 0,
 	O_ROCKET = 1,
 	O_DROP = 2,
 	O_BADY = 4,
@@ -1441,9 +1442,10 @@ public:
 		drawImage()->draw( x_, y_, _w, _h, _ox, 0 );
 #endif
 	}
-	Fl_Image *get( const char *image_, double scale_ = 1. )
+	bool get( const char *image_, double scale_ = 1. )
 	{
 		ImageInfo ii = _icache[ image_ ];
+		bool image_path_changed( false );
 		if ( !ii.valid )
 		{
 			Fl_Shared_Image *image = Fl_Shared_Image::get( image_ );
@@ -1522,11 +1524,15 @@ public:
 //				delete _origImageForDrawing;
 //				_origImageForDrawing = 0;
 #if FLTK_HAS_NEW_FUNCTIONS
-				// NOTE: Also the images used for drawing will only
-				//       be converted once from Pixmap to RGB.
-				Fl_RGB_Image *rgb = new Fl_RGB_Image( (Fl_Pixmap *)ii.orig_image );
-				assert( rgb );
-				ii.origImageForDrawing = rgb;
+				Fl_Image *rgb = ii.orig_image;
+				if ( ii.orig_image->count() > 2 )
+				{
+					// NOTE: Pixmap images used for drawing will only
+					//       be converted once from Pixmap to RGB.
+					rgb = new Fl_RGB_Image( (Fl_Pixmap *)ii.orig_image );
+					assert( rgb );
+					ii.origImageForDrawing = (Fl_RGB_Image *)rgb;
+				}
 //				ii.imageForDrawing = (Fl_RGB_Image *)rgb->copy( image->w(), image->h() );
 				ii.imageForDrawing = (Fl_RGB_Image *)fl_copy_image( rgb, image->w(), image->h() );
 #endif
@@ -1536,11 +1542,13 @@ public:
 				_icache[ image_ ] = ii;
 			}
 		}
-
-		_ox = 0;
+		string last_name = name();
+		_image = ii.image;
+		image_path_changed = name() != last_name;
+		if ( image_path_changed )	// don't reset offset if same image was requested
+			_ox = 0;
 		_animate_timeout = ii.timeout;
 		_frames = ii.frames;
-		_image = ii.image;
 		_imageForDrawing = ii.imageForDrawing;
 		_orig_image = ii.orig_image;
 		_origImageForDrawing = ii.origImageForDrawing;
@@ -1553,7 +1561,7 @@ public:
 		if ( _frames > 1 )
 			_orig_w = _orig_image->w() / _frames;
 
-		return _image;
+		return image_path_changed;
 	}
 	bool isTransparent( size_t x_, size_t y_ ) const
 	{
@@ -1602,7 +1610,7 @@ class Object
 //-------------------------------------------------------------------------------
 {
 public:
-	Object( ObjectType o_, int x_, int y_, const char *image_ = 0, int w_ = 0, int h_ = 0 );
+	Object( ObjectType o_ = O_UNDEF, int x_ = 0, int y_ = 0, const char *image_ = 0, int w_ = 0, int h_ = 0 );
 	virtual ~Object();
 	void animate();
 	// check for collision with other object
@@ -1610,7 +1618,7 @@ public:
 	void stop_animate() { Fl::remove_timeout( cb_animate, this ); }
 	bool hit();
 	int hits() const { return _hits; }
-	void image( const char *image_ );
+	bool image( const char *image_, double scale_ = 1. );
 	bool isTransparent( size_t x_, size_t y_ ) const { return _image.isTransparent( x_, y_ ); }
 	bool started() const { return _state > 0; }
 	virtual double timeout() const { return _timeout; }
@@ -1645,6 +1653,7 @@ public:
 	Fl_Image *image() const { return _image.drawImage(); }
 	Fl_Image *origImage() const { return _image.origDrawImage(); }
 	const FltImage& flt_image() const { return _image; }
+	string name() const { return _image.name(); }
 	ObjectType o() const { return _o; }
 	const bool isType( ObjectType o_ ) const { return _o == o_; }
 	void onExplosionEnd();
@@ -1689,7 +1698,7 @@ private:
 //-------------------------------------------------------------------------------
 // class Object
 //-------------------------------------------------------------------------------
-Object::Object( ObjectType o_, int x_, int y_,
+Object::Object( ObjectType o_/* = O_UNDEF*/, int x_/* = 0*/ , int y_/* = 0*/,
                 const char *image_/* = 0*/, int w_/* = 0*/, int h_/* = 0*/ ) :
 	_o( o_ ),
 	_x( x_ ),
@@ -1712,11 +1721,7 @@ Object::Object( ObjectType o_, int x_, int y_,
 //-------------------------------------------------------------------------------
 {
 	if ( image_ )
-	{
 		this->image( image_ );
-		if ( _image.animate_timeout() )
-			Fl::add_timeout( _image.animate_timeout(), cb_animate, this );
-	}
 }
 
 /*virtual*/
@@ -1765,14 +1770,20 @@ bool Object::hit()
 	return onHit();
 }
 
-void Object::image( const char *image_ )
+bool Object::image( const char *image_, double scale_/* = 1.*/ )
 //-------------------------------------------------------------------------------
 {
 	assert( image_ );
-	Fl::remove_timeout( cb_animate, this );
-	_image.get( imgPath.get( image_ ).c_str() );
-	_w = _image.w();
-	_h = _image.h();
+	bool changed =_image.get( imgPath.get( image_ ).c_str(), scale_ );
+	if ( changed )
+	{
+		Fl::remove_timeout( cb_animate, this );
+		_w = _image.w();
+		_h = _image.h();
+		if ( _image.animate_timeout() )
+			Fl::add_timeout( _image.animate_timeout(), cb_animate, this );
+	}
+	return changed;
 }
 
 void Object::start( size_t speed_/* = 1*/ )
@@ -5668,12 +5679,12 @@ void FltWin::draw_tv() const
 void FltWin::draw_score()
 //-------------------------------------------------------------------------------
 {
-	static Fl_Image *_lifes[3] = { 0, 0, 0 };
-	if ( _effects && !_lifes[0] )
+	static FltImage _lifes[3];
+	if ( _effects && !_lifes[0].image() )
 	{
-		_lifes[0] = (new FltImage())->get( imgPath.get( "lifes1.gif" ).c_str() );
-		_lifes[1] = (new FltImage())->get( imgPath.get( "lifes2.gif" ).c_str() );
-		_lifes[2] = (new FltImage())->get( imgPath.get( "lifes3.gif" ).c_str() );
+		_lifes[0].get( imgPath.get( "lifes1.gif" ).c_str() );
+		_lifes[1].get( imgPath.get( "lifes2.gif" ).c_str() );
+		_lifes[2].get( imgPath.get( "lifes3.gif" ).c_str() );
 	}
 	if ( _state == DEMO )
 	{
@@ -5711,7 +5722,7 @@ void FltWin::draw_score()
 		int lifes = MAX_LEVEL_REPEAT - _level_repeat;
 		if ( lifes )
 		{
-			_lifes[lifes - 1]->draw( SCALE_X * 60, h() - SCALE_Y * 52 );
+			_lifes[lifes - 1].draw( SCALE_X * 60, h() - SCALE_Y * 52 );
 		}
 		int proc = (int)( (float)_xoff / (float)( _final_xoff - _spaceship->x() ) * 100. );
 		int X = w() / 2 - SCALE_X * 16;
@@ -5742,7 +5753,9 @@ void FltWin::draw_score()
 				_completed = true;
 				revers_level = reversLevel() || _internal_levels || _trainMode;
 				Audio::instance()->enable();	// turn sound on
+#ifndef NO_PREBUILD_LANDSCAPE
 				clear_level_image_cache();	// switch to direct drawing for grayout!
+#endif
 				if ( revers_level )
 					s = _texts.value( "mission_complete", 50, "** MISSION COMPLETE! **" );
 				else
@@ -6278,12 +6291,11 @@ bool FltWin::draw_decoration()
 	// test decoration object
 	if ( _effects && _gimmicks && _landscape && !_classic ) // only possible with image-cached terrain
 	{
-		static FltImage deco;
+		static Object deco;
 		static int deco_x = -1;
 		static int deco_y = -1;
-		string name( deco.name() );
-		deco.get( imgPath.get( "deco.png" ).c_str(), 2 ); // scale deco images x 2
-		if ( ( !G_paused && _xoff < (int)_DX ) || deco_x == -1 || deco.name() != name )
+		bool changed = deco.image( imgPath.get( "deco.png" ).c_str(), 2 ); // scale deco images x 2
+		if ( ( !G_paused && _xoff < (int)_DX ) || deco_x == -1 || changed )
 		{
 			// calc. a new random position for the deco object
 			deco_x = Random::pRand() % ( T.size() / 8 ) + T.size() / 16;
@@ -6293,11 +6305,13 @@ bool FltWin::draw_decoration()
 		if ( deco.name().size() )
 		{
 			int xoff = _xoff / 4;	// scrollfactor 1/4
-			for ( int x = 0; x < (int)SCREEN_W + deco.image()->w(); x++ )
+			for ( int x = 0; x < (int)SCREEN_W + deco.w(); x++ )
 			{
 				if ( xoff + (int)x == deco_x )
 				{
-					deco.image()->draw( x - deco.image()->w(), h() - deco_y - deco.image()->h() / 2 );
+					deco.x( x - deco.w() );
+					deco.y( h() - deco_y - deco.h() / 2 );
+					deco.draw();
 				}
 			}
 			redraw = true;
