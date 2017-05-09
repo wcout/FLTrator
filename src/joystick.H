@@ -69,9 +69,9 @@ public:
 	const State& state() const { return _state; }
 	const Event& event() const { return _event; }
 	const string device() const { return _device; }
-	const unsigned int numberOfButtons() const
+	unsigned int numberOfButtons() const
 		{ return _numberOfButtons ? _numberOfButtons : JS_MAX_BUTTONS; }
-	const unsigned int numberOfAxis() const
+	unsigned int numberOfAxis() const
 		{ return _numberOfAxis ? _numberOfAxis : JS_MAX_AXIS; }
 	void x_axis( unsigned int x_axis_ ) { _x_axis = x_axis_; }
 	void y_axis( unsigned int y_axis_ ) { _x_axis = y_axis_; }

@@ -1655,7 +1655,7 @@ public:
 	const FltImage& flt_image() const { return _image; }
 	string name() const { return _image.name(); }
 	ObjectType o() const { return _o; }
-	const bool isType( ObjectType o_ ) const { return _o == o_; }
+	bool isType( ObjectType o_ ) const { return _o == o_; }
 	void onExplosionEnd();
 	static void cb_explosion_end( void *d_ );
 	void crash();

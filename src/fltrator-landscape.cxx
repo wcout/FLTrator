@@ -221,7 +221,7 @@ public:
 	}
 	string name() const { return _name; }
 	string imageName() const { return _imageName; }
-	const int id() const { return _id; }
+	int id() const { return _id; }
 	Fl_Image *image() const { return _image; }
 	void w( int w_ ) { _w = w_; }
 	void h( int h_ ) { _h = h_; }
