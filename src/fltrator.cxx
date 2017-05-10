@@ -4729,11 +4729,7 @@ static void faintout_rgb_image( Fl_Image *img_ )
 	{
 		Fl_Color c( fl_rgb_color( p[0], p[1], p[2] ) );
 		Fl_Color a = fl_color_average( FL_GRAY, c, 0.3 );
-		uchar r, g, b;
-		Fl::get_color( a, r, g, b );
-		 p[0] = r;
-		 p[1] = g;
-		 p[2] = b;
+		Fl::get_color( a, p[0], p[1], p[2] );
 		p += 4;
 	}
 }
