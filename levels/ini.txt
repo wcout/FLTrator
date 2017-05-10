@@ -31,6 +31,8 @@ bady_dx_range=2
 #scanlines=0
 # turn on tvmask effect
 #tvmask=1
+# disable drawing deco objects fainted out
+#faintout_deco=0
 
 # some ship definitions
 ships=4

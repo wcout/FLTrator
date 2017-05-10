@@ -3378,6 +3378,7 @@ private:
 	int _effects;
 	bool _scanlines;
 	bool _tvmask;
+	bool _faintout_deco;
 	bool _classic;
 	bool _correct_speed;
 	bool _no_demo;
@@ -3554,6 +3555,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_effects( 0 ),
 	_scanlines( false ),
 	_tvmask( false ),
+	_faintout_deco( true ),
 	_classic( false ),
 	_correct_speed( false ),
 	_no_demo( false ),
@@ -3908,6 +3910,8 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_scanlines = _ini.value( "scanlines", 0, 1, ( _effects > 2 ) );
 	// tvmask effect can only be turned on with ini file currently
 	_tvmask = _ini.value( "tvmask", 0, 1, false );
+	// faintout deco can be turned off
+	_faintout_deco = _ini.value( "faintout_deco", 0, 1, true );
 
 	if ( _joyMode )
 		_joystick.attach();
@@ -4694,7 +4698,8 @@ static void color_to_transparence( Fl_Image *img_, Fl_Color c_, uchar alpha_ = 0
 //-------------------------------------------------------------------------------
 {
 	assert( img_ );
-	assert( img_->d() == 4 );
+	if ( img_->d() < 3 )
+		return;
 
 	uchar r, g, b;
 	Fl::get_color( c_, r, g, b );
@@ -4707,6 +4712,28 @@ static void color_to_transparence( Fl_Image *img_, Fl_Color c_, uchar alpha_ = 0
 		{
 			p[3] = alpha_; // set color c_ alpha value (0 = max. transparency)
 		}
+		p += 4;
+	}
+}
+
+static void faintout_rgb_image( Fl_Image *img_ )
+//-------------------------------------------------------------------------------
+{
+	assert( img_ );
+	if ( img_->d() < 3 )
+		return;
+
+	uchar *p = (uchar *)img_->data()[0];
+	uchar *e = p + img_->w() * img_->h() * img_->d();
+	while ( p < e )
+	{
+		Fl_Color c( fl_rgb_color( p[0], p[1], p[2] ) );
+		Fl_Color a = fl_color_average( FL_GRAY, c, 0.3 );
+		uchar r, g, b;
+		Fl::get_color( a, r, g, b );
+		 p[0] = r;
+		 p[1] = g;
+		 p[2] = b;
 		p += 4;
 	}
 }
@@ -6295,6 +6322,8 @@ bool FltWin::draw_decoration()
 		static int deco_x = -1;
 		static int deco_y = -1;
 		bool changed = deco.image( imgPath.get( "deco.png" ).c_str(), 2 ); // scale deco images x 2
+		if ( changed && _faintout_deco )
+			faintout_rgb_image( deco.image() );
 		if ( ( !G_paused && _xoff < (int)_DX ) || deco_x == -1 || changed )
 		{
 			// calc. a new random position for the deco object
