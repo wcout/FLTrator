@@ -32,11 +32,11 @@ congratulation=CONGRATULATION!
 
 topped=You topped the hiscore:
 
-held_by=held by ................ %s
+held_by=held by
 
-old_hiscore=old hiscore .......... %06u
+old_hiscore=old hiscore
 
-new_hiscore=new hiscore ......... %06u
+new_hiscore=new hiscore
 
 enter_name=Enter your name:   %s
 

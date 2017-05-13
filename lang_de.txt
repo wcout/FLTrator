@@ -34,11 +34,11 @@ congratulation=GLÜCKWUNSCH!
 
 topped=Du hast den Hiscore genackt:
 
-held_by=gehalten von ................ %s
+held_by=gehalten von
 
-old_hiscore=alter Hiscore .......... %06u
+old_hiscore=alter Hiscore
 
-new_hiscore=neuer Hiscore ......... %06u
+new_hiscore=neuer Hiscore
 
 enter_name=Gib Deinen Namen ein:   %s
 

@@ -5853,24 +5853,22 @@ void FltWin::draw_score()
 void FltWin::draw_scores()
 //-------------------------------------------------------------------------------
 {
-	fl_rectf( 0, 0, w(), h(), FL_BLACK );
+	fl_rectf( 0, 0, w(), h(), 0x11111100 );
 	drawText( -1, 120, _texts.value( "congratulation", 20, "CONGRATULATION!" ),
 	          70, FL_RED );
 	drawText( -1, 200, _texts.value( "topped", 30, "You topped the hiscore:" ),
 	          40, FL_RED );
-	int x = drawText( -1, 290, _texts.value( "old_hiscore", 40, "old hiscore .......... %06u" ),
-	                  30, FL_WHITE, _hiscore );
+	static const int TW = 440;
+	drawTable( TW, 290, "%s\t%06u", 30, FL_WHITE, _texts.value( "old_hiscore", 20, "old hiscore" ), _hiscore );
 	int Y = 330;
 	if ( _hiscore )
 	{
 		string bestname( _hiscore_user );
-		drawText( x, Y, _texts.value( "held_by", 40, "held by ................ %s" ),
-		          30, FL_WHITE,
-		          bestname.empty() ?  "???" : bestname.c_str() );
+		drawTable( TW, Y, "%s\t%s", 30, FL_WHITE, _texts.value( "held_by", 20, "held by" ),
+		           bestname.empty() ?  "???" : bestname.c_str() );
 		Y += 40;
 	}
-	drawText( x, Y, _texts.value( "new_hiscore", 40, "new hiscore ......... %06u" ),
-	          30, FL_WHITE, _user.score );
+	drawTable( TW, Y, "%s\t%06u", 30, FL_WHITE, _texts.value( "new_hiscore", 20, "new hiscore" ), _user.score );
 
 	if ( _input.size() > 10 )
 		_input.erase( 10 );
