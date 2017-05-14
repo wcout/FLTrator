@@ -406,16 +406,8 @@ static string mkPath( const string& dir_, const string& sub_ = "",
 	return homeDir() + dir + sub + file_;
 }
 
-static int grad( int value_, int max_, int s_, int e_ )
-//-------------------------------------------------------------------------------
-{
-	return s_ + ( e_ - s_ ) * value_ / max_;
-}
-
-typedef struct rgb_color { uchar r;	uchar g;	uchar b; } RGB_COLOR;
-
 static void grad_rect( int x_, int y_, int w_, int h_, int H_, bool rev_,
-                       const RGB_COLOR& c1_, const RGB_COLOR& c2_ )
+                       Fl_Color c1_, Fl_Color c2_ )
 //-------------------------------------------------------------------------------
 {
 	int H = h_;
@@ -423,25 +415,9 @@ static void grad_rect( int x_, int y_, int w_, int h_, int H_, bool rev_,
 	// gradient from color c1 (top) ==> color c2 (bottom)
 	for ( int h = 0; h < H; h++ )
 	{
-		unsigned char r = grad( h + offs, H_, c1_.r, c2_.r );
-		unsigned char g = grad( h + offs, H_, c1_.g, c2_.g );
-		unsigned char b = grad( h + offs, H_, c1_.b, c2_.b );
-		fl_color( fl_rgb_color( r, g, b ) );
+		fl_color( fl_color_average( c2_, c1_, (double)(h + offs) / H_ ) );
 		fl_xyline( x_, y_ + h, x_ + w_ );
 	}
-}
-
-static void grad_rect( int x_, int y_, int w_, int h_, int H_, bool rev_,
-                       unsigned long c1_, unsigned long c2_ )
-//-------------------------------------------------------------------------------
-{
-	RGB_COLOR c1 = { uchar( ( c1_ & 0xff0000 ) >> 16 ),
-	                 uchar( ( c1_ & 0xff00 ) >> 8 ),
-	                 uchar( c1_ & 0xff ) };
-	RGB_COLOR c2 = { uchar( ( c2_ & 0xff0000 ) >> 16 ),
-	                 uchar( ( c2_ & 0xff00 ) >> 8 ),
-	                 uchar( c2_ & 0xff ) };
-	grad_rect( x_, y_, w_, h_, H_, rev_, c1, c2 );
 }
 
 //-------------------------------------------------------------------------------
@@ -5949,11 +5925,11 @@ void FltWin::draw_title()
 	else
 	{
 		// draw menu background rectangle
-		static long title_color = _ini.value( "title_color", 0, 0xffffff, 0x202020 );
+		static Fl_Color title_color = _ini.value( "title_color", 0, 0xffffff, 0x202020 ) << 8;
 		if ( _effects > 1 )
 		{
 			// gradient top/bottom 'title_color_beg' => 'title_color'
-			static long title_color_beg = _ini.value( "title_color_beg", 0, 0xffffff, 0x808080 );
+			static Fl_Color title_color_beg = _ini.value( "title_color_beg", 0, 0xffffff, 0x808080 ) << 8;
 			grad_rect( border_w, border_h, w() - 2 * border_w, h() - dborder_h + 1, h(),
 			           false, title_color_beg, title_color );
 		}
@@ -6076,7 +6052,6 @@ void FltWin::draw_shaded_background( int xoff_, int W_ )
 	while ( y < H )
 	{
 		int x = 0;
-		// Note: fl_color_average() does just the same as grad() - use it?
 		fl_color( fl_color_average( T.bg_color, c, float( y ) / H ) );
 		while ( x < W )
 		{
@@ -6114,10 +6089,6 @@ void FltWin::draw_shaded_landscape( int xoff_, int W_ )
 			c = fl_lighter( c );
 		else
 			c = fl_darker( fl_darker( cd ) );
-		RGB_COLOR c1;
-		RGB_COLOR c2;
-		Fl::get_color( c, c1.r, c1.g, c1.b );
-		Fl::get_color( T.sky_color, c2.r, c2.g, c2.b );
 		while ( W > 0 )
 		{
 			if ( W < D )
@@ -6130,7 +6101,7 @@ void FltWin::draw_shaded_landscape( int xoff_, int W_ )
 				if ( T[xoff_ + X + i].sky_level() > S )
 					S = T[xoff_ + X + i].sky_level();
 			}
-			grad_rect( X, 0, D, S, s, false, c1, c2 );
+			grad_rect( X, 0, D, S, s, false, c, T.sky_color );
 			W -= D;
 			X += D;
 		}
@@ -6142,10 +6113,6 @@ void FltWin::draw_shaded_landscape( int xoff_, int W_ )
 		int D = 100;
 		Fl_Color c( T.ground_color );
 		c = fl_lighter( fl_lighter( fl_lighter( c ) ) );
-		RGB_COLOR c1;
-		RGB_COLOR c2;
-		Fl::get_color( c, c1.r, c1.g, c1.b );
-		Fl::get_color( T.ground_color, c2.r, c2.g, c2.b );
 		while ( W > 0 )
 		{
 			if ( W < D )
@@ -6158,7 +6125,7 @@ void FltWin::draw_shaded_landscape( int xoff_, int W_ )
 				if ( T[xoff_ + X + i].ground_level() > G )
 					G = T[xoff_ + X + i].ground_level();
 			}
-			grad_rect( X, h() - G, D, G, g, true, c1, c2 );
+			grad_rect( X, h() - G, D, G, g, true, c, T.ground_color );
 			W -= D;
 			X += D;
 		}
