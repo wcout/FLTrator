@@ -761,7 +761,7 @@ Cfg::Cfg( const char *vendor_, const char *appl_ ) :
 	// are stored. Currently Fl_Preferences has no method to
 	// retrieve it other than to request a userdata directory
 	// and deduce the location of the .prefs file from that.
-	// (Note: This will create a currently unneeded sub-directory)
+	// (NOTE: This will create a currently unneeded sub-directory)
 	// Really shouldn't use Fl_Preferences.
 	char buf[ 1024 ];
 	buf[0] = 0;
@@ -1445,7 +1445,7 @@ public:
 				else
 				{
 					// Try to read gif comment field for keywords 'frames', 'delay'.
-					// Note: for now just search in the first 1024 bytes of the file...
+					// NOTE: for now just search in the first 1024 bytes of the file...
 					ifstream ifs( image_, ios::binary );
 					char buf[1024];
 					memset( buf, 0, sizeof( buf ) );
@@ -2333,9 +2333,9 @@ private:
 class AnimText : public Object
 //-------------------------------------------------------------------------------
 {
-// Note: This is just a quick impl. for showing an animated level name
-//       and should probably be made more flexible. Also the text drawing
-//       could be combined with the FltWin::drawText().
+// NOTE: This is just a quick impl. for showing "animated" text.
+//       and should probably be made more flexible. Also the text
+//       drawing could be combined with the FltWin::drawText().
 	typedef Object Inherited;
 public:
 	AnimText( int x_, int y_, int w_, const char *text_,
@@ -3374,7 +3374,6 @@ private:
 	IniParameter _defaultIniParameter;
 	IniParameter _texts;
 	AnimText *_anim_text;
-	AnimText *_title_anim;
 	ImageAnimation *_zoomoutShip;
 	ImageAnimation *_zoominShip;
 	bool _disableKeys;
@@ -3545,7 +3544,6 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_hide_cursor( false ),
 	_title( label() ),
 	_anim_text( 0 ),
-	_title_anim( 0 ),
 	_zoomoutShip( 0 ),
 	_zoominShip( 0 ),
 	_disableKeys( false ),
@@ -5618,7 +5616,7 @@ void FltWin::draw_fadeout()
 void FltWin::draw_tvmask() const
 //-------------------------------------------------------------------------------
 {
-	// Note: the idea for screen mask display and the mask values are taken from:
+	// NOTE: the idea for screen mask display and the mask values are taken from:
 	//       https://sourceforge.net/projects/view64/
 	//       (the KISS implementation is my own).
 	static const char *tvmask_data[] = {
@@ -5879,6 +5877,7 @@ void FltWin::draw_title()
 	static Fl_Image *bgImage2 = 0;
 	static int _flip = 0;
 	static int reveal_height = 0;
+	static AnimText *title_anim;
 
 	if ( _frame <= 1 )
 	{
@@ -5950,8 +5949,8 @@ void FltWin::draw_title()
 //		bgImage2 = _rocket.origImage()->copy( w() / 3, h() - SCALE_Y * 150 );
 		bgImage2 = fl_copy_image( _rocket.origImage(), w() / 3, h() - SCALE_Y * 150 );
 	}
-	if ( !_title_anim )
-		(_title_anim = new AnimText( 0, SCALE_Y * 45, w(), "FL-TRATOR",
+	if ( !title_anim )
+		(title_anim = new AnimText( 0, SCALE_Y * 45, w(), "FL-TRATOR",
 		                             FL_RED, FL_WHITE, 90, 80, false ))->start();
 	if ( !G_paused && _cfg->non_zero_scores() && _flip++ % (FPS * 8) > ( FPS * 5) )
 	{
@@ -6008,8 +6007,12 @@ void FltWin::draw_title()
 		drawText( -1, -50, _texts.value( "get_ready", 20, "GET READY!" ), 40, FL_YELLOW );
 	else
 	{
-		drawText( -1, -50, _texts.value( "space_to_start", 28, "** hit space to start **" ),
-		          40, FL_YELLOW );
+		static AnimText *space_to_start = 0;
+		if ( !space_to_start )
+			(space_to_start = new AnimText( 0, h() - 100 * SCALE_Y, w(),
+				_texts.value( "space_to_start", 28, "** hit space to start **" ),
+			FL_YELLOW, FL_BLACK, 40, 36, false ))->start();
+		space_to_start->draw();
 		drawText( -1, -26, _texts.value( "title_help", 90, "%c/%c: toggle user     %c/%c: toggle ship     s: %s sound     b: %s music" ),
 			10, FL_GRAY,
 			KEY_LEFT, KEY_RIGHT, KEY_UP, KEY_DOWN,
@@ -6021,8 +6024,8 @@ void FltWin::draw_title()
 	}
 	drawText( 45, 34, VERSION, 8, FL_CYAN );
 
-	if ( _title_anim )
-		_title_anim->draw();
+	if ( title_anim )
+		title_anim->draw();
 
 	if ( _gimmicks && reveal_height < h() - dborder_h )
 	{
@@ -7736,8 +7739,6 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 	_spaceship = 0;
 	delete _anim_text;
 	_anim_text = 0;
-	delete _title_anim;
-	_title_anim = 0;
 
 	delete_objects();
 
