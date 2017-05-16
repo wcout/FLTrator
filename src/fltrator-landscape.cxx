@@ -51,6 +51,7 @@ static const int DEF_SCREENS = 10;
 static const int SCREEN_W = 800;
 static const int SCREEN_H = 600;
 
+static const char ProgramName[] = "LSEditor";
 
 enum ObjectType
 {
@@ -765,11 +766,11 @@ const double PreviewWindow::Scale = 10.;
 
 PreviewWindow::PreviewWindow( int H_, LS *ls_ ) :
 //--------------------------------------------------------------------------
-	Inherited( (int)( ls_->size() / Scale ), (int)( H_ / Scale ), "Preview" ),
+	Inherited( (int)( ls_->size() / Scale ), (int)( H_ / Scale ), ProgramName ),
 	_ls( ls_ )
 {
 	ostringstream os;
-	os << label() << " 1 : " << (int)Scale;
+	os << label() << " Preview" << " 1 : " << (int)Scale;
 	copy_label( os.str().c_str() );
 	end();
 	show();
@@ -872,7 +873,7 @@ int PreviewWindow::handle( int e_ )
 // class LSEditor : public Fl_Double_Window
 //--------------------------------------------------------------------------
 LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
-	Inherited( SCREEN_W, SCREEN_H + 20, "LSEditor" ),
+	Inherited( SCREEN_W, SCREEN_H + 20, ProgramName ),
 	_xoff( 0 ),
 	_preview( 0 ),
 	_zoom( 0 ),
@@ -1014,21 +1015,21 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		{ "File", 0, 0, 0, FL_SUBMENU },
 			{ "Load level..", 0, load_cb, this, 0 },
 			{ "Load #level..", 0, load_cb, this, FL_SUBMENU },
-				{"1", 0, load_cb, this },
-				{"2", 0, load_cb, this },
-				{"3", 0, load_cb, this },
-				{"4", 0, load_cb, this },
-				{"5", 0, load_cb, this },
-				{"6", 0, load_cb, this },
-				{"7", 0, load_cb, this },
-				{"8", 0, load_cb, this },
-				{"9", 0, load_cb, this },
-				{"10", 0, load_cb, this },
+				{"1", 0, load_cb, this, 0, 0, 0, 16 },
+				{"2", 0, load_cb, this, 0, 0, 0, 16 },
+				{"3", 0, load_cb, this, 0, 0, 0, 16 },
+				{"4", 0, load_cb, this, 0, 0, 0, 16 },
+				{"5", 0, load_cb, this, 0, 0, 0, 16 },
+				{"6", 0, load_cb, this, 0, 0, 0, 16 },
+				{"7", 0, load_cb, this, 0, 0, 0, 16 },
+				{"8", 0, load_cb, this, 0, 0, 0, 16 },
+				{"9", 0, load_cb, this, 0, 0, 0, 16 },
+				{"10", 0, load_cb, this, 0, 0, 0, 16 },
 				{0},
 			{ "Save level as..", 0, save_as_cb, this, 0 },
 			{ "Save", 0, save_cb, this, FL_MENU_DIVIDER },
-			{ "Exit without saving", 0, quit_cb, this, FL_MENU_DIVIDER },
-			{ "Help..", FL_F+1, help_cb, this, 0 },
+			{ "Exit without saving", 0, quit_cb, this, FL_MENU_DIVIDER, 0, FL_BOLD },
+			{ "Help..", FL_F+1, help_cb, this, 0, 0, 0, 18 },
 			{ 0 },
 		{ 0 }
 	};
