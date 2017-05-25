@@ -182,43 +182,36 @@ public:
 			delete _image;
 		_image = 0;
 		_imageName = imageName_;
-		if ( imageName_.size() )
+		if ( _imageName.empty() )
+			return;
+
+		_image = new Fl_GIF_Image( imgPath.get( imageName_ ).c_str() );
+		if ( _image->w() == 0 && _image->h() == 0 )
+			cerr << "Invalid image '" << imageName_ << "'" << endl;
+		_w = _image->w();
+		_h = _image->h();
+		const char *p = strstr( imageName_.c_str(), "_" );
+		int frames( 1 );
+		if ( p && isdigit( p[1] ) )
 		{
-			_image = new Fl_GIF_Image( imgPath.get( imageName_ ).c_str() );
-			if ( _image->w() == 0 && _image->h() == 0 )
-				cerr << "Invalid image '" << imageName_ << "'" << endl;
-			_w = _image->w();
-			_h = _image->h();
-			const char *p = strstr( imageName_.c_str(), "_" );
-			if ( p && isdigit( p[1] ) )
-			{
-				p++;
-				int frames = atoi( p );
-				if ( frames > 1 )
-				{
-					_w = _image->w() / frames;
-				}
-			}
-			else
-			{
-				// Try to read gif comment field for keywords 'frames', 'delay'.
-				// Note: for now just search in the first 1024 bytes of the file...
-				ifstream ifs( imgPath.get( imageName_ ).c_str(), ios::binary );
-				char buf[1024];
-				memset( buf, 0, sizeof( buf ) );
-				ifs.read( buf, sizeof( buf ) );
-				string s( buf, sizeof( buf ) );
-				size_t pos = s.find( "frames=" );
-				if ( pos != string::npos )
-				{
-					int frames = atoi( &s.c_str()[pos + 7] );
-					if ( frames > 1 )
-					{
-						_w = _image->w() / frames;
-					}
-				}
-			}
+			// old method: frames count coded in filename
+			p++;
+			frames = atoi( p );
 		}
+		else
+		{
+			// Try to read gif comment field for keywords 'frames', 'delay'.
+			// Note: for now just search in the first 1024 bytes of the file...
+			ifstream ifs( imgPath.get( imageName_ ).c_str(), ios::binary );
+			char buf[1024];
+			memset( buf, 0, sizeof( buf ) );
+			ifs.read( buf, sizeof( buf ) );
+			string s( buf, sizeof( buf ) );
+			size_t pos = s.find( "frames=" );
+			if ( pos != string::npos )
+				frames = atoi( &s.c_str()[pos + 7] );
+		}
+		_w /= frames;
 	}
 	string name() const { return _name; }
 	string imageName() const { return _imageName; }
