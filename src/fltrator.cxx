@@ -177,7 +177,7 @@ static double FRAMES = 1. / FPS;
 static unsigned DX = 200 / FPS;
 static unsigned SCORE_STEP = (int)( 200. / (double)DX ) * DX;
 
-static int G_paused = true;
+static bool G_paused = true;
 
 static bool G_leftHanded = false;
 
@@ -3391,6 +3391,7 @@ private:
 	double _TO;
 	vector<int> _colorChangeList;
 	bool _exit_demo_on_collision; // set to true, if demo should end at collision
+	bool _dimmout;
 };
 
 /*static*/ Waiter FltWin::_waiter;
@@ -3553,7 +3554,8 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_showFirework( true ),
 	_alpha_matte( 0 ),
 	_TO( 0. ),
-	_exit_demo_on_collision( false )
+	_exit_demo_on_collision( false ),
+	_dimmout( false )
 {
 	end();
 	_DX = DX;
@@ -3932,6 +3934,7 @@ void FltWin::onStateChange( State from_state_ )
 	switch ( _state )
 	{
 		case TITLE:
+			_dimmout = G_paused;
 			Audio::instance()->stop_bg();
 			if ( !G_paused && _gimmicks && Fl::focus() == this &&
 		        from_state_ != NO_STATE )
@@ -3950,10 +3953,12 @@ void FltWin::onStateChange( State from_state_ )
 			onTitleScreen();
 			break;
 		case SCORE:
+			_dimmout = false;
 			Fl::remove_timeout( cb_demo, this );
 			_showFirework = true;
 			break;
 		case LEVEL:
+			_dimmout = false;
 			onNextScreen( ( from_state_ != PAUSED || _done ) );
 			break;
 		case DEMO:
@@ -4011,6 +4016,8 @@ void FltWin::onStateChange( State from_state_ )
 		}
 		case PAUSED:
 			_alpha_matte = 0;
+			if ( _done && !_completed )
+				_dimmout = true;
 			break;
 		default:
 			break;
@@ -5574,7 +5581,7 @@ int FltWin::drawTableBlock( int w_, int y_, const char *text_, size_t sz_,
 void FltWin::draw_fadeout()
 //-------------------------------------------------------------------------------
 {
-	if ( G_paused || ( _effects > 1 && _state == PAUSED && !_done ) )
+	if ( _dimmout || ( _effects > 1 && _state == PAUSED && !_done ) )
 	{
 		static int bytes = w() * h() * 4;
 		static uchar *screen = 0;
@@ -5589,7 +5596,7 @@ void FltWin::draw_fadeout()
 			matte = new Fl_RGB_Image( screen, w(), h(), 4 );
 
 		unsigned alpha = 128; // default grayout value for paused mode
-		if ( !G_paused )
+		if ( !_dimmout )
 		{
 			// Calculate the current fadeout alpha value:
 			// determine real fps, in order to calculate total_frames
@@ -6001,10 +6008,13 @@ void FltWin::draw_title()
 			                              _texts.value( "mouse_mode", 30, "mouse mode" ),
 			          12, FL_YELLOW );
 	}
-	if ( G_paused == true )
+	if ( G_paused )
 		drawText( -1, -50, _texts.value( "paused_title", 20, "** PAUSED **" ), 40, FL_YELLOW );
-	else if ( G_paused == 2 )
+	else if ( _dimmout )
+	 {
+		reveal_height = h();
 		drawText( -1, -50, _texts.value( "get_ready", 20, "GET READY!" ), 40, FL_YELLOW );
+	}
 	else
 	{
 		static AnimText *space_to_start = 0;
@@ -7298,6 +7308,7 @@ void FltWin::setPaused( bool paused_ )
 	if ( G_paused != paused_ )
 	{
 		G_paused = paused_;
+		_dimmout = paused_;
 		if ( G_paused )
 			onPaused();
 		else
@@ -7452,6 +7463,7 @@ void FltWin::toggleSound() const
 void FltWin::togglePaused()
 //-------------------------------------------------------------------------------
 {
+	_dimmout = !G_paused;
 	if ( G_paused )
 	{
 		G_paused = false;
@@ -7613,7 +7625,7 @@ void FltWin::onActionKey( bool delay_/* = true*/ )
 		// may take a while in higher resolutions, so some optical
 		// feedback is required.
 		Fl::add_timeout( 1. / 50, cb_action_key_delay, this );
-		G_paused = 2;	// signal: gray out screen
+		_dimmout = true;	// signal: gray out screen
 		redraw();	// update the screen
 		return;
 	}
