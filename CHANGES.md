@@ -1,3 +1,20 @@
+Changes in V2.4
+===============
+
+- Allow decoration (background) objects per level
+   - uses a new display technique with alpha blitting, which actually
+     uses less cpu to render the level
+- Disable explosion sounds with key 'x' during game
+- Draw tv mask option (simulates appearance like on an old tube display)
+- Fix compilation warnings/bugs with recent compilers
+- Minor improvements (better menu display, simplify/speedup some code)
+- Minor bugfixes
+- Fix minor regressions from v2.3
+  - F10 key not working
+  - focus out not handled correctly
+  - missing title image when started with -d
+- Landscape editor: better help text
+
 Changes in V2.3
 ===============
 
