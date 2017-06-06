@@ -6315,9 +6315,10 @@ bool FltWin::draw_decoration()
 					deco.x( x - deco.w() );
 					deco.y( h() - deco_y - deco.h() / 2 );
 					deco.draw();
+					redraw = true;
+					break;
 				}
 			}
-			redraw = true;
 		}
 	}
 	if ( TBG.flags & 1 && !classic() )
