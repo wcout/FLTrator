@@ -2218,7 +2218,7 @@ public:
 		_type( type_ ),
 		_radius( ceil( SCALE_Y * w() * strength_ ) ),
 		_colors( colors_ ? colors_ : multicolors ),
-		_nColors( colors_ ? nColors_ : sizeof( multicolors ) / sizeof( multicolors[0] ) ),
+		_nColors( colors_ ? nColors_ : nbrOfItems( multicolors ) ),
 		_done( false )
 	{
 		explode( true );
@@ -8695,7 +8695,7 @@ static void installSignalHandler()
 //-------------------------------------------------------------------------------
 {
 	static const int signals[] = { SIGABRT, SIGFPE, SIGILL, SIGINT, SIGSEGV, SIGTERM };
-	for ( size_t i = 0; i < sizeof( signals ) / sizeof( signals[0] ); i++ )
+	for ( size_t i = 0; i < nbrOfItems( signals ); i++ )
 		signal( signals[i], signalHandler );
 }
 
