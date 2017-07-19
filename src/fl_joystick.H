@@ -19,7 +19,7 @@
 
 #include "joystick.H"
 
-// Events genereted
+// Events generated
 #define FL_JOY_BUTTON_DOWN 9000
 #define FL_JOY_BUTTON_UP   9001
 #define FL_JOY_AXIS        9002

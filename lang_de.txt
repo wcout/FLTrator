@@ -32,7 +32,7 @@ praise=Du hast allen Übeln zum Trotz\
 
 congratulation=GLÜCKWUNSCH!
 
-topped=Du hast den Hiscore genackt:
+topped=Du hast den Hiscore geknackt:
 
 held_by=gehalten von
 
