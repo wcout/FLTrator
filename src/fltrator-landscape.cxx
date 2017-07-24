@@ -617,7 +617,6 @@ public:
 	   PLACE_OBJECTS = 2
 	};
 	LSEditor( int argc_ = 0, const char *argv_[] = 0 );
-	void hide();
 	void drawLine( int x0_, int y0_, int x1_, int y1_, bool ground_ );
 	void draw();
 	int handle( int e_ );
@@ -639,9 +638,10 @@ public:
 	void undoPush( int type_, int xoff_, vector<int>& value_ );
 	void xoff( int xoff_ ) { _xoff = xoff_; }
 	int xoff() const { return _xoff; }
+	void onClose();
 	void onLoad( int level_ = 0 );
 	void onSave() { save(); }
-	void onQuit() { _dont_save = true; hide(); }
+	void onQuit() { _dont_save = true; onClose(); }
 	void onSaveAs();
 	void onXoff();
 	bool changed() const { return _changed; }
@@ -649,13 +649,14 @@ public:
 	bool dont_save() const { return _dont_save; }
 	void update_zoom( int x_, int y_ );
 private:
+	static void close_cb( Fl_Widget *wgt_, void *d_ ) { ((LSEditor *)d_)->onClose();	}
+	static void help_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->showHelp();}
 	static void load_cb( Fl_Widget *o_, void *d_ )
 		{ ((LSEditor *)d_)->onLoad( atoi( ((Fl_Menu_Bar *)o_)->mvalue()->label() ) ); }
+	static void quit_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onQuit();}
 	static void save_as_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onSaveAs(); }
 	static void save_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onSave();}
-	static void quit_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onQuit();}
 	static void xoff_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onXoff();}
-	static void help_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->showHelp();}
 private:
 	LS *_ls;
 	int _xoff;
@@ -1039,6 +1040,7 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_preview = new PreviewWindow( SCREEN_H, _ls );
 	show();
 	_zoom = new ZoomWindow( 11 );
+	callback( close_cb, this );
 }
 
 void LSEditor::changed( bool changed_ )
@@ -1051,7 +1053,7 @@ void LSEditor::changed( bool changed_ )
 	}
 }
 
-void LSEditor::hide()
+void LSEditor::onClose()
 //--------------------------------------------------------------------------
 {
 	if ( _help )
