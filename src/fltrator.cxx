@@ -7301,7 +7301,13 @@ void FltWin::setBgSoundFile()
 			fl_filename_free_list( &ls, num_files );
 			if ( bgSoundList.size() )
 			{
-				_bgsound = bgSoundList[ Random::pRand() % bgSoundList.size() ];
+				size_t picked = Random::pRand() % bgSoundList.size();
+				if ( bgSoundList[ picked ] == _bgsound && bgSoundList.size() > 1 )
+				{
+					bgSoundList.erase( bgSoundList.begin() + picked );
+					picked = Random::pRand() % bgSoundList.size();
+				}
+				_bgsound = bgSoundList[ picked ];
 			}
 		}
 	}
