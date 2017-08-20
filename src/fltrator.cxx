@@ -2306,7 +2306,7 @@ public:
 		bool dot = ( ( _type & 0xffff ) == DOT );
 		bool fallout = ( _type & FALLOUT );
 		int r = lround( _radius / SCALE_Y );
-		int particles = ( r * r ) / ( init_ ? 200 : 400 ) ;
+		int particles = ( r * r ) / ( init_ ? 200 : 400 );
 		for ( int i = 0; i < particles; i++ )
 		{
 			int speed = fallout ? Random::pRand() % 10 + 1 : Random::pRand() % 5 + 3;
@@ -2764,6 +2764,7 @@ public:
 		{
 			_decel = 2;
 			_X -= _DDX;
+			_X = fmax( _X, 0 );
 			_x = lround( _X );
 		}
 	}
@@ -2773,14 +2774,16 @@ public:
 		{
 			_accel = 3;
 			_X += _DDX;
+			_X = fmin( _X, _W / 2 );
 			_x = lround( _X );
 		}
 	}
 	void up()
 	{
-		if ( _y > _h / 2 )
+		if ( _Y > _h / 2 - 1 )
 		{
 			_Y -= _DDX * _YF;
+			_Y = fmax( _Y, _h / 2 - 1 );
 			_y = lround( _Y );
 		}
 	}
@@ -2789,6 +2792,7 @@ public:
 		if ( _y < _H )
 		{
 			_Y += _DDX * _YF;
+			_Y = fmin( _Y, _H );
 			_y = lround( _Y );
 		}
 	}
@@ -2800,7 +2804,7 @@ public:
 			fl_color( _accel > _decel ? FL_GRAY : FL_DARK_MAGENTA );
 			fl_line_style( FL_DASH, lround( SCALE_Y * 1 ) );
 			int y0 = y() + SCALE_Y * 20;
-			int l = SCALE_X * 20; 
+			int l = SCALE_X * 20;
 			int x0 = x() + Random::pRand() % 3;
 			while ( y0 < y() + h() - SCALE_Y * 10 )
 			{
@@ -3989,7 +3993,7 @@ void FltWin::onStateChange( State from_state_ )
 				_first_level = _done_level + levelIncrement();
 				if ( !_trainMode )
 				{
-					_user.completed += _done_level == _end_level ;
+					_user.completed += _done_level == _end_level;
 					if ( _done_level == _end_level )
 						_done_level = 0;
 					_user.level = _done_level;
@@ -5161,8 +5165,8 @@ void FltWin::create_level()
 		int flat1 = Random::Rand() % ( w() / 2 ) + w() / 8;
 		int r = ( X == 0 ) ? range / 2 : range;	// don't start with a high mountain
 		int peak = minGround + (( Random::Rand() % ( r / 2 )  + r / 2 ) * hardestFactor);
-		int peak_dist1 = ( Random::Rand() % ( peak * 2 ) ) + peak / 4 ;
-		int peak_dist2 = ( Random::Rand() % ( peak * 2 ) ) + peak / 4 ;
+		int peak_dist1 = ( Random::Rand() % ( peak * 2 ) ) + peak / 4;
+		int peak_dist2 = ( Random::Rand() % ( peak * 2 ) ) + peak / 4;
 		int flat2 = Random::Rand() % ( w() / 2 ) + ( !!level.edgy * w() / 5 );
 		if ( !level.edgy )
 		{
@@ -7297,7 +7301,7 @@ void FltWin::setBgSoundFile()
 			fl_filename_free_list( &ls, num_files );
 			if ( bgSoundList.size() )
 			{
-				_bgsound = bgSoundList[Random::pRand() % bgSoundList.size()] ;
+				_bgsound = bgSoundList[ Random::pRand() % bgSoundList.size() ];
 			}
 		}
 	}
