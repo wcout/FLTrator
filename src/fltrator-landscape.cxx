@@ -853,7 +853,7 @@ int PreviewWindow::handle( int e_ )
 			if ( mode )
 			{
 				Fl_Window *win = Fl::first_window();
-				while ( win && win == this /*!dynamic_cast<LSEditor *>( win )*/ )
+				while ( win && win != dynamic_cast<LSEditor *>( win ) )
 					win = Fl::next_window( win );
 				if ( win )
 					((LSEditor *)win)->gotoXPos( (int)(x * Scale) );
