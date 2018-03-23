@@ -287,6 +287,8 @@ static bool setupScreenSize( const string& cmd_, int& W_, int& H_ )
 		size_t pos = cmd_.find_first_of( "xX,/" );
 		if ( pos != string::npos )
 			H = atol( cmd_.substr( pos + 1 ).c_str() );
+		if ( !H )
+			H = SCREEN_NORMAL_H * W / SCREEN_NORMAL_W;
 	}
 	if ( setupScreenSize( W, H ) )
 	{
