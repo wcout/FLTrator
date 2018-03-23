@@ -3237,6 +3237,7 @@ private:
 	void newUser();
 	void setUser();
 	void resetUser();
+	bool toggleBorder();
 	bool toggleFullscreen();
 	bool setFullscreen( bool fullscreen_ );
 	virtual void show();
@@ -7461,6 +7462,29 @@ void FltWin::show()
 	}
 }
 
+bool FltWin::toggleBorder()
+//-------------------------------------------------------------------------------
+{
+	if ( !fullscreen_active() )
+	{
+		if ( border() )
+		{
+			hide();
+			border( 0 );
+			show();
+			position( x(), y() - 20 );
+		}
+		else
+		{
+			hide();
+			border( 1 );
+			show();
+		}
+		return true;
+	}
+	return false;
+}
+
 bool FltWin::toggleFullscreen()
 //-------------------------------------------------------------------------------
 {
@@ -8199,6 +8223,7 @@ int FltWin::handle( int e_ )
 //-------------------------------------------------------------------------------
 {
 #define F10_KEY  (FL_F + 10)
+#define F12_KEY  (FL_F + 12)
 	static bool ignore_space = false;
 	static int repeated_right = -1;
 
@@ -8420,6 +8445,10 @@ int FltWin::handle( int e_ )
 		if ( F10_KEY == c && ( _state != LEVEL || G_paused ) )
 		{
 			toggleFullscreen();
+		}
+		if ( F12_KEY == c && ( _state != LEVEL || G_paused ) )
+		{
+			toggleBorder();
 		}
 	}
 	if ( _state == TITLE || _state == SCORE || _state == DEMO || _done )
