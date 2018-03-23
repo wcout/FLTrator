@@ -8446,7 +8446,7 @@ int FltWin::handle( int e_ )
 		{
 			toggleFullscreen();
 		}
-		if ( F12_KEY == c && ( _state != LEVEL || G_paused ) )
+		else if ( F12_KEY == c && ( _state != LEVEL || G_paused ) )
 		{
 			toggleBorder();
 		}
