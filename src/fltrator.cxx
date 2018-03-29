@@ -426,113 +426,98 @@ static void grad_rect( int x_, int y_, int w_, int h_, int H_, bool rev_,
 class Waiter
 //-------------------------------------------------------------------------------
 {
-#ifndef WIN32
-	unsigned long startTime;
-	unsigned long endTime;
-#ifdef _POSIX_MONOTONIC_CLOCK
-	struct timespec ts;
+#ifdef _WIN32
+	#define FLTK_WAIT_DELAY 0
+	#define LARGE_INT LARGE_INTEGER
 #else
-	struct timeval tv;
-#endif // _POSIX_MONOTONIC_CLOCK
-#else // ifndef WIN32
-
-	LARGE_INTEGER startTime, endTime, elapsedMicroSeconds;
-	LARGE_INTEGER frequency;
-#endif // ifndef WIN32
+	#define FLTK_WAIT_DELAY 0.0001
+	#define LARGE_INT unsigned long
+#endif
 
 public:
 	Waiter() :
-		_elapsedMilliSeconds( 0 ),
-		_fltkWaitDelay(
-#ifndef WIN32
-			0.0005
-#else
-		0.0
-#endif
-		)
+		_elapsedMicroSeconds( 0 ),
+		_fltkWaitDelay( FLTK_WAIT_DELAY ),
+		_FPS( 40 ),
+		_ready( true )
 	{
-		char *fltkWaitDelayEnv = getenv( "FLTK_WAIT_DELAY" );
-		if ( fltkWaitDelayEnv )
-		{
-			stringstream ss;
-			double fltkWaitDelay;
-			ss << fltkWaitDelayEnv;
-			ss >> fltkWaitDelay;
-			if ( fltkWaitDelay >= 0.0 && fltkWaitDelay <= 0.01 )
-				_fltkWaitDelay = fltkWaitDelay;
-		}
-#ifndef WIN32
+#ifdef _WIN32
+		_ready = ( QueryPerformanceFrequency( &_frequency ) != 0 );
+		QueryPerformanceCounter( &_startTime );
+#else
 #ifdef _POSIX_MONOTONIC_CLOCK
-		LOG( "using clock_gettime()" );
+		LOG( "Waiter: using clock_gettime()" );
+		struct timespec ts;
 		clock_gettime( CLOCK_MONOTONIC, &ts );
-		startTime = ts.tv_sec * 1000L + ts.tv_nsec / 1000000L;
+		_startTime = ts.tv_sec * 1000000L + ts.tv_nsec / 1000L;
 #else
-		LOG( "using gettimeofday()" );
+		LOG( "Waiter: using gettimeofday()" );
+		struct timeval tv;
 		gettimeofday( &tv, NULL );
-		startTime = tv.tv_sec * 1000 + tv.tv_usec / 1000;
+		_startTime = tv.tv_sec * 1000000 + tv.tv_usec;
 #endif // _POSIX_MONOTONIC_CLOCK
-#else
-		if ( getenv( "FLTRATOR_SET_PRIORITY" ) )
-			SetPriorityClass( GetCurrentProcess(), HIGH_PRIORITY_CLASS );
+#endif // _WIN32
 
-		QueryPerformanceFrequency( &frequency );
-		QueryPerformanceCounter( &startTime );
-#endif // ifndef WIN32
-
-		endTime = startTime;	// -gcc warning with -O3
+		_endTime = _startTime;
 	}
 
-	unsigned int wait()
+	unsigned int wait( unsigned int FPS_ = 0 )
 	{
-		unsigned elapsedMilliSeconds = 0;
-		unsigned delayMilliSeconds = 1000 / FPS;
+		unsigned int elapsedMicroSeconds = 0;
+		unsigned int delayMicroSeconds = 1000000 / ( FPS_ ? FPS_ : _FPS );
 
-		while ( elapsedMilliSeconds < delayMilliSeconds && Fl::first_window() )
+		while ( elapsedMicroSeconds < delayMicroSeconds && Fl::first_window() )
 		{
 			Fl::wait( _fltkWaitDelay );
+#ifdef _WIN32
+			if ( !_ready ) // QueryPerformance API not available
+				break;
 
-#ifndef WIN32
-#ifdef _POSIX_MONOTONIC_CLOCK
-			clock_gettime( CLOCK_MONOTONIC, &ts );
-			endTime = ts.tv_sec * 1000L + ts.tv_nsec / 1000000L;
+			QueryPerformanceCounter( &_endTime );
+			LARGE_INT elapsedTime;
+			elapsedTime.QuadPart = _endTime.QuadPart - _startTime.QuadPart;
+
+			// convert to microseconds
+			elapsedTime.QuadPart *= 1000000;
+			elapsedTime.QuadPart /= _frequency.QuadPart;
+			elapsedMicroSeconds = elapsedTime.QuadPart;
 #else
+#ifdef _POSIX_MONOTONIC_CLOCK
+			struct timespec ts;
+			clock_gettime( CLOCK_MONOTONIC, &ts );
+			_endTime = ts.tv_sec * 1000000L + ts.tv_nsec / 1000L;
+#else
+			struct timeval tv;
 			gettimeofday( &tv, NULL );
-			endTime = tv.tv_sec * 1000 + tv.tv_usec / 1000;
-#endif
-			elapsedMilliSeconds = endTime - startTime;
-#else // ifndef WIN32
+			_endTime = tv.tv_sec * 1000000 + tv.tv_usec;
+#endif // _POSIX_MONOTONIC_CLOCK
 
-			// Activity to be timed
-
-			QueryPerformanceCounter( &endTime );
-			elapsedMicroSeconds.QuadPart = endTime.QuadPart - startTime.QuadPart;
-
-			//
-			// We now have the elapsed number of ticks, along with the
-			// number of ticks-per-second. We use these values
-			// to convert to the number of elapsed microseconds.
-			// To guard against loss-of-precision, we convert
-			// to microseconds *before* dividing by ticks-per-second.
-			//
-
-			elapsedMicroSeconds.QuadPart *= 1000000;
-			elapsedMicroSeconds.QuadPart /= frequency.QuadPart;
-			elapsedMilliSeconds = elapsedMicroSeconds.QuadPart / 1000;
-#endif // ifndef WIN32
-
+			elapsedMicroSeconds = _endTime - _startTime;
+#endif // _WIN32
 		}
-		startTime = endTime;
-		_elapsedMilliSeconds = elapsedMilliSeconds;
-		return elapsedMilliSeconds;
+
+		_startTime = _endTime;
+		_elapsedMicroSeconds = elapsedMicroSeconds;
+		return _elapsedMicroSeconds;
 	}
 
-	unsigned int elapsedMilliSeconds() const { return _elapsedMilliSeconds; }
+	unsigned int elapsedMicroSeconds() const { return _elapsedMicroSeconds; }
 	double fltkWaitDelay() const { return _fltkWaitDelay; }
 	void fltkWaitDelay( double fltkWaitDelay_ ) { _fltkWaitDelay = fltkWaitDelay_; }
+	unsigned int FPS() const { return _FPS; }
+	void FPS( unsigned int FPS_ ) { _FPS = FPS_; }
+	bool ready() const { return _ready; }
 
 private:
-	unsigned int _elapsedMilliSeconds;
+	LARGE_INT _startTime;
+	LARGE_INT _endTime;
+#ifdef _WIN32
+	LARGE_INT _frequency;
+#endif
+	unsigned int _elapsedMicroSeconds;
 	double _fltkWaitDelay;
+	unsigned int _FPS;
+	bool _ready;
 };
 
 //-------------------------------------------------------------------------------
@@ -3591,6 +3576,11 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	// override fltkWaitDelay from ini
 	double fltkWaitDelay = _ini.value( "fltk_wait_delay", 0.0, 0.01, _waiter.fltkWaitDelay() );
 	_waiter.fltkWaitDelay( fltkWaitDelay );
+
+#ifdef WIN32
+	if ( getenv( "FLTRATOR_SET_PRIORITY" ) )
+		SetPriorityClass( GetCurrentProcess(), HIGH_PRIORITY_CLASS );
+#endif
 
 	string defaultArgs;
 	string cfgName( "fltrator" );
@@ -8097,7 +8087,7 @@ bool FltWin::correctDX()
 //-------------------------------------------------------------------------------
 {
 	// intended scroll rate: 800px in 4s => 0.2px / ms
-	_DDX = SCALE_X * (double)_waiter.elapsedMilliSeconds() * 0.2;
+	_DDX = SCALE_X * (double)_waiter.elapsedMicroSeconds() * 0.0002;
 	_DX = ceil( _DDX );
 #if 0
 	// set limit
@@ -8593,7 +8583,7 @@ int FltWin::run()
 	LOG( "using own main loop" );
 	while ( Fl::first_window() )
 	{
-		_waiter.wait();
+		_waiter.wait( FPS );
 		_correct_speed && correctDX();
 		_state == DEMO ? onUpdateDemo() : onUpdate();
 	}
