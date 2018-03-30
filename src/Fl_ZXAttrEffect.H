@@ -25,25 +25,24 @@
 #include <cmath>
 #include <vector>
 
-static uchar *make_alpha_box( Fl_Color c_, int w_, int h_, int alpha_ )
+static Fl_RGB_Image *make_alpha_box( Fl_Color c_, int w_, int h_, uchar alpha_ )
 {
-	uchar *image = new uchar[4 * w_ * h_];
+	size_t size = 4 * w_ * h_;
+	uchar *image = new uchar[size];
 	uchar *p = image;
+	uchar *e = p + size;
 	uchar r, g, b;
 	Fl::get_color( c_, r, g, b );
-	for ( int y = 0; y < h_; y++ )
+	while ( p < e )
 	{
-		for ( int x = 0; x < w_; x++ )
-		{
-			*p++ = r;
-			*p++ = g;
-			*p++ = b;
-			if ( alpha_ < 255 )
-				*p++ = uchar( alpha_ );	// alpha transparency
-			else *p++ = 255;
-		}
+		*p++ = r;
+		*p++ = g;
+		*p++ = b;
+		*p++ = alpha_;
 	}
-	return image;
+	Fl_RGB_Image *rgb = new Fl_RGB_Image( image, w_, h_, 4 );
+	rgb->alloc_array = 1;
+	return rgb;
 }
 
 class Fl_ZXAttrEffect : public Fl_Double_Window
@@ -65,7 +64,11 @@ public:
 
 		_screen = fl_read_image( 0, 0, 0, baseWin_.w(), baseWin_.h() );
 		if ( _screen )
-			_bgImage = new Fl_RGB_Image( _screen, baseWin_.w(), baseWin_.h() );
+		{
+			Fl_RGB_Image *rgb = new Fl_RGB_Image( _screen, baseWin_.w(), baseWin_.h() );
+			rgb->alloc_array = 1;
+			_bgImage = rgb;
+		}
 
 		srandom( time( 0 ) );
 		end();
@@ -83,7 +86,6 @@ public:
 			delete _attr[i];
 		_attr.clear();
 		delete _bgImage;
-		delete[] _screen;
 		terminate();
 	}
 protected:
@@ -148,8 +150,7 @@ private:
 		{
 			static const int W = _baseWin->w() / 32;
 			static const int H = _baseWin->h() / 24;
-			uchar *data = make_alpha_box( zx_colors[i], W, H, /*alpha=*/180 );
-			_attr.push_back( new Fl_RGB_Image( data, W, H, 4 ) );
+			_attr.push_back( make_alpha_box( zx_colors[i], W, H, /*alpha=*/180  ) );
 		}
 	}
 private:
