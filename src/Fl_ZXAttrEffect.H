@@ -1,7 +1,7 @@
 //
 // Fl_ZXAttrEffect
 //
-// Copyright 2016 Christian Grabner.
+// Copyright 2016-2018 Christian Grabner.
 //
 // This file is part of FLTrator.
 //
