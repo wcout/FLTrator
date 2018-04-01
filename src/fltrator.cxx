@@ -210,6 +210,7 @@ using namespace std;
 #include "joystick.cxx"
 #include "fl_joystick.cxx"
 #include "resize_image.cxx"
+#include "Fl_Waiter.H"
 
 //-------------------------------------------------------------------------------
 enum ObjectType
@@ -421,104 +422,6 @@ static void grad_rect( int x_, int y_, int w_, int h_, int H_, bool rev_,
 		fl_xyline( x_, y_ + h, x_ + w_ );
 	}
 }
-
-//-------------------------------------------------------------------------------
-class Waiter
-//-------------------------------------------------------------------------------
-{
-#ifdef _WIN32
-	#define FLTK_WAIT_DELAY 0
-	#define LARGE_INT LARGE_INTEGER
-#else
-	#define FLTK_WAIT_DELAY 0.0001
-	#define LARGE_INT unsigned long
-#endif
-
-public:
-	Waiter() :
-		_elapsedMicroSeconds( 0 ),
-		_fltkWaitDelay( FLTK_WAIT_DELAY ),
-		_FPS( 40 ),
-		_ready( true )
-	{
-#ifdef _WIN32
-		_ready = ( QueryPerformanceFrequency( &_frequency ) != 0 );
-		QueryPerformanceCounter( &_startTime );
-#else
-#ifdef _POSIX_MONOTONIC_CLOCK
-		LOG( "Waiter: using clock_gettime()" );
-		struct timespec ts;
-		clock_gettime( CLOCK_MONOTONIC, &ts );
-		_startTime = ts.tv_sec * 1000000L + ts.tv_nsec / 1000L;
-#else
-		LOG( "Waiter: using gettimeofday()" );
-		struct timeval tv;
-		gettimeofday( &tv, NULL );
-		_startTime = tv.tv_sec * 1000000 + tv.tv_usec;
-#endif // _POSIX_MONOTONIC_CLOCK
-#endif // _WIN32
-
-		_endTime = _startTime;
-	}
-
-	unsigned int wait( unsigned int FPS_ = 0 )
-	{
-		unsigned int elapsedMicroSeconds = 0;
-		unsigned int delayMicroSeconds = 1000000 / ( FPS_ ? FPS_ : _FPS );
-
-		while ( elapsedMicroSeconds < delayMicroSeconds && Fl::first_window() )
-		{
-			Fl::wait( _fltkWaitDelay );
-#ifdef _WIN32
-			if ( !_ready ) // QueryPerformance API not available
-				break;
-
-			QueryPerformanceCounter( &_endTime );
-			LARGE_INT elapsedTime;
-			elapsedTime.QuadPart = _endTime.QuadPart - _startTime.QuadPart;
-
-			// convert to microseconds
-			elapsedTime.QuadPart *= 1000000;
-			elapsedTime.QuadPart /= _frequency.QuadPart;
-			elapsedMicroSeconds = elapsedTime.QuadPart;
-#else
-#ifdef _POSIX_MONOTONIC_CLOCK
-			struct timespec ts;
-			clock_gettime( CLOCK_MONOTONIC, &ts );
-			_endTime = ts.tv_sec * 1000000L + ts.tv_nsec / 1000L;
-#else
-			struct timeval tv;
-			gettimeofday( &tv, NULL );
-			_endTime = tv.tv_sec * 1000000 + tv.tv_usec;
-#endif // _POSIX_MONOTONIC_CLOCK
-
-			elapsedMicroSeconds = _endTime - _startTime;
-#endif // _WIN32
-		}
-
-		_startTime = _endTime;
-		_elapsedMicroSeconds = elapsedMicroSeconds;
-		return _elapsedMicroSeconds;
-	}
-
-	unsigned int elapsedMicroSeconds() const { return _elapsedMicroSeconds; }
-	double fltkWaitDelay() const { return _fltkWaitDelay; }
-	void fltkWaitDelay( double fltkWaitDelay_ ) { _fltkWaitDelay = fltkWaitDelay_; }
-	unsigned int FPS() const { return _FPS; }
-	void FPS( unsigned int FPS_ ) { _FPS = FPS_; }
-	bool ready() const { return _ready; }
-
-private:
-	LARGE_INT _startTime;
-	LARGE_INT _endTime;
-#ifdef _WIN32
-	LARGE_INT _frequency;
-#endif
-	unsigned int _elapsedMicroSeconds;
-	double _fltkWaitDelay;
-	unsigned int _FPS;
-	bool _ready;
-};
 
 //-------------------------------------------------------------------------------
 class LevelPath
@@ -3375,7 +3278,7 @@ private:
 	Fl_Image *_landscape;
 	Fl_Image *_background;
 	User _user;
-	static Waiter _waiter;
+	static Fl_Waiter _waiter;
 	Fl_Joystick _joystick;
 	bool _showFirework;
 	string _lang;
@@ -3386,7 +3289,7 @@ private:
 	bool _dimmout;
 };
 
-/*static*/ Waiter FltWin::_waiter;
+/*static*/ Fl_Waiter FltWin::_waiter;
 
 #include "Fl_Fireworks.H"
 //-------------------------------------------------------------------------------
