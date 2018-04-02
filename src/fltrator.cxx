@@ -3848,7 +3848,10 @@ void FltWin::onStateChange( State from_state_ )
 					_disableKeys = false;
 				}
 				if ( shown() )
+				{
 					Audio::instance()->play( "menu" );
+					setTitle();
+				}
 			}
 			onTitleScreen();
 			break;
