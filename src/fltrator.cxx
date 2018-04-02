@@ -3389,7 +3389,7 @@ private:
 // class FltWin : public Fl_Double_Window
 //-------------------------------------------------------------------------------
 FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
-	Inherited( SCREEN_W, SCREEN_H, "FL-Trator " VERSION ),
+	Inherited( SCREEN_W, SCREEN_H, "FLTrator " VERSION ),
 	_state( START ),
 	_last_state( NO_STATE ),
 	_xoff( 0 ),
@@ -5860,7 +5860,7 @@ void FltWin::draw_title()
 		bgImage2 = fl_copy_image( _rocket.origImage(), w() / 3, h() - SCALE_Y * 150 );
 	}
 	if ( !title_anim )
-		(title_anim = new AnimText( 0, SCALE_Y * 45, w(), "FL-TRATOR",
+		(title_anim = new AnimText( 0, SCALE_Y * 45, w(), "FL'TRATOR",
 		                             FL_RED, FL_WHITE, 90, 80, false ))->start();
 	if ( !G_paused && _cfg->non_zero_scores() && _flip++ % (FPS * 8) > ( FPS * 5) )
 	{
