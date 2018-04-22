@@ -3682,7 +3682,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 						_effects = 0;
 						break;
 					case 'X':
-						Audio::instance()->noExplosions();
+						Audio::instance()->noExplosions( true );
 						break;
 					default:
 						unknown_option += arg[i];
