@@ -3138,6 +3138,7 @@ private:
 	bool paused() const { return _state == PAUSED; }
 	void bombUnlock();
 	static void cb_action_key_delay( void *d_ );
+	static void cb_fire_key_delay( void *d_ );
 	static void cb_bomb_unlock( void *d_ );
 	static void cb_demo( void *d_ );
 	static void cb_paused( void *d_ );
@@ -7544,6 +7545,14 @@ void FltWin::cb_action_key_delay( void *d_ )
 	f->onActionKey( false );
 }
 
+/*static*/
+void FltWin::cb_fire_key_delay( void *d_ )
+//-------------------------------------------------------------------------------
+{
+	FltWin *f = (FltWin *)d_;
+	f->_right = true;
+}
+
 void FltWin::onActionKey( bool delay_/* = true*/ )
 //-------------------------------------------------------------------------------
 {
@@ -8121,7 +8130,6 @@ int FltWin::handle( int e_ )
 #define F10_KEY  (FL_F + 10)
 #define F12_KEY  (FL_F + 12)
 	static bool ignore_space = false;
-	static int repeated_right = -1;
 
 	if ( FL_FOCUS == e_ )
 	{
@@ -8427,8 +8435,8 @@ int FltWin::handle( int e_ )
 			_left = true;
 		else if ( KEY_RIGHT == c )
 		{
-			repeated_right++;
-			_right = true;
+			Fl::remove_timeout( cb_fire_key_delay, this );
+			Fl::add_timeout( 0.15, cb_fire_key_delay, this );
 		}
 		else if ( KEY_UP == c )
 			_up = true;
@@ -8444,9 +8452,9 @@ int FltWin::handle( int e_ )
 		{
 			_right = false;
 			_speed_right = 0;
-			if ( repeated_right <= 0 )
+			if ( Fl::has_timeout( cb_fire_key_delay, this ) )
 				fireMissile();
-			repeated_right = -1;
+			Fl::remove_timeout( cb_fire_key_delay, this );
 		}
 		else if ( ' ' == c )
 		{
