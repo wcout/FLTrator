@@ -6457,9 +6457,12 @@ void FltWin::create_explosion( int x_, int y_, Explosion::ExplosionType type_, d
 void FltWin::create_spaceship()
 //-------------------------------------------------------------------------------
 {
-	delete _spaceship;
-	_spaceship = new Spaceship( w() / 2, 40, w(), h(), ship(),
-		_effects != 0 );	// before create_terrain()!
+	if ( _objects.size() && _objects[0]->type() == O_SHIP )
+	{
+		delete _objects[0];
+		_objects.erase( _objects.begin() );
+	}
+	_spaceship = new Spaceship( w() / 2, 40, w(), h(), ship(), _effects != 0 );	// before create_terrain()!
 	string shipId = "spaceship" + asString( ship() );
 	string id( shipId + ".bomb_x_offset" );
 	_spaceship->bombXOffset( lround( SCALE_Y *_defaultIniParameter.value( id, 0, 20, 14 ) ) );
@@ -6469,9 +6472,7 @@ void FltWin::create_spaceship()
 	id = shipId + ".missile_color";
 	long missile_color = _ini.value( id, 0, 0xffffff, 0xffffff );	// per level!
 	_spaceship->missileColor( (Fl_Color)( missile_color << 8 ) );
-	if ( _objects.size() && _objects[0]->type() == O_SHIP )
-		_objects.erase( _objects.begin() );
-	_objects.insert( _objects.begin(),_spaceship );
+	_objects.insert( _objects.begin(), _spaceship ); // spaceship is always first object
 }
 
 void FltWin::create_objects()
@@ -7559,6 +7560,9 @@ bool FltWin::zoomoutShip()
 {
 	if ( !_gimmicks )
 		return false;
+
+	if ( !_spaceship )
+		create_spaceship();
 
 	if ( !_zoomoutShip || _zoomoutShip->src().name() != _spaceship->flt_image().name() )
 	{
