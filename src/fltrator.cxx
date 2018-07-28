@@ -1529,6 +1529,7 @@ public:
 	void crash();
 	void explode( double to_ = 0.05 );
 	bool done() const { return _done; }
+	void done( bool done_ ) { _done =  done_; }
 	bool exploded() const { return _exploded; }
 	long data1() const { return _data1; }
 	long data2() const { return _data2; }
@@ -5206,7 +5207,7 @@ void FltWin::draw_objects( bool pre_ ) const
 	for ( size_t i = 0; i < _objects.size(); i++ )
 	{
 		Object& o = *_objects[i];
-		if ( o.type() == O_SHIP )
+		if ( o.type() == O_SHIP || o.done() )
 			continue;
 		if ( pre_ && ( o.type() == O_CUMULUS || o.type() == O_EXPLOSION ) )
 			continue;
@@ -6664,11 +6665,11 @@ bool FltWin::update_drop( Drop& drop_ )
 bool FltWin::update_missile( Missile& missile_ )
 //-------------------------------------------------------------------------------
 {
-	bool gone = missile_.exhausted() ||
-	            missile_.x() > w() ||
-	            missile_.y() > h() - T[_xoff + missile_.x() + missile_.w()].ground_level() ||
-	            missile_.y() < T[_xoff + missile_.x() + missile_.w()].sky_level();
-	return gone;
+	missile_.done( missile_.exhausted() ||
+	               missile_.x() > w() ||
+	               missile_.y() > h() - T[_xoff + missile_.x() + missile_.w()].ground_level() ||
+	               missile_.y() < T[_xoff + missile_.x() + missile_.w()].sky_level() );
+	return false;
 }
 
 bool FltWin::update_rocket( Rocket& rocket_ )
