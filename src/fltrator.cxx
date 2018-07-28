@@ -1495,6 +1495,7 @@ public:
 	void start( size_t speed_ = 1 );
 	virtual void update();
 	virtual void draw();
+	virtual bool draw_explosion() const { return true; }
 	void draw_collision() const;
 	bool nostart() const { return _nostart; }
 	void nostart( bool nostart_) { _nostart = nostart_; }
@@ -1522,11 +1523,12 @@ public:
 	string name() const { return _image.name(); }
 	ObjectType o() const { return _o; }
 	bool isType( ObjectType o_ ) const { return _o == o_; }
+	ObjectType type() const { return _o; }
 	void onExplosionEnd();
 	static void cb_explosion_end( void *d_ );
 	void crash();
 	void explode( double to_ = 0.05 );
-	bool exploding() const { return _exploding; }
+	bool done() const { return _done; }
 	bool exploded() const { return _exploded; }
 	long data1() const { return _data1; }
 	long data2() const { return _data2; }
@@ -1546,6 +1548,7 @@ protected:
 	int _x, _y;
 	int _w, _h;
 	double _X, _Y;
+	bool _done;
 	unsigned _speed;
 	int _dxRange;
 	unsigned _state;
@@ -1553,7 +1556,6 @@ protected:
 	long _data2;
 private:
 	bool _nostart;
-	bool _exploding;	// state exploding
 	bool _exploded;
 	bool _hit;	// state 'hit' for explosion drawing
 	double _timeout;
@@ -1573,13 +1575,13 @@ Object::Object( ObjectType o_/* = O_UNDEF*/, int x_/* = 0*/ , int y_/* = 0*/,
 	_h( h_ ),
 	_X( x_ ),
 	_Y( y_ ),
+	_done( false ),
 	_speed( 1 ),
 	_dxRange( 0 ),
 	_state( 0 ),
 	_data1( 0 ),
 	_data2( 0 ),
 	_nostart( false ),
-	_exploding( false ),
 	_exploded( false ),
 	_hit( false ),
 	_timeout( 0.05 ),
@@ -1632,6 +1634,7 @@ bool Object::hit()
 //-------------------------------------------------------------------------------
 {
 	_hits++;
+	_hit = true;
 	_explode();
 	return onHit();
 }
@@ -1676,11 +1679,8 @@ void Object::update()
 void Object::draw()
 //-------------------------------------------------------------------------------
 {
-	if ( !_exploded )
-	{
-		_image.draw( x(), y() );
-	}
-	if ( _exploding || _hit )
+	_image.draw( x(), y() );
+	if ( ( _exploded || _hit ) && draw_explosion() )
 		draw_collision();
 }
 
@@ -1721,12 +1721,9 @@ void Object::cb_animate( void *d_ )
 void Object::onExplosionEnd()
 //-------------------------------------------------------------------------------
 {
+	if ( _exploded )
+		_done = true;
 	_hit = false;
-	if ( _exploding )
-	{
-//		_exploding = false;
-		_exploded = true;
-	}
 }
 
 /*static*/
@@ -1739,30 +1736,23 @@ void Object::cb_explosion_end( void *d_ )
 void Object::crash()
 //-------------------------------------------------------------------------------
 {
+	_exploded = true;
 	_explode( 0.2 );
 }
 
 void Object::explode( double to_/* = 0.05*/ )
 //-------------------------------------------------------------------------------
 {
+	_exploded = true;
 	_explode( to_ );
 }
 
 void Object::_explode( double to_ )
 //-------------------------------------------------------------------------------
 {
-	if ( !_exploding && !_exploded )
+	if ( !_done )
 	{
-		if ( to_ )	// real explosion
-		{
-			_exploding = true;
-			Fl::add_timeout( to_, cb_explosion_end, this );
-		}
-		else	// hit feedback explosion
-		{
-			_hit = true;
-			Fl::add_timeout( 0.02, cb_explosion_end, this );
-		}
+		Fl::add_timeout( to_ ? to_ : 0.02, cb_explosion_end, this );
 	}
 }
 
@@ -1776,13 +1766,12 @@ public:
 		Inherited( O_ROCKET, x_, y_, "rocket.gif" )
 	{
 	}
-	bool lifted() const { return started(); }
 	virtual const char *start_sound() const { return "x_launch"; }
 	virtual const char* image_started() const { return "rocket_launched.gif"; }
 	virtual void update()
 	{
 		if ( G_paused ) return;
-		if ( !exploding() && !exploded() )
+		if ( !exploded() )
 		{
 			size_t delta = ( 1 + _state / 10 ) * _speed;
 			if ( delta > 12 )
@@ -1825,12 +1814,12 @@ public:
 		_dx( 0 )
 	{
 	}
+	virtual bool draw_explosion() const { return false; }
 	virtual void init()
 	{
 		if ( dxRange() )
 			_dx = rangedRandom( -dxRange(), dxRange() );
 	}
-	bool dropped() const { return started(); }
 	virtual const char *start_sound() const { return "drop"; }
 	virtual void update()
 	{
@@ -2108,8 +2097,7 @@ public:
 		_type( type_ ),
 		_radius( ceil( SCALE_Y * w() * strength_ ) ),
 		_colors( colors_ ? colors_ : multicolors ),
-		_nColors( colors_ ? nColors_ : nbrOfItems( multicolors ) ),
-		_done( false )
+		_nColors( colors_ ? nColors_ : nbrOfItems( multicolors ) )
 	{
 		explode( true );
 		update();
@@ -2209,14 +2197,12 @@ public:
 				( dot ? Random::pRand() % 3 + 3 : speed * 10 ), multicolor ) );
 		}
 	}
-	bool done() const { return _done; }
 private:
 	std::vector <Particle> _particles;
 	ExplosionType _type;
 	int _radius;
 	const Fl_Color *_colors;
 	int _nColors;
-	bool _done;
 };
 
 //-------------------------------------------------------------------------------
@@ -3044,10 +3030,10 @@ private:
 	void create_objects();
 	void delete_objects();
 
-	void check_bomb_hits();
-	void check_drop_hits();
-	void check_missile_hits();
-	void check_rocket_hits();
+	bool check_bomb_hit( Bomb& b, Object& o_ );
+	bool check_drop_hit( Drop& d, Object& o_ );
+	bool check_missile_hit( Missile& m, Object& o_ );
+	bool check_rocket_hit( Rocket& r, Object& o_ );
 	void check_hits();
 
 	bool correctDX();
@@ -3062,15 +3048,6 @@ private:
 	void create_level();
 	bool revert_level();
 
-	void draw_badies() const;
-	void draw_bombs() const;
-	void draw_cumuluses() const;
-	void draw_drops() const;
-	void draw_explosions() const;
-	void draw_missiles() const;
-	void draw_phasers() const;
-	void draw_radars() const;
-	void draw_rockets() const;
 	void draw_objects( bool pre_ ) const;
 
 	int drawText( int x_, int y_, const char *text_, size_t sz_, Fl_Color c_, ... ) const;
@@ -3091,15 +3068,12 @@ private:
 
 	string firstTimeSetup();
 
-	void update_badies();
-	void update_bombs();
-	void update_cumuluses();
-	void update_drops();
-	void update_explosions();
-	void update_missiles();
-	void update_phasers();
-	void update_radars();
-	void update_rockets();
+	bool update_bady( Bady& bady_ );
+	bool update_bomb( Bomb& bomb_ );
+	bool update_cumulus( Cumulus& cumulus_ );
+	bool update_drop( Drop& drop_ );
+	bool update_missile( Missile& missile_ );
+	bool update_rocket( Rocket& rocket_ );
 	void update_objects();
 
 	bool dropBomb();
@@ -3151,6 +3125,18 @@ private:
 	unsigned endLevel() const { return reversLevel() ? 1 : MAX_LEVEL; }
 	bool reversLevel() const { return _internal_levels ? false : ( user_completed() % 2 != 0 ); }
 	int levelIncrement() const { return reversLevel() ? -1 : 1; }
+	size_t objectCnt( ObjectType o_ )
+	{
+		size_t n = 0;
+		for ( size_t i = 0; i < _objects.size(); i++ ) if ( _objects[i]->type() == o_ ) n++;
+		return n;
+	}
+	Object *lastObject( ObjectType o_ )
+	{
+		if ( _objects.empty() ) return (Object *)0;
+		for ( size_t i = _objects.size() - 1; i >= 0; --i ) if ( _objects[i]->type() == o_ ) return _objects[i];
+		return (Object *)0;
+	}
 
 	void setPaused( bool paused_ );
 	void toggleBgSound() const;
@@ -3175,15 +3161,7 @@ private:
 protected:
 	Terrain T;
 	Terrain TBG;
-	vector<Missile *> Missiles;
-	vector<Bomb *> Bombs;
-	vector<Rocket *> Rockets;
-	vector<Phaser *> Phasers;
-	vector<Radar *> Radars;
-	vector<Drop *> Drops;
-	vector<Explosion *> Explosions;
-	vector<Bady *> Badies;
-	vector<Cumulus *> Cumuluses;
+	vector<Object *> _objects;
 
 	int _rocket_start_prob;
 	int _rocket_radar_start_prob;
@@ -5222,104 +5200,19 @@ void FltWin::create_level()
 	addScrolloutZone();
 }
 
-void FltWin::draw_badies() const
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Badies.size(); i++ )
-	{
-		Badies[i]->draw();
-	}
-}
-
-void FltWin::draw_bombs() const
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Bombs.size(); i++ )
-	{
-		Bombs[i]->draw();
-	}
-}
-
-void FltWin::draw_cumuluses() const
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Cumuluses.size(); i++ )
-	{
-		Cumuluses[i]->draw();
-	}
-}
-
-void FltWin::draw_drops() const
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Drops.size(); i++ )
-	{
-		Drops[i]->draw();
-	}
-}
-
-void FltWin::draw_explosions() const
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Explosions.size(); i++ )
-	{
-		Explosions[i]->draw();
-	}
-}
-
-void FltWin::draw_missiles() const
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Missiles.size(); i++ )
-	{
-		Missiles[i]->draw();
-	}
-}
-
-void FltWin::draw_phasers() const
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Phasers.size(); i++ )
-	{
-		Phasers[i]->draw();
-	}
-}
-
-void FltWin::draw_radars() const
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Radars.size(); i++ )
-	{
-		Radars[i]->draw();
-	}
-}
-
-void FltWin::draw_rockets() const
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Rockets.size(); i++ )
-	{
-		Rockets[i]->draw();
-	}
-}
-
 void FltWin::draw_objects( bool pre_ ) const
 //-------------------------------------------------------------------------------
 {
-	if ( pre_ )
+	for ( size_t i = 0; i < _objects.size(); i++ )
 	{
-		draw_bombs();
-		draw_phasers();
-		draw_radars();
-		draw_drops();
-		draw_badies();
-		draw_rockets();
-		draw_missiles();
-	}
-	else
-	{
-		draw_cumuluses();
-		draw_explosions();
+		Object& o = *_objects[i];
+		if ( o.type() == O_SHIP )
+			continue;
+		if ( pre_ && ( o.type() == O_CUMULUS || o.type() == O_EXPLOSION ) )
+			continue;
+		else if ( !pre_ && o.type() != O_CUMULUS && o.type() != O_EXPLOSION )
+			continue;
+		o.draw();
 	}
 }
 
@@ -5697,22 +5590,24 @@ void FltWin::draw_score()
 				s = _texts.value( "space_to_go_back", 50, "** hit space to go back **" );
 			drawText( -1, 400, s.c_str(), 40, FL_YELLOW );
 			// fireworks...
-			for ( size_t i = 0; i < Phasers.size(); i++ )
-				Phasers[i]->disable();
+			for ( size_t i = 0; i < _objects.size(); i++ )
+				if ( _objects[i]->type() == O_PHASER )
+					((Phaser *)_objects[i])->disable();
 			T.bg_color = FL_GRAY;
 			T.sky_color = fl_darker( FL_GRAY );
 			T.ground_color = fl_darker( FL_GRAY );
 
 			int r = 0;
 			int dx = w() / 10;
-			while ( Rockets.size() < 11 )
+			while ( objectCnt( O_ROCKET ) < 11 )
 			{
-				int x = Rockets.size() ? Rockets.back()->x() + dx : dx;
+				Object *last_rocket = lastObject( O_ROCKET );
+				int x = last_rocket ? last_rocket->x() + dx : dx;
 				if ( x > w() - dx )
 					x = dx;
 				int y = h() + r * 20 + _rocket.h();
-				Rockets.push_back( new Rocket( x, y ) );
-				Rockets.back()->start();
+				_objects.push_back( new Rocket( x, y ) );
+				_objects.back()->start();
 				r++;
 			}
 		}
@@ -6345,7 +6240,8 @@ void FltWin::do_draw()
 
 	if ( !paused() || _frame % (FPS / 2) < FPS / 4 || _collision )
 		if ( !_zoomoutShip || _zoomoutShip->done() )
-			_spaceship->draw();
+			if ( _spaceship )
+				_spaceship->draw();
 
 	draw_objects( false );	// objects AFTER collision check (=without collision)
 
@@ -6380,266 +6276,170 @@ void FltWin::do_draw()
 	draw_fadeout();
 }
 
-void FltWin::check_bomb_hits()
+bool FltWin::check_bomb_hit( Bomb& b_, Object& o_ )
 //-------------------------------------------------------------------------------
 {
-	vector <Bomb *>::iterator b = Bombs.begin();
-	for ( ; b != Bombs.end(); )
+	if ( o_.type() == O_ROCKET )
 	{
-		vector<Rocket *>::iterator r = Rockets.begin();
-		for ( ; r != Rockets.end(); )
-		{
-			if ( !(*r)->exploding() &&
-			     (*b)->rect().intersects( (*r)->rect() ) )
-			{
-				// rocket hit by bomb
-				Audio::instance()->play( "x_bomb" );
-				(*r)->explode();
-				create_explosion( (*r)->cx(), (*r)->cy(),
-					Explosion::MC_FALLOUT_STRIKE, 0.8 );
-				add_score( 50 );
-
-				// bomb also is gone...
-				delete *b;
-				b = Bombs.erase(b);
-				break;
-			}
-			++r;
-		}
-		if ( b == Bombs.end() ) break;
-
-		vector<Phaser *>::iterator pa = Phasers.begin();
-		for ( ; pa != Phasers.end(); )
-		{
-			if ( !(*pa)->exploding() &&
-			     (*b)->rect().intersects( (*pa)->rect() ) )
-			{
-				// phaser hit by bomb
-				Audio::instance()->play( "x_bomb" );
-				(*pa)->explode();
-				add_score( 50 );
-
-				// bomb also is gone...
-				delete *b;
-				b = Bombs.erase(b);
-				break;
-			}
-			++pa;
-		}
-		if ( b == Bombs.end() ) break;
-
-		vector<Radar *>::iterator ra = Radars.begin();
-		for ( ; ra != Radars.end(); )
-		{
-			if ( !(*ra)->exploding() &&
-			     (*b)->rect().intersects( (*ra)->rect() ) )
-			{
-				// radar hit by bomb
-				Audio::instance()->play( "x_bomb" );
-				(*ra)->explode();
-				create_explosion( (*ra)->cx(), (*ra)->cy(),
-					Explosion::MC_FALLOUT_STRIKE, 0.8,
-					radar_explosion, nbrOfItems( radar_explosion ) );
-				add_score( 50 );
-
-				// bomb also is gone...
-				delete *b;
-				b = Bombs.erase(b);
-				break;
-			}
-			++ra;
-		}
-		if ( b == Bombs.end() ) break;
-
-		++b;
+		// rocket hit by bomb
+		Audio::instance()->play( "x_bomb" );
+		o_.explode();
+		create_explosion( o_.cx(), o_.cy(), Explosion::MC_FALLOUT_STRIKE, 0.8 );
+		add_score( 50 );
+		return true;
 	}
+
+	if ( o_.type() == O_PHASER )
+	{
+		// phaser hit by bomb
+		Audio::instance()->play( "x_bomb" );
+		o_.explode();
+		add_score( 50 );
+		return true;
+	}
+
+	if ( o_.type() == O_RADAR )
+	{
+		// radar hit by bomb
+		Audio::instance()->play( "x_bomb" );
+		o_.explode();
+		create_explosion( o_.cx(), o_.cy(), Explosion::MC_FALLOUT_STRIKE, 0.8,
+			radar_explosion, nbrOfItems( radar_explosion ) );
+		add_score( 50 );
+		return true;
+	}
+	return false;
 }
 
-void FltWin::check_drop_hits()
+bool FltWin::check_drop_hit( Drop& d_, Object& o_ )
 //-------------------------------------------------------------------------------
 {
-	vector<Drop *>::iterator d = Drops.begin();
-	for ( ; d != Drops.end(); )
+	if ( o_.type() == O_SHIP && d_.started() )
 	{
-		if ( !(*d)->dropped() ||
-		     !(*d)->rect().intersects( _spaceship->rect() ) )
+		if ( d_.collisionWithObject( o_ ) )
 		{
-			++d;
-			continue;
-		}
-		if ( (*d)->collisionWithObject( *_spaceship ) )
-		{
-			if ( (*d)->x() > _spaceship->cx() + _spaceship->w() / 4 )	// front of ship
+			if ( d_.x() > o_.cx() + o_.w() / 4 )	// front of ship
 			{
 				//	drop deflected
-				(*d)->x( (*d)->x() + 10 );
-				++d;
-				continue;
+				d_.x( d_.x() + 10 );
+				return false;
 			}
 			//	drop fully hit spaceship
-			delete *d;
-			d = Drops.erase(d);
 			_collision = true;
 			onCollision();
-			continue;
+			return true;
 		}
-		else
-			++d;
 	}
+	return false;
 }
 
-void FltWin::check_missile_hits()
+bool FltWin::check_rocket_hit( Rocket& r_, Object& o_ )
 //-------------------------------------------------------------------------------
 {
-	vector<Missile *>::iterator m = Missiles.begin();
-	for ( ; m != Missiles.end(); )
+	if ( o_.type() == O_SHIP && r_.started() )
 	{
-		vector<Rocket *>::iterator r = Rockets.begin();
-		for ( ; r != Rockets.end(); )
+		if ( r_.collisionWithObject( o_ ) )
 		{
-			if ( !(*r)->exploding() &&
-			     (*m)->rect().intersects( (*r)->rect() ) )
-			{
-				// rocket hit by missile
-				Audio::instance()->play( "x_missile_hit" );
-				(*r)->explode();
-				create_explosion( (*r)->cx(), (*r)->cy(),
-					Explosion::MC_FALLOUT_STRIKE, 0.5 );
-				add_score( 20 );
-
-				// missile also is gone...
-				delete *m;
-				m = Missiles.erase(m);
-				break;
-			}
-			++r;
+			// rocket hit by spaceship
+			r_.explode( 0.5 );
+			_collision = true;
+			onCollision();
 		}
-		if ( m == Missiles.end() ) break;
-
-		vector<Phaser *>::iterator pa = Phasers.begin();
-		for ( ; pa != Phasers.end(); )
-		{
-			if ( !(*pa)->exploding() &&
-			     (*m)->rect().intersects( (*pa)->rect() ) )
-			{
-				// phaser hit by missile
-				Audio::instance()->play( "x_bomb" );
-				(*pa)->explode();
-				add_score( 40 );
-
-				// missile also is gone...
-				delete *m;
-				m = Missiles.erase(m);
-				break;
-			}
-			++pa;
-		}
-		if ( m == Missiles.end() ) break;
-
-		vector<Radar *>::iterator ra = Radars.begin();
-		for ( ; ra != Radars.end(); )
-		{
-			if ( !(*ra)->exploding() &&
-			     (*m)->rect().intersects( (*ra)->rect() ) )
-			{
-				// radar hit by missile
-				if ( (*ra)->hit() )	// takes 2 missile hits to succeed!
-				{
-					Audio::instance()->play( "x_missile" );
-					(*ra)->explode();
-					create_explosion( (*ra)->cx(), (*ra)->cy(),
-						Explosion::MC_FALLOUT_STRIKE, 0.5,
-						radar_explosion, nbrOfItems( radar_explosion ) );
-					add_score( 40 );
-				}
-				// missile also is gone...
-				delete *m;
-				m = Missiles.erase(m);
-				break;
-			}
-			++ra;
-		}
-		if ( m == Missiles.end() ) break;
-
-		vector<Bady *>::iterator b = Badies.begin();
-		for ( ; b != Badies.end(); )
-		{
-			if ( (*m)->rect().inside( (*b)->rect()) )
-			{
-				// bady hit by missile
-				if ( (*b)->hit() )
-				{
-					Audio::instance()->play( "bady_hit" );
-					static const Fl_Color bady_smash_colors[] = { fl_rgb_color( 174, 70, 57 ), fl_rgb_color( 126, 127, 2 ) };
-					create_explosion( (*b)->cx(), (*b)->cy(),
-						Explosion::MC_FALLOUT_DOT, 0.5,
-						bady_smash_colors, nbrOfItems( bady_smash_colors ) );
-					delete *b;
-					b = Badies.erase(b);
-					add_score( 100 );
-				}
-				// missile is also gone...
-				delete *m;
-				m = Missiles.erase(m);
-				break;
-			}
-			++b;
-		}
-		if ( m == Missiles.end() ) break;
-
-		vector<Drop *>::iterator d = Drops.begin();
-		for ( ; d != Drops.end(); )
-		{
-			if ( (*m)->rect().intersects( (*d)->rect()) )
-			{
-				// drop hit by missile
-				(*d)->hit();
-				Audio::instance()->play( "drop_hit" );
-				create_explosion( (*d)->cx(), (*d)->cy(),
-					Explosion::STRIKE, 0.3,
-					drop_explosion_color, nbrOfItems( drop_explosion_color ) );
-				delete *d;
-				d = Drops.erase(d);
-				add_score( 5 );
-				break;
-			}
-			++d;
-		}
-		if ( m == Missiles.end() ) break;
-
-		++m;
 	}
+	return false;
 }
 
-void FltWin::check_rocket_hits()
+bool FltWin::check_missile_hit( Missile& m_, Object &o_ )
 //-------------------------------------------------------------------------------
 {
-	vector<Rocket *>::iterator r = Rockets.begin();
-	for ( ; r != Rockets.end(); )
+	if ( o_.type() == O_ROCKET )
 	{
-		if ( !(*r)->exploding() &&
-		  	(*r)->lifted() && (*r)->rect().intersects( _spaceship->rect() ) )
-		{
-			if ( (*r)->collisionWithObject( *_spaceship ) )
-			{
-				// rocket hit by spaceship
-				(*r)->explode( 0.5 );
-				_collision = true;
-				onCollision();
-			}
-		}
-		++r;
+		// rocket hit by missile
+		Audio::instance()->play( "x_missile_hit" );
+		o_.explode();
+		create_explosion( o_.cx(), o_.cy(),	Explosion::MC_FALLOUT_STRIKE, 0.5 );
+		add_score( 20 );
+		return true;
 	}
+
+	if ( o_.type() == O_PHASER )
+	{
+		// phaser hit by missile
+		Audio::instance()->play( "x_bomb" );
+		o_.explode();
+		add_score( 40 );
+		return true;
+	}
+
+	if ( o_.type() == O_RADAR )
+	{
+		// radar hit by missile
+		if ( o_.hit() )	// takes 2 missile hits to succeed!
+		{
+			Audio::instance()->play( "x_missile" );
+			o_.explode();
+			create_explosion( o_.cx(), o_.cy(), Explosion::MC_FALLOUT_STRIKE, 0.5,
+				radar_explosion, nbrOfItems( radar_explosion ) );
+			add_score( 40 );
+		}
+		return true;
+	}
+
+	if ( o_.type() == O_BADY )
+	{
+		// bady hit by missile
+		if ( o_.hit() )
+		{
+			Audio::instance()->play( "bady_hit" );
+			static const Fl_Color bady_smash_colors[] = { fl_rgb_color( 174, 70, 57 ), fl_rgb_color( 126, 127, 2 ) };
+			create_explosion( o_.cx(), o_.cy(),	Explosion::MC_FALLOUT_DOT, 0.5,
+				bady_smash_colors, nbrOfItems( bady_smash_colors ) );
+			o_.explode();
+			add_score( 100 );
+		}
+		return true;
+	}
+
+	if ( o_.type() == O_DROP )
+	{
+		// drop hit by missile
+		o_.hit();
+		Audio::instance()->play( "drop_hit" );
+		create_explosion( o_.cx(), o_.cy(),	Explosion::STRIKE, 0.3,
+			drop_explosion_color, nbrOfItems( drop_explosion_color ) );
+		o_.explode();
+		add_score( 5 );
+		return true;
+	}
+
+	return false;
 }
 
 void FltWin::check_hits()
 //-------------------------------------------------------------------------------
 {
-	check_missile_hits();
-	check_bomb_hits();
-	if ( !_done )
-		check_rocket_hits();
-	check_drop_hits();
+	size_t sz = _objects.size();
+	for ( size_t i = 0; i < sz; i++)
+	{
+		Object& o = *_objects[i];
+		if ( o.type() == O_CUMULUS || o.type() == O_EXPLOSION || o.exploded() ) continue;
+		for ( size_t j = 0; j < sz; j++ )
+		{
+			if ( i == j ) continue;
+			Object& o1 = *_objects[j];
+			if ( o1.type() == O_CUMULUS || o1.type() == O_EXPLOSION || o1.exploded() ) continue;
+			if ( !o.rect().intersects( o1.rect() ) ) continue;
+
+			if ( ( o.type() == O_MISSILE && check_missile_hit( (Missile&)o, o1 ) ) ||
+			     ( o.type() == O_BOMB && check_bomb_hit( (Bomb&)o, o1 ) ) ||
+			     ( o.type() == O_ROCKET && !_done && check_rocket_hit( (Rocket&)o, o1 ) ) ||
+			     ( o.type() == O_DROP && !_done && check_drop_hit( (Drop&)o, o1 ) ) )
+			{
+				// object is also gone...
+				o.explode();
+			}
+		}
+	}
 }
 
 void FltWin::create_explosion( int x_, int y_, Explosion::ExplosionType type_, double strength_,
@@ -6648,8 +6448,9 @@ void FltWin::create_explosion( int x_, int y_, Explosion::ExplosionType type_, d
 {
 	if ( _gimmicks )
 	{
-		Explosions.push_back( new Explosion( x_, y_, type_, strength_, colors_, nColors_ ) );
-		Explosions.back()->start();
+		Explosion *e = new Explosion( x_, y_, type_, strength_, colors_, nColors_ );
+		_objects.push_back( e );
+		_objects.back()->start();
 	}
 }
 
@@ -6668,6 +6469,9 @@ void FltWin::create_spaceship()
 	id = shipId + ".missile_color";
 	long missile_color = _ini.value( id, 0, 0xffffff, 0xffffff );	// per level!
 	_spaceship->missileColor( (Fl_Color)( missile_color << 8 ) );
+	if ( _objects.size() && _objects[0]->type() == O_SHIP )
+		_objects.erase( _objects.begin() );
+	_objects.insert( _objects.begin(),_spaceship );
 }
 
 void FltWin::create_objects()
@@ -6695,24 +6499,24 @@ void FltWin::create_objects()
 			}
 			r->data1( start_dist );
 			r->dxRange( _rocket_dx_range );
-			Rockets.push_back( r );
+			_objects.push_back( r );
 			o &= ~O_ROCKET;
 		}
 		if ( o & O_RADAR && i - _radar.w() / 2 < w() )
 		{
 			Radar *r = new Radar( i, h() - T[_xoff + i].ground_level() - _radar.h() / 2 );
-			Radars.push_back( r );
+			_objects.push_back( r );
 			o &= ~O_RADAR;
 		}
 		if ( o & O_PHASER && i - _phaser.w() / 2 < w())
 		{
 			Phaser *p = new Phaser( i, h() - T[_xoff + i].ground_level() - _phaser.h() / 2 );
 			p->dxRange( _phaser_dx_range );
-			Phasers.push_back( p );
+			_objects.push_back( p );
 			o &= ~O_PHASER;
-			Phasers.back()->bg_color( T.bg_color );
-			Phasers.back()->max_height( T[_xoff + i].sky_level() );
-			Phasers.back()->start();
+			p->bg_color( T.bg_color );
+			p->max_height( T[_xoff + i].sky_level() );
+			p->start();
 		}
 		if ( o & O_DROP && i - _drop.w() / 2 < w() )
 		{
@@ -6725,7 +6529,7 @@ void FltWin::create_objects()
 			}
 			d->data1( start_dist );
 			d->dxRange( _drop_dx_range );
-			Drops.push_back( d );
+			_objects.push_back( d );
 			o &= ~O_DROP;
 		}
 		if ( o & O_BADY && i - _bady.w() / 2 < w() )
@@ -6740,7 +6544,7 @@ void FltWin::create_objects()
 				b->turn();
 			b->stamina( rangedRandom( _bady_min_hits, _bady_max_hits ) );
 			b->dxRange( _bady_dx_range );
-			Badies.push_back( b );
+			_objects.push_back( b );
 		}
 		if ( o & O_CUMULUS && i - _cumulus.w() / 2 < w() )
 		{
@@ -6752,7 +6556,7 @@ void FltWin::create_objects()
 			o &= ~O_CUMULUS;
 			if ( turn )
 				c->turn();
-			Cumuluses.push_back( c );
+			_objects.push_back( c );
 		}
 		T[_xoff + i].object( o );
 	}
@@ -6761,335 +6565,207 @@ void FltWin::create_objects()
 void FltWin::delete_objects()
 //-------------------------------------------------------------------------------
 {
-	for ( size_t i = 0; i < Rockets.size(); i++ )
-		delete Rockets[i];
-	Rockets.clear();
-	for ( size_t i = 0; i < Phasers.size(); i++ )
-		delete Phasers[i];
-	Phasers.clear();
-	for ( size_t i = 0; i < Radars.size(); i++ )
-		delete Radars[i];
-	Radars.clear();
-	for ( size_t i = 0; i < Drops.size(); i++ )
-		delete Drops[i];
-	Drops.clear();
-	for ( size_t i = 0; i < Explosions.size(); i++ )
-		delete Explosions[i];
-	Explosions.clear();
-	for ( size_t i = 0; i < Badies.size(); i++ )
-		delete Badies[i];
-	Badies.clear();
-	for ( size_t i = 0; i < Cumuluses.size(); i++ )
-		delete Cumuluses[i];
-	Cumuluses.clear();
+	for ( size_t i = 0; i < _objects.size(); i++ )
+		delete _objects[i];
+	_objects.clear();
+	_spaceship = 0;
 }
 
-void FltWin::update_badies()
+bool FltWin::update_bady( Bady& bady_ )
 //-------------------------------------------------------------------------------
 {
-	for ( size_t i = 0; i < Badies.size(); i++ )
+	int top = T[_xoff + bady_.x() + bady_.w() / 2].sky_level();
+	int bottom = h() - T[_xoff + bady_.x() + bady_.w() / 2].ground_level();
+	if ( !bady_.started() )
 	{
-		Bady& badie = *Badies[i];
-		if ( !paused() )
-			badie.x( badie.x() - _xdelta );
-
-		int top = T[_xoff + badie.x() + badie.w() / 2].sky_level();
-		int bottom = h() - T[_xoff + badie.x() + badie.w() / 2].ground_level();
-		bool gone = badie.x() < -badie.w();
-		if ( gone )
-		{
-			Bady *b = Badies[i];
-			Badies.erase( Badies.begin() + i );
-			delete b;
-			i--;
-			continue;
-		}
-		else if ( !badie.started() )
-		{
-			// bady fall strategy: always start!
-			int speed = rangedValue( rangedRandom( _bady_min_start_speed, _bady_max_start_speed ), 1, 10 );
-			badie.start( speed );
-			assert( badie.started() );
-		}
-		else if ( ( badie.y() + badie.h() >= bottom &&
-		            !badie.turned() ) ||
-		          ( badie.y() <= top  &&
-		            badie.turned() ) )
-		{
-			badie.turn();
-		}
+		// bady fall strategy: always start!
+		int speed = rangedValue( rangedRandom( _bady_min_start_speed, _bady_max_start_speed ), 1, 10 );
+		bady_.start( speed );
+		assert( bady_.started() );
 	}
-}
-
-void FltWin::update_bombs()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Bombs.size(); i++ )
+	else if ( ( bady_.y() + bady_.h() >= bottom &&
+	            !bady_.turned() ) ||
+	          ( bady_.y() <= top  &&
+	            bady_.turned() ) )
 	{
-		Bomb& bomb = *Bombs[i];
-		bool gone = bomb.y() > h() ||
-		            bomb.y() + bomb.h() > h() - T[_xoff + bomb.x()].ground_level();
-		if ( gone )
-		{
-			Bomb *b = Bombs[i];
-			Bombs.erase( Bombs.begin() + i );
-			delete b;
-			i--;
-		}
+		bady_.turn();
 	}
+	return false;
 }
 
-void FltWin::update_cumuluses()
+bool FltWin::update_bomb( Bomb& bomb_ )
 //-------------------------------------------------------------------------------
 {
-	for ( size_t i = 0; i < Cumuluses.size(); i++ )
-	{
-		Cumulus& cumulus = *Cumuluses[i];
-		if ( !paused() )
-			cumulus.x( cumulus.x() - _xdelta );
+	bool gone = bomb_.y() > h() ||
+	            bomb_.y() + bomb_.h() > h() - T[_xoff + bomb_.x()].ground_level();
+	return gone;
+}
 
-		int top = T[_xoff + cumulus.x() + cumulus.w() / 2].sky_level();
-		int bottom = h() - T[_xoff + cumulus.x() + cumulus.w() / 2].ground_level();
-		bool gone = cumulus.x() < -cumulus.w();
-		if ( gone )
-		{
-			Cumulus *c = Cumuluses[i];
-			Cumuluses.erase( Cumuluses.begin() + i );
-			delete c;
-			i--;
-			continue;
-		}
-		else if ( !cumulus.started() )
-		{
-			// cumulus fall strategy: always start!
-			int speed = rangedValue( rangedRandom( _cumulus_min_start_speed, _cumulus_max_start_speed ), 1, 10 );
-			cumulus.start( speed );
-			assert( cumulus.started() );
-		}
-		else if ( ( cumulus.y() + cumulus.h() >= bottom &&
-		            !cumulus.turned() ) ||
-		          ( cumulus.y() <= top  &&
-		            cumulus.turned() ) )
-		{
-			cumulus.turn();
-		}
+bool FltWin::update_cumulus( Cumulus& cumulus_ )
+//-------------------------------------------------------------------------------
+{
+	int top = T[_xoff + cumulus_.x() + cumulus_.w() / 2].sky_level();
+	int bottom = h() - T[_xoff + cumulus_.x() + cumulus_.w() / 2].ground_level();
+	if ( !cumulus_.started() )
+	{
+		// cumulus fall strategy: always start!
+		int speed = rangedValue( rangedRandom( _cumulus_min_start_speed, _cumulus_max_start_speed ), 1, 10 );
+		cumulus_.start( speed );
+		assert( cumulus_.started() );
 	}
+	else if ( ( cumulus_.y() + cumulus_.h() >= bottom &&
+	            !cumulus_.turned() ) ||
+	          ( cumulus_.y() <= top  &&
+	            cumulus_.turned() ) )
+	{
+		cumulus_.turn();
+	}
+	return false;
 }
 
-void FltWin::update_drops()
+bool FltWin::update_drop( Drop& drop_ )
 //-------------------------------------------------------------------------------
 {
-	for ( size_t i = 0; i < Drops.size(); i++ )
+	int bottom = h() - T[_xoff + drop_.x()].ground_level();
+	if ( 0 == bottom ) bottom += drop_.h();	// glide out completely if no ground
+	bool gone = drop_.y() + drop_.h() / 2 > bottom;
+	if ( gone )
 	{
-		Drop& drop = *Drops[i];
-		if ( !paused() )
-			drop.x( drop.x() - _xdelta );
-
-		int bottom = h() - T[_xoff + drop.x()].ground_level();
-		if ( 0 == bottom ) bottom += drop.h();	// glide out completely if no ground
-		bool gone = drop.y() + drop.h() / 2 > bottom || drop.x() < -drop.w();
-		if ( gone )
+		if ( drop_.x() + drop_.w() * 4 > 0 && bottom )
 		{
-			Drop *d = Drops[i];
-			Drops.erase( Drops.begin() + i );
-			if ( d->x() + d->w() > 0 && bottom )
-			{
-				create_explosion( d->cx(), d->cy(),
-					Explosion::SPLASH_STRIKE, 0.3,
-					drop_explosion_color, nbrOfItems( drop_explosion_color ) );
-			}
-			delete d;
-			i--;
-			continue;
+			create_explosion( drop_.cx(), drop_.cy(),
+				Explosion::SPLASH_STRIKE, 0.3,
+				drop_explosion_color, nbrOfItems( drop_explosion_color ) );
+		}
+		return true;
+	}
+	// drop fall strategy...
+	if ( drop_.nostart() ) return false;
+	if ( drop_.started() ) return false;
+	// if user has completed all 10 levels and revers, objects start later (which is harder)...
+	int dist = ( user_completed() / 2 ) ? drop_.cx() - _spaceship->cx() // center distance S<->R
+	                                    : drop_.x() - _spaceship->x();
+	int start_dist = (int)drop_.data1();	// 400 - _level * 20 - Random::Rand() % 200;
+	if ( dist <= 0 || dist >= start_dist ) return false;
+	// start drop with probability drop_start_prob/start_dist
+	unsigned drop_prob = _drop_start_prob;
+	if ( Random::Rand() % 100 < drop_prob )
+	{
+		int speed = rangedValue( rangedRandom( _drop_min_start_speed, _drop_max_start_speed ), 1, 10 );
+		drop_.start( speed );
+		assert( drop_.started() );
+		return false;
+	}
+	drop_.nostart( true );
+	return false;
+}
+
+bool FltWin::update_missile( Missile& missile_ )
+//-------------------------------------------------------------------------------
+{
+	bool gone = missile_.exhausted() ||
+	            missile_.x() > w() ||
+	            missile_.y() > h() - T[_xoff + missile_.x() + missile_.w()].ground_level() ||
+	            missile_.y() < T[_xoff + missile_.x() + missile_.w()].sky_level();
+	return gone;
+}
+
+bool FltWin::update_rocket( Rocket& rocket_ )
+//-------------------------------------------------------------------------------
+{
+	// NOTE: when there's no sky, explosion is not visible, but still occurs,
+	//       so checking exploded() suffices as end state for all rockets.
+	int top = T[_xoff + rocket_.x()].sky_level();
+	if ( top < 0 ) top -= rocket_.h();	// glide out completely if no sky ( <= -1 )
+	if ( rocket_.y() <= top )
+	{
+		if ( _completed && !reversLevel() )
+		{
+			static const Fl_Color mega_explosion_colors[] = { FL_YELLOW, FL_WHITE, FL_RED, FL_GREEN };
+			rocket_.explode();
+			create_explosion( rocket_.cx(), rocket_.cy(),
+				Explosion::MC_FALLOUT_STRIKE, 1.2,
+			   mega_explosion_colors, nbrOfItems( mega_explosion_colors ) );
 		}
 		else
 		{
-			// drop fall strategy...
-			if ( drop.nostart() ) continue;
-			if ( drop.dropped() ) continue;
-			// if user has completed all 10 levels and revers, objects start later (which is harder)...
-			int dist = ( user_completed() / 2 ) ? drop.cx() - _spaceship->cx() // center distance S<->R
-			                                    : drop.x() - _spaceship->x();
-			int start_dist = (int)drop.data1();	// 400 - _level * 20 - Random::Rand() % 200;
-			if ( dist <= 0 || dist >= start_dist ) continue;
-			// start drop with probability drop_start_prob/start_dist
-			unsigned drop_prob = _drop_start_prob;
-			if ( Random::Rand() % 100 < drop_prob )
-			{
-				int speed = rangedValue( rangedRandom( _drop_min_start_speed, _drop_max_start_speed ), 1, 10 );
-				drop.start( speed );
-				assert( drop.dropped() );
-				continue;
-			}
-			drop.nostart( true );
+			rocket_.crash();
 		}
 	}
-}
-
-void FltWin::update_explosions()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Explosions.size(); i++ )
+	else if ( !rocket_.exploded() )
 	{
-		Explosion& explosion = *Explosions[i];
-		if ( !paused() )
-			explosion.x( explosion.x() - _xdelta );
-		if ( explosion.done() )
+		// rocket fire strategy...
+		if ( rocket_.nostart() ) return false;
+		if ( rocket_.started() ) return false;
+		// if user has completed all 10 levels and revers, objects start later (which is harder)...
+		int dist = ( user_completed() / 2 ) ? rocket_.cx() - _spaceship->cx() // center distance S<->R
+			                                 : rocket_.x() - _spaceship->x();
+		int start_dist = (int)rocket_.data1();	// 400 - _level * 20 - Random::Rand() % 200;
+		if ( dist <= 0 || dist >= start_dist ) return false;
+		// start rocket with probability rocket_start_prob/start_dist
+		unsigned lift_prob = _rocket_start_prob;
+		// if a radar is within start_dist then the
+		// probability gets much higher
+		int x = rocket_.x();
+		for ( size_t i = 0; i < _objects.size(); i++ )
 		{
-			Explosion *e = Explosions[i];
-			Explosions.erase( Explosions.begin() + i );
-			delete e;
-			i--;
-			continue;
+			if ( _objects[i]->type() != O_RADAR ) continue;
+			Radar *ra = (Radar *)_objects[i];
+			if ( ra->defunct() ) continue;
+			if ( ra->x() >= x ) continue;
+			if ( ra->x() <= x - start_dist ) continue;
+			// there's a working radar within start_dist
+			lift_prob = _rocket_radar_start_prob;
+			break;
 		}
+		if ( Random::Rand() % 100 < lift_prob )
+		{
+			int speed = rangedValue( rangedRandom( _rocket_min_start_speed, _rocket_max_start_speed ), 1, 10 );
+			rocket_.start( speed );
+			assert( rocket_.started() );
+			return false;
+		}
+		rocket_.nostart( true );
 	}
-}
-
-void FltWin::update_missiles()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Missiles.size(); i++ )
-	{
-		Missile& missile = *Missiles[i];
-		bool gone = missile.exhausted() ||
-		            missile.x() > w() ||
-		            missile.y() > h() - T[_xoff + missile.x() + missile.w()].ground_level() ||
-		            missile.y() < T[_xoff + missile.x() + missile.w()].sky_level();
-		if ( gone )
-		{
-			Missile *m = Missiles[i];
-			Missiles.erase( Missiles.begin() + i );
-			delete m;
-			i--;
-		}
-	}
-}
-
-void FltWin::update_phasers()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Phasers.size(); i++ )
-	{
-		Phaser& phaser = *Phasers[i];
-		if ( !paused() )
-			phaser.x( phaser.x() - _xdelta );
-
-		bool gone = phaser.exploded() || phaser.x() < -phaser.w();
-		if ( gone )
-		{
-			Phaser *p = Phasers[i];
-			Phasers.erase( Phasers.begin() + i );
-			delete p;
-			i--;
-			continue;
-		}
-	}
-}
-
-void FltWin::update_radars()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Radars.size(); i++ )
-	{
-		Radar& radar = *Radars[i];
-		if ( !paused() )
-			radar.x( radar.x() - _xdelta );
-
-		bool gone = radar.exploded() || radar.x() < -radar.w();
-		if ( gone )
-		{
-			Radar *r = Radars[i];
-			Radars.erase( Radars.begin() + i );
-			delete r;
-			i--;
-			continue;
-		}
-	}
-}
-
-void FltWin::update_rockets()
-//-------------------------------------------------------------------------------
-{
-	for ( size_t i = 0; i < Rockets.size(); i++ )
-	{
-		Rocket& rocket = *Rockets[i];
-		if ( !paused() )
-			rocket.x( rocket.x() - _xdelta );
-
-		int top = T[_xoff + rocket.x()].sky_level();
-		if ( top < 0 ) top -= rocket.h();	// glide out completely if no sky ( <= -1 )
-		bool gone = rocket.exploded() || rocket.x() < -rocket.w();
-		// NOTE: when there's no sky, explosion is not visible, but still occurs,
-		//       so checking exploded() suffices as end state for all rockets.
-		if ( gone )
-		{
-			Rocket *r = Rockets[i];
-			Rockets.erase( Rockets.begin() + i );
-			delete r;
-			i--;
-			continue;
-		}
-		else if ( rocket.y() <= top && !rocket.exploding() )
-		{
-			if ( _completed && !reversLevel() )
-			{
-				static const Fl_Color mega_explosion_colors[] = { FL_YELLOW, FL_WHITE, FL_RED, FL_GREEN };
-				rocket.explode();
-				create_explosion( rocket.cx(), rocket.cy(),
-					Explosion::MC_FALLOUT_STRIKE, 1.2,
-				   mega_explosion_colors, nbrOfItems( mega_explosion_colors ) );
-			}
-			else
-				rocket.crash();
-		}
-		else if ( !rocket.exploding() )
-		{
-			// rocket fire strategy...
-			if ( rocket.nostart() ) continue;
-			if ( rocket.lifted() ) continue;
-			// if user has completed all 10 levels and revers, objects start later (which is harder)...
-			int dist = ( user_completed() / 2 ) ? rocket.cx() - _spaceship->cx() // center distance S<->R
-			                                    : rocket.x() - _spaceship->x();
-			int start_dist = (int)rocket.data1();	// 400 - _level * 20 - Random::Rand() % 200;
-			if ( dist <= 0 || dist >= start_dist ) continue;
-			// start rocket with probability rocket_start_prob/start_dist
-			unsigned lift_prob = _rocket_start_prob;
-			// if a radar is within start_dist then the
-			// probability gets much higher
-			int x = rocket.x();
-			for ( size_t ra = 0; ra < Radars.size(); ra++ )
-			{
-				if ( Radars[ra]->defunct() ) continue;
-				if ( Radars[ra]->x() >= x ) continue;
-				if ( Radars[ra]->x() <= x - start_dist ) continue;
-				// there's a working radar within start_dist
-				lift_prob = _rocket_radar_start_prob;
-				break;
-			}
-			if ( Random::Rand() % 100 < lift_prob )
-			{
-				int speed = rangedValue( rangedRandom( _rocket_min_start_speed, _rocket_max_start_speed ), 1, 10 );
-				rocket.start( speed );
-				assert( rocket.lifted() );
-				continue;
-			}
-			rocket.nostart( true );
-		}
-	}
+	return false;
 }
 
 void FltWin::update_objects()
 //-------------------------------------------------------------------------------
 {
-	update_missiles();
-	update_bombs();
-	update_rockets();
-	update_phasers();
-	update_radars();
-	update_drops();
-	update_badies();
-	update_cumuluses();
-	update_explosions();
+	// delete finished objects or objects scrolled offscreen
+	for ( size_t i = 0; i < _objects.size(); i++ )
+	{
+		if ( _objects[i]->type() == O_SHIP ) continue;
+		if ( _objects[i]->done() || _objects[i]->x() < -4 * _objects[i]->w() )
+		{
+			delete _objects[i];
+			_objects.erase( _objects.begin() + i );
+			i--;
+		}
+	}
+	for ( size_t i = 0; i < _objects.size(); i++ )
+	{
+		bool gone = false;
+		Object* o = _objects[i];
+		if ( !paused() && o->type() != O_SHIP && o->type() != O_MISSILE && o->type() != O_BOMB )
+			o->x( o->x() - _xdelta );
+		if ( o->exploded() ) continue;
+		switch ( o->type() )
+		{
+			case O_BADY:      gone = update_bady( *(Bady *)o ); break;
+			case O_BOMB:      gone = update_bomb( *(Bomb *)o ); break;
+			case O_CUMULUS:   gone = update_cumulus( *(Cumulus *)o ); break;
+			case O_DROP:      gone = update_drop( *(Drop *)o ); break;
+			case O_MISSILE:   gone = update_missile( *(Missile *)o ); break;
+			case O_ROCKET:    gone = update_rocket( *(Rocket *)o ); break;
+			default: break;
+		}
+		if ( gone )
+		{
+			o->explode();
+		}
+	}
 }
 
 void FltWin::setIcon()
@@ -7467,13 +7143,13 @@ void FltWin::toggleUser( bool prev_/* = false */ )
 bool FltWin::dropBomb()
 //-------------------------------------------------------------------------------
 {
-	if ( !_bomb_lock && !paused() && Bombs.size() < 5 )
+	if ( !_bomb_lock && !paused() && objectCnt( O_BOMB ) < 5 )
 	{
 		Bomb *b = new Bomb( _spaceship->x() + _spaceship->bombPoint().x,
 		                    _spaceship->y() + _spaceship->bombPoint().y +
 		                    _spaceship->bombXOffset() );
-		Bombs.push_back( b );
-		Bombs.back()->start( _speed_right );
+		_objects.push_back( b );
+		b->start( _speed_right );
 		_bomb_lock = true;
 		if ( _state == LEVEL )
 			_demoData.setBomb( _xoff );
@@ -7486,13 +7162,13 @@ bool FltWin::dropBomb()
 bool FltWin::fireMissile()
 //-------------------------------------------------------------------------------
 {
-	if ( Missiles.size() < 5 && !paused() )
+	if ( objectCnt( O_MISSILE ) < 5 && !paused() )
 	{
 		Missile *m = new Missile( _spaceship->x() + _spaceship->missilePoint().x + 20,
 		                          _spaceship->y() + _spaceship->missilePoint().y,
 		                          _spaceship->missileColor() );
-		Missiles.push_back( m );
-		Missiles.back()->start();
+		_objects.push_back( m );
+		m->start();
 		if ( _state == LEVEL )
 			_demoData.setMissile( _xoff );
 		return true;
@@ -7689,8 +7365,6 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 //-------------------------------------------------------------------------------
 {
 	DBG( "onNextScreen(" << fromBegin_ << ") " << _first_level );
-	delete _spaceship;
-	_spaceship = 0;
 	delete _anim_text;
 	_anim_text = 0;
 
