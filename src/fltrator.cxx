@@ -6593,9 +6593,19 @@ bool FltWin::update_bady( Bady& bady_ )
 bool FltWin::update_bomb( Bomb& bomb_ )
 //-------------------------------------------------------------------------------
 {
-	bool gone = bomb_.y() > h() ||
-	            bomb_.y() + bomb_.h() > h() - T[_xoff + bomb_.x()].ground_level();
-	return gone;
+	// special handling, to better handle contact with
+	// steep slopes of landscape..
+	Object& o = (Object&)bomb_;
+	for ( int w = 0; w < o.w(); w += 2 )
+	{
+		size_t X = o.x() + w + _xoff;
+		if ( o.y() + o.h() > (int)SCREEN_H - T[X].ground_level() ||
+	        o.y() < T[X].sky_level() )
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 bool FltWin::update_cumulus( Cumulus& cumulus_ )
