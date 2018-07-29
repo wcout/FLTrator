@@ -1772,7 +1772,7 @@ public:
 	virtual void update()
 	{
 		if ( G_paused ) return;
-		if ( !exploded() )
+		if ( !exploded() || done() )
 		{
 			size_t delta = ( 1 + _state / 10 ) * _speed;
 			if ( delta > 12 )
@@ -1825,11 +1825,14 @@ public:
 	virtual void update()
 	{
 		if ( G_paused ) return;
-		size_t delta = ( 1 + _state / 10 ) * _speed;
-		if ( delta > 12 )
-			delta = 12;
-		_y += ceil( SCALE_Y * delta );
-		_x += ceil( SCALE_X * _dx );
+		if ( !exploded() || done() )
+		{
+			size_t delta = ( 1 + _state / 10 ) * _speed;
+			if ( delta > 12 )
+				delta = 12;
+			_y += ceil( SCALE_Y * delta );
+			_x += ceil( SCALE_X * _dx );
+		}
 		Inherited::update();
 	}
 private:
@@ -1862,15 +1865,18 @@ public:
 	virtual void update()
 	{
 		if ( G_paused ) return;
-		size_t delta = _speed;
-		if ( delta > 12 )
-			delta = 12;
-		if (_up )
-			_y -= ceil( SCALE_Y * delta );
-		else
-			_y += ceil( SCALE_Y * delta );
-		if ( dxRange() )
-			_x += lround( SCALE_X * rangedRandom( -dxRange(), dxRange() ) );
+		if ( !exploded() || done() )
+		{
+			size_t delta = _speed;
+			if ( delta > 12 )
+				delta = 12;
+			if (_up )
+				_y -= ceil( SCALE_Y * delta );
+			else
+				_y += ceil( SCALE_Y * delta );
+			if ( dxRange() )
+				_x += lround( SCALE_X * rangedRandom( -dxRange(), dxRange() ) );
+		}
 		Inherited::update();
 	}
 private:
@@ -1958,16 +1964,19 @@ public:
 	virtual void update()
 	{
 		if ( G_paused ) return;
-		_y += _dy;
-		if ( _state < 5 )
-			_x += lround( SCALE_X * 16 );
-		else if ( _state > 15 )
-			_x -= lround( SCALE_X * 5 );
-		_x -= lround( SCALE_X * 3 );
-		_x -= ( lround( SCALE_X * (_speed / 30 ) ) );
-		if ( _state % 2)
-			_dy += lround( SCALE_Y * 1 );
-		_speed /= 2;
+		if ( !exploded() || done() )
+		{
+			_y += _dy;
+			if ( _state < 5 )
+				_x += lround( SCALE_X * 16 );
+			else if ( _state > 15 )
+				_x -= lround( SCALE_X * 5 );
+			_x -= lround( SCALE_X * 3 );
+			_x -= ( lround( SCALE_X * (_speed / 30 ) ) );
+			if ( _state % 2)
+				_dy += lround( SCALE_Y * 1 );
+			_speed /= 2;
+		}
 		Inherited::update();
 	}
 	virtual double timeout() const { return started() ? 0.05 : 0.1; }
@@ -3031,10 +3040,10 @@ private:
 	void create_objects();
 	void delete_objects();
 
-	bool check_bomb_hit( Bomb& b, Object& o_ );
-	bool check_drop_hit( Drop& d, Object& o_ );
-	bool check_missile_hit( Missile& m, Object& o_ );
-	bool check_rocket_hit( Rocket& r, Object& o_ );
+	bool check_bomb_hit( Bomb& b_, Object& o_ );
+	bool check_drop_hit( Drop& d_, Object& o_ );
+	bool check_missile_hit( Missile& m_, Object& o_ );
+	bool check_rocket_hit( Rocket& r_, Object& o_ );
 	void check_hits();
 
 	bool correctDX();
@@ -6635,11 +6644,12 @@ bool FltWin::update_drop( Drop& drop_ )
 	{
 		if ( drop_.x() + drop_.w() * 4 > 0 && bottom )
 		{
+			drop_.done( true );
 			create_explosion( drop_.cx(), drop_.cy(),
 				Explosion::SPLASH_STRIKE, 0.3,
 				drop_explosion_color, nbrOfItems( drop_explosion_color ) );
 		}
-		return true;
+		return false;
 	}
 	// drop fall strategy...
 	if ( drop_.nostart() ) return false;
@@ -6750,7 +6760,7 @@ void FltWin::update_objects()
 	{
 		bool gone = false;
 		Object* o = _objects[i];
-		if ( !paused() && o->type() != O_SHIP && o->type() != O_MISSILE && o->type() != O_BOMB )
+		if ( !paused() &&  o->type() != O_SHIP && o->type() != O_MISSILE && o->type() != O_BOMB )
 			o->x( o->x() - _xdelta );
 		if ( o->exploded() ) continue;
 		switch ( o->type() )
