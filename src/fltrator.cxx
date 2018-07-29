@@ -3034,6 +3034,12 @@ private:
 	bool saveDemoData() const;
 	bool collisionWithTerrain( const Object& o_ ) const;
 
+
+	bool collisionWithLandscape( const Object& o_ ) const;
+	bool collisionWithLandscapeCheck( const Object& o_ ) const;
+	bool collisionCheck( const Object& o_, const Object& o1_ ) const;
+	bool collision();
+
 	void create_explosion( int x_, int y_, Explosion::ExplosionType type_,
 		                    double strength_ = 1.0, const Fl_Color *colors_ = 0, int nColors = 0 );
 	void create_spaceship();
@@ -3043,7 +3049,7 @@ private:
 	bool check_bomb_hit( Bomb& b_, Object& o_ );
 	bool check_drop_hit( Drop& d_, Object& o_ );
 	bool check_missile_hit( Missile& m_, Object& o_ );
-	bool check_rocket_hit( Rocket& r_, Object& o_ );
+//	bool check_rocket_hit( Rocket& r_, Object& o_ );
 	void check_hits();
 
 	bool correctDX();
@@ -4065,6 +4071,103 @@ bool FltWin::collisionWithTerrain( const Object& o_ ) const
 
 	return collided;
 } // collisionWithTerrain
+
+bool FltWin::collisionWithLandscape( const Object& o_ ) const
+//-------------------------------------------------------------------------------
+{
+	for ( int y = 0; y < o_.h(); y++ )
+	{
+		for ( int x = 0; x < o_.w(); x++ )
+		{
+			if ( !o_.isTransparent( x, y ) )
+			{
+				int sx = o_.x() + x + _xoff;
+				int g = SCREEN_H - T[ sx ].ground_level();
+				if ( o_.y() + y > g )
+				{
+					return true;
+				}
+				int s = T[ sx ].sky_level();
+				if ( o_.y() + y < s )
+				{
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
+bool FltWin::collisionWithLandscapeCheck( const Object& o_ ) const
+//-------------------------------------------------------------------------------
+{
+	for ( int x = 0; x < o_.w(); x++ )
+	{
+		int o_x = o_.x();
+		if ( ( o_.y() + o_.h() >= (int)SCREEN_H - T[o_x + x + _xoff].ground_level() ) ||
+		     ( T[o_x + x + _xoff].sky_level() >= 0 && o_.y() < T[o_x + x + _xoff].sky_level() ) )
+		{
+			if ( collisionWithLandscape( o_ ) )
+			{
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
+bool FltWin::collisionCheck( const Object& o_, const Object& o1_ ) const
+//-------------------------------------------------------------------------------
+{
+#if 0
+	if ( o_.rect().intersects( o1_.rect() ) )
+	{
+		// additionally check if intersection
+		// is in non-transparent part of objects
+		Rect ir = o_.rect().intersection_rect( o1_.rect() );
+		Rect rr = o_.rect().relative_rect( ir );
+
+		int dx = o1_.rect().x() - o_.rect().x();
+		int dy = o1_.rect().y() - o_.rect().y();
+		for ( int x = rr.x(); x < rr.x() + rr.w(); x++ )
+		{
+			for ( int y = rr.y(); y < rr.y() + rr.h(); y++ )
+			{
+				if ( !o_.isTransparent( x, y ) )
+				{
+					if ( !o1_.isTransparent(  x - dx, y - dy ) )
+					{
+						return true;
+					}
+				}
+			}
+		}
+	}
+	return false;
+#else
+	return o_.collisionWithObject( o1_ );
+#endif
+}
+
+bool FltWin::collision()
+//-------------------------------------------------------------------------------
+{
+	if ( collisionWithLandscapeCheck( *_spaceship ) )
+		return true;
+
+	for ( size_t i = 1; i < _objects.size(); i++ )
+	{
+		Object& o = *_objects[i];
+		if ( o.done() ) continue;
+		if ( o.type() == O_CUMULUS || o.type() == O_EXPLOSION || o.type() == O_DROP ) continue;
+		if ( collisionCheck( *_spaceship, o ) )
+		{
+			o.started() ? o.explode( 0.5 ) : o.explode();
+			return true;
+		}
+	}
+	return false;
+}
 
 int FltWin::iniValue( const string& id_,
                       int min_, int max_, int default_ )
@@ -6212,15 +6315,18 @@ void FltWin::do_draw()
 		draw_landscape( _xoff, w() );
 	}
 
-	draw_objects( true );	// objects for collision check
-
+///	draw_objects( true );	// objects for collision check
+#if 1
 	if ( !G_paused && !paused() && !_done && !_collision )
 	{
-		_collision |= collisionWithTerrain( *_spaceship );
+//		_collision |= collisionWithTerrain( *_spaceship );
+///		_collision |= collisionWithLandscapeCheck( *_spaceship );
+///		_collision |= collisionWithAnyObject();
+		_collision |= collision();
 		if ( _collision )
 			onCollision();
 	}
-
+#endif
 	if ( _landscape && _background )
 	{
 		// "blit" in pre-built images
@@ -6229,24 +6335,26 @@ void FltWin::do_draw()
 		_landscape->draw( 0, 0, w(), h(), _xoff );
 
 		// must redraw objects
-		draw_objects( true );
+///		draw_objects( true );
 	}
 	else
 	{
-		bool redraw_objects( false );
+///		bool redraw_objects( false );
 		if ( _effects > 1 && !classic() )	// only if turned on additionally
 		{
 			// shaded bg
 			draw_shaded_background( _xoff, SCREEN_W );
-			redraw_objects = true;
+///			redraw_objects = true;
 		}
-
-		if ( draw_decoration() || redraw_objects )
-		{
-			// must redraw objects
-			draw_objects( true );
-		}
+		draw_decoration();
+///		if ( draw_decoration() || redraw_objects )
+///		{
+///			// must redraw objects
+///			draw_objects( true );
+///		}
 	}
+
+	draw_objects( true );
 
 	if ( !paused() || _frame % (FPS / 2) < FPS / 4 || _collision )
 		if ( !_zoomoutShip || _zoomoutShip->done() )
@@ -6343,10 +6451,11 @@ bool FltWin::check_drop_hit( Drop& d_, Object& o_ )
 	return false;
 }
 
+#if 0
 bool FltWin::check_rocket_hit( Rocket& r_, Object& o_ )
 //-------------------------------------------------------------------------------
 {
-	if ( o_.type() == O_SHIP && r_.started() )
+	if ( o_.type() == O_SHIP /*&& r_.started()*/ )
 	{
 		if ( r_.collisionWithObject( o_ ) )
 		{
@@ -6358,6 +6467,7 @@ bool FltWin::check_rocket_hit( Rocket& r_, Object& o_ )
 	}
 	return false;
 }
+#endif
 
 bool FltWin::check_missile_hit( Missile& m_, Object &o_ )
 //-------------------------------------------------------------------------------
@@ -6442,7 +6552,7 @@ void FltWin::check_hits()
 
 			if ( ( o.type() == O_MISSILE && check_missile_hit( (Missile&)o, o1 ) ) ||
 			     ( o.type() == O_BOMB && check_bomb_hit( (Bomb&)o, o1 ) ) ||
-			     ( o.type() == O_ROCKET && !_done && check_rocket_hit( (Rocket&)o, o1 ) ) ||
+//			     ( o.type() == O_ROCKET && !_done && check_rocket_hit( (Rocket&)o, o1 ) ) ||
 			     ( o.type() == O_DROP && !_done && check_drop_hit( (Drop&)o, o1 ) ) )
 			{
 				// object is also gone...
@@ -7636,7 +7746,14 @@ void FltWin::onUpdateDemo()
 		create_objects();
 
 		check_hits();
-
+#if 0
+		if ( !G_paused && !paused() && !_done && !_collision )
+		{
+			_collision |= collision();
+			if ( _collision )
+				onCollision();
+		}
+#endif
 		// use Spaceship::right()/left() methods for accel/decel feedback in demo
 		while ( _spaceship->cx() < cx )
 		{
@@ -7731,7 +7848,14 @@ void FltWin::onUpdate()
 	create_objects();
 
 	check_hits();
-
+#if 0
+	if ( !G_paused && !paused() && !_done && !_collision )
+	{
+		_collision |= collision();
+		if ( _collision )
+			onCollision();
+	}
+#endif
 	if ( paused() )
 	{
 		Audio::instance()->check( true );	// reliably stop bg-sound
