@@ -3032,8 +3032,6 @@ private:
 	string demoFileName( unsigned  level_ = 0 ) const;
 	bool loadDemoData( unsigned level_ = 0, bool dryrun_ = false );
 	bool saveDemoData() const;
-	bool collisionWithTerrain( const Object& o_ ) const;
-
 
 	bool collisionWithLandscape( const Object& o_ ) const;
 	bool collisionWithLandscapeCheck( const Object& o_ ) const;
@@ -4010,68 +4008,6 @@ void FltWin::addScrolloutZone()
 		T.push_back( T.back() );
 }
 
-bool FltWin::collisionWithTerrain( const Object& o_ ) const
-//-------------------------------------------------------------------------------
-{
-	int xoff = 0;
-	int yoff = 0;
-	int X = o_.x();
-	int Y = o_.y();
-	int W = o_.w();
-	int H = o_.h();
-
-	// determine object's rectangle to read from screen
-	if ( X < 0 )
-	{
-		xoff = -X;
-		X = 0;
-		W -= xoff;
-	}
-	if ( Y < 0 )
-	{
-		yoff = -Y;
-		Y = 0;
-		H -= yoff;
-	}
-
-	W = X - xoff + W < w() ? W : w() - ( X - xoff );
-	H = Y - yoff + H < h() ? H : h() - ( Y - yoff );
-
-	// read image from screen
-	const uchar *screen = fl_read_image( 0, X, Y, W, H );
-
-	static const int d = 3;
-	bool collided = false;
-
-	// get current background color r/g/b
-	unsigned char  R, G, B;
-	Fl::get_color( T.bg_color, R, G, B );
-
-	// all transparent pixels of object must have
-	// background color, otherwise object touches landscape
-	for ( int y = 0; y < H; y++ ) // lines
-	{
-		long index = y * W * d; // line start offset
-		for ( int x = 0; x < W; x++ )
-		{
-			unsigned char r = *(screen + index++);
-			unsigned char g = *(screen + index++);
-			unsigned char b = *(screen + index++);
-
-			if ( !o_.isTransparent( x + xoff, y + yoff ) &&
-			     !( r == R && g == G && b == B ) )
-			{
-				collided = true;
-				break;
-			}
-		}
-		if ( collided ) break;
-	}
-	delete[] screen;
-
-	return collided;
-} // collisionWithTerrain
-
 bool FltWin::collisionWithLandscape( const Object& o_ ) const
 //-------------------------------------------------------------------------------
 {
@@ -4119,34 +4055,7 @@ bool FltWin::collisionWithLandscapeCheck( const Object& o_ ) const
 bool FltWin::collisionCheck( const Object& o_, const Object& o1_ ) const
 //-------------------------------------------------------------------------------
 {
-#if 0
-	if ( o_.rect().intersects( o1_.rect() ) )
-	{
-		// additionally check if intersection
-		// is in non-transparent part of objects
-		Rect ir = o_.rect().intersection_rect( o1_.rect() );
-		Rect rr = o_.rect().relative_rect( ir );
-
-		int dx = o1_.rect().x() - o_.rect().x();
-		int dy = o1_.rect().y() - o_.rect().y();
-		for ( int x = rr.x(); x < rr.x() + rr.w(); x++ )
-		{
-			for ( int y = rr.y(); y < rr.y() + rr.h(); y++ )
-			{
-				if ( !o_.isTransparent( x, y ) )
-				{
-					if ( !o1_.isTransparent(  x - dx, y - dy ) )
-					{
-						return true;
-					}
-				}
-			}
-		}
-	}
-	return false;
-#else
 	return o_.collisionWithObject( o1_ );
-#endif
 }
 
 bool FltWin::collision()
@@ -6315,43 +6224,28 @@ void FltWin::do_draw()
 		draw_landscape( _xoff, w() );
 	}
 
-///	draw_objects( true );	// objects for collision check
-#if 1
 	if ( !G_paused && !paused() && !_done && !_collision )
 	{
-//		_collision |= collisionWithTerrain( *_spaceship );
-///		_collision |= collisionWithLandscapeCheck( *_spaceship );
-///		_collision |= collisionWithAnyObject();
 		_collision |= collision();
 		if ( _collision )
 			onCollision();
 	}
-#endif
+
 	if ( _landscape && _background )
 	{
 		// "blit" in pre-built images
 		_background->draw( 0, 0, w(), h(), _xoff );
 		draw_decoration();
 		_landscape->draw( 0, 0, w(), h(), _xoff );
-
-		// must redraw objects
-///		draw_objects( true );
 	}
 	else
 	{
-///		bool redraw_objects( false );
 		if ( _effects > 1 && !classic() )	// only if turned on additionally
 		{
 			// shaded bg
 			draw_shaded_background( _xoff, SCREEN_W );
-///			redraw_objects = true;
 		}
 		draw_decoration();
-///		if ( draw_decoration() || redraw_objects )
-///		{
-///			// must redraw objects
-///			draw_objects( true );
-///		}
 	}
 
 	draw_objects( true );
@@ -6450,24 +6344,6 @@ bool FltWin::check_drop_hit( Drop& d_, Object& o_ )
 	}
 	return false;
 }
-
-#if 0
-bool FltWin::check_rocket_hit( Rocket& r_, Object& o_ )
-//-------------------------------------------------------------------------------
-{
-	if ( o_.type() == O_SHIP /*&& r_.started()*/ )
-	{
-		if ( r_.collisionWithObject( o_ ) )
-		{
-			// rocket hit by spaceship
-			r_.explode( 0.5 );
-			_collision = true;
-			onCollision();
-		}
-	}
-	return false;
-}
-#endif
 
 bool FltWin::check_missile_hit( Missile& m_, Object &o_ )
 //-------------------------------------------------------------------------------
@@ -7746,14 +7622,7 @@ void FltWin::onUpdateDemo()
 		create_objects();
 
 		check_hits();
-#if 0
-		if ( !G_paused && !paused() && !_done && !_collision )
-		{
-			_collision |= collision();
-			if ( _collision )
-				onCollision();
-		}
-#endif
+
 		// use Spaceship::right()/left() methods for accel/decel feedback in demo
 		while ( _spaceship->cx() < cx )
 		{
@@ -7848,14 +7717,7 @@ void FltWin::onUpdate()
 	create_objects();
 
 	check_hits();
-#if 0
-	if ( !G_paused && !paused() && !_done && !_collision )
-	{
-		_collision |= collision();
-		if ( _collision )
-			onCollision();
-	}
-#endif
+
 	if ( paused() )
 	{
 		Audio::instance()->check( true );	// reliably stop bg-sound
