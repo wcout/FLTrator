@@ -3137,7 +3137,7 @@ private:
 	bool classic() const { return _state == DEMO ? _demoData.classic() : _classic; }
 	unsigned user_completed() const { return _state == DEMO ? _demoData.user_completed() : _user.completed; }
 	unsigned endLevel() const { return reversLevel() ? 1 : MAX_LEVEL; }
-	bool reversLevel() const { return _internal_levels ? false : ( user_completed() % 2 != 0 ); }
+	bool reversLevel() const { return _internal_levels ? false : ( ( user_completed() % 2 != 0 ) || _revers ); }
 	int levelIncrement() const { return reversLevel() ? -1 : 1; }
 	size_t objectCnt( ObjectType o_ )
 	{
@@ -3280,6 +3280,7 @@ private:
 	vector<int> _colorChangeList;
 	bool _exit_demo_on_collision; // set to true, if demo should end at collision
 	bool _dimmout;
+	bool _revers;
 };
 
 /*static*/ Fl_Waiter FltWin::_waiter;
@@ -3443,7 +3444,8 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_alpha_matte( 0 ),
 	_TO( 0. ),
 	_exit_demo_on_collision( false ),
-	_dimmout( false )
+	_dimmout( false ),
+	_revers( false )
 {
 	end();
 	_DX = DX;
@@ -3520,7 +3522,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		{
 			arg = argv_[argi++];
 			--argc;
-			if ( arg[0] == '-' && ( arg != "-i" && arg[1] != 'U' ) )
+			if ( arg[0] == '-' && ( arg != "-i" && arg[1] != 'U' && arg[1] != 'y' ) )
 				defaultArgs.erase();
 		}
 		else
@@ -3660,7 +3662,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 					case 'p':
 						_focus_out = false;
 						break;
-					case 'r':
+					case 'q':
 						_no_random = true;
 						break;
 					case 's':
@@ -3668,6 +3670,10 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 						break;
 					case 'x':
 						_gimmicks = false;
+						break;
+					case 'y':
+						if ( _trainMode )
+							_revers = true;
 						break;
 					case 'S':
 						setup( -1, true, _USE_FLTK_RUN );
@@ -3719,6 +3725,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		     << "  -q\tdisable ramdomness" << endl
 		     << "  -s\tstart with sound disabled" << endl
 		     << "  -x\tdisable gimmick effects" << endl
+		     << "  -y\tplay level in revers (train mode only)" << endl
 		     << "  -A\"playcmd\"\tspecify audio play command" << endl
 		     << "   \te.g. -A\"cmd=playsound -q %f; bgcmd=playsound -q %f %p; ext=wav\"" << endl
 		     << "  -C\tuse speed correction measurement" << endl
