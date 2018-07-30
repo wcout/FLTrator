@@ -3082,12 +3082,12 @@ private:
 
 	string firstTimeSetup();
 
-	bool update_bady( Bady& bady_ );
-	bool update_bomb( Bomb& bomb_ );
-	bool update_cumulus( Cumulus& cumulus_ );
-	bool update_drop( Drop& drop_ );
-	bool update_missile( Missile& missile_ );
-	bool update_rocket( Rocket& rocket_ );
+	void update_bady( Bady& bady_ );
+	void update_bomb( Bomb& bomb_ );
+	void update_cumulus( Cumulus& cumulus_ );
+	void update_drop( Drop& drop_ );
+	void update_missile( Missile& missile_ );
+	void update_rocket( Rocket& rocket_ );
 	void update_objects();
 
 	bool dropBomb();
@@ -6428,7 +6428,6 @@ void FltWin::check_hits()
 
 			if ( ( o.type() == O_MISSILE && check_missile_hit( (Missile&)o, o1 ) ) ||
 			     ( o.type() == O_BOMB && check_bomb_hit( (Bomb&)o, o1 ) ) ||
-//			     ( o.type() == O_ROCKET && !_done && check_rocket_hit( (Rocket&)o, o1 ) ) ||
 			     ( o.type() == O_DROP && !_done && check_drop_hit( (Drop&)o, o1 ) ) )
 			{
 				// object is also gone...
@@ -6568,29 +6567,29 @@ void FltWin::delete_objects()
 	_spaceship = 0;
 }
 
-bool FltWin::update_bady( Bady& bady_ )
+void FltWin::update_bady( Bady& bady_ )
 //-------------------------------------------------------------------------------
 {
-	int top = T[_xoff + bady_.x() + bady_.w() / 2].sky_level();
-	int bottom = h() - T[_xoff + bady_.x() + bady_.w() / 2].ground_level();
-	if ( !bady_.started() )
+	if ( bady_.started() )
+	{
+		int top = T[_xoff + bady_.x() + bady_.w() / 2].sky_level();
+		int bottom = h() - T[_xoff + bady_.x() + bady_.w() / 2].ground_level();
+		if ( ( bady_.y() + bady_.h() >= bottom && !bady_.turned() ) ||
+	        ( bady_.y() <= top && bady_.turned() ) )
+		{
+			bady_.turn();
+		}
+	}
+	else
 	{
 		// bady fall strategy: always start!
 		int speed = rangedValue( rangedRandom( _bady_min_start_speed, _bady_max_start_speed ), 1, 10 );
 		bady_.start( speed );
 		assert( bady_.started() );
 	}
-	else if ( ( bady_.y() + bady_.h() >= bottom &&
-	            !bady_.turned() ) ||
-	          ( bady_.y() <= top  &&
-	            bady_.turned() ) )
-	{
-		bady_.turn();
-	}
-	return false;
 }
 
-bool FltWin::update_bomb( Bomb& bomb_ )
+void FltWin::update_bomb( Bomb& bomb_ )
 //-------------------------------------------------------------------------------
 {
 	// special handling, to better handle contact with
@@ -6602,35 +6601,34 @@ bool FltWin::update_bomb( Bomb& bomb_ )
 		if ( o.y() + o.h() > (int)SCREEN_H - T[X].ground_level() ||
 	        o.y() < T[X].sky_level() )
 		{
-			return true;
+			bomb_.explode();
 		}
 	}
-	return false;
 }
 
-bool FltWin::update_cumulus( Cumulus& cumulus_ )
+void FltWin::update_cumulus( Cumulus& cumulus_ )
 //-------------------------------------------------------------------------------
 {
-	int top = T[_xoff + cumulus_.x() + cumulus_.w() / 2].sky_level();
-	int bottom = h() - T[_xoff + cumulus_.x() + cumulus_.w() / 2].ground_level();
-	if ( !cumulus_.started() )
+	if ( cumulus_.started() )
+	{
+		int top = T[_xoff + cumulus_.x() + cumulus_.w() / 2].sky_level();
+		int bottom = h() - T[_xoff + cumulus_.x() + cumulus_.w() / 2].ground_level();
+		if ( ( cumulus_.y() + cumulus_.h() >= bottom && !cumulus_.turned() ) ||
+           ( cumulus_.y() <= top && cumulus_.turned() ) )
+		{
+			cumulus_.turn();
+		}
+	}
+	else
 	{
 		// cumulus fall strategy: always start!
 		int speed = rangedValue( rangedRandom( _cumulus_min_start_speed, _cumulus_max_start_speed ), 1, 10 );
 		cumulus_.start( speed );
 		assert( cumulus_.started() );
 	}
-	else if ( ( cumulus_.y() + cumulus_.h() >= bottom &&
-	            !cumulus_.turned() ) ||
-	          ( cumulus_.y() <= top  &&
-	            cumulus_.turned() ) )
-	{
-		cumulus_.turn();
-	}
-	return false;
 }
 
-bool FltWin::update_drop( Drop& drop_ )
+void FltWin::update_drop( Drop& drop_ )
 //-------------------------------------------------------------------------------
 {
 	int bottom = h() - T[_xoff + drop_.x()].ground_level();
@@ -6640,21 +6638,19 @@ bool FltWin::update_drop( Drop& drop_ )
 	{
 		if ( drop_.x() + drop_.w() * 4 > 0 && bottom )
 		{
-			drop_.done( true );
-			create_explosion( drop_.cx(), drop_.cy(),
-				Explosion::SPLASH_STRIKE, 0.3,
+			drop_.done( true ); // remove immediately
+			create_explosion( drop_.cx(), drop_.cy(),	Explosion::SPLASH_STRIKE, 0.3,
 				drop_explosion_color, nbrOfItems( drop_explosion_color ) );
 		}
-		return false;
+		return;
 	}
 	// drop fall strategy...
-	if ( drop_.nostart() ) return false;
-	if ( drop_.started() ) return false;
+	if ( drop_.nostart() || drop_.started() ) return;
 	// if user has completed all 10 levels and revers, objects start later (which is harder)...
 	int dist = ( user_completed() / 2 ) ? drop_.cx() - _spaceship->cx() // center distance S<->R
 	                                    : drop_.x() - _spaceship->x();
 	int start_dist = (int)drop_.data1();	// 400 - _level * 20 - Random::Rand() % 200;
-	if ( dist <= 0 || dist >= start_dist ) return false;
+	if ( dist <= 0 || dist >= start_dist ) return;
 	// start drop with probability drop_start_prob/start_dist
 	unsigned drop_prob = _drop_start_prob;
 	if ( Random::Rand() % 100 < drop_prob )
@@ -6662,23 +6658,21 @@ bool FltWin::update_drop( Drop& drop_ )
 		int speed = rangedValue( rangedRandom( _drop_min_start_speed, _drop_max_start_speed ), 1, 10 );
 		drop_.start( speed );
 		assert( drop_.started() );
-		return false;
+		return;
 	}
 	drop_.nostart( true );
-	return false;
 }
 
-bool FltWin::update_missile( Missile& missile_ )
+void FltWin::update_missile( Missile& missile_ )
 //-------------------------------------------------------------------------------
 {
 	missile_.done( missile_.exhausted() ||
 	               missile_.x() > w() ||
 	               missile_.y() > h() - T[_xoff + missile_.x() + missile_.w()].ground_level() ||
 	               missile_.y() < T[_xoff + missile_.x() + missile_.w()].sky_level() );
-	return false;
 }
 
-bool FltWin::update_rocket( Rocket& rocket_ )
+void FltWin::update_rocket( Rocket& rocket_ )
 //-------------------------------------------------------------------------------
 {
 	// NOTE: when there's no sky, explosion is not visible, but still occurs,
@@ -6691,8 +6685,7 @@ bool FltWin::update_rocket( Rocket& rocket_ )
 		{
 			static const Fl_Color mega_explosion_colors[] = { FL_YELLOW, FL_WHITE, FL_RED, FL_GREEN };
 			rocket_.explode();
-			create_explosion( rocket_.cx(), rocket_.cy(),
-				Explosion::MC_FALLOUT_STRIKE, 1.2,
+			create_explosion( rocket_.cx(), rocket_.cy(), Explosion::MC_FALLOUT_STRIKE, 1.2,
 			   mega_explosion_colors, nbrOfItems( mega_explosion_colors ) );
 		}
 		else
@@ -6703,13 +6696,12 @@ bool FltWin::update_rocket( Rocket& rocket_ )
 	else if ( !rocket_.exploded() )
 	{
 		// rocket fire strategy...
-		if ( rocket_.nostart() ) return false;
-		if ( rocket_.started() ) return false;
+		if ( rocket_.nostart() || rocket_.started() ) return;
 		// if user has completed all 10 levels and revers, objects start later (which is harder)...
 		int dist = ( user_completed() / 2 ) ? rocket_.cx() - _spaceship->cx() // center distance S<->R
 			                                 : rocket_.x() - _spaceship->x();
 		int start_dist = (int)rocket_.data1();	// 400 - _level * 20 - Random::Rand() % 200;
-		if ( dist <= 0 || dist >= start_dist ) return false;
+		if ( dist <= 0 || dist >= start_dist ) return;
 		// start rocket with probability rocket_start_prob/start_dist
 		unsigned lift_prob = _rocket_start_prob;
 		// if a radar is within start_dist then the
@@ -6731,11 +6723,10 @@ bool FltWin::update_rocket( Rocket& rocket_ )
 			int speed = rangedValue( rangedRandom( _rocket_min_start_speed, _rocket_max_start_speed ), 1, 10 );
 			rocket_.start( speed );
 			assert( rocket_.started() );
-			return false;
+			return;
 		}
 		rocket_.nostart( true );
 	}
-	return false;
 }
 
 void FltWin::update_objects()
@@ -6754,24 +6745,19 @@ void FltWin::update_objects()
 	}
 	for ( size_t i = 0; i < _objects.size(); i++ )
 	{
-		bool gone = false;
 		Object* o = _objects[i];
 		if ( !paused() &&  o->type() != O_SHIP && o->type() != O_MISSILE && o->type() != O_BOMB )
 			o->x( o->x() - _xdelta );
 		if ( o->exploded() ) continue;
 		switch ( o->type() )
 		{
-			case O_BADY:      gone = update_bady( *(Bady *)o ); break;
-			case O_BOMB:      gone = update_bomb( *(Bomb *)o ); break;
-			case O_CUMULUS:   gone = update_cumulus( *(Cumulus *)o ); break;
-			case O_DROP:      gone = update_drop( *(Drop *)o ); break;
-			case O_MISSILE:   gone = update_missile( *(Missile *)o ); break;
-			case O_ROCKET:    gone = update_rocket( *(Rocket *)o ); break;
+			case O_BADY:    update_bady( *(Bady *)o ); break;
+			case O_BOMB:    update_bomb( *(Bomb *)o ); break;
+			case O_CUMULUS: update_cumulus( *(Cumulus *)o ); break;
+			case O_DROP:    update_drop( *(Drop *)o ); break;
+			case O_MISSILE: update_missile( *(Missile *)o ); break;
+			case O_ROCKET:  update_rocket( *(Rocket *)o ); break;
 			default: break;
-		}
-		if ( gone )
-		{
-			o->explode();
 		}
 	}
 }
