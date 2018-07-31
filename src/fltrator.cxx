@@ -533,7 +533,7 @@ class Rect
 //-------------------------------------------------------------------------------
 {
 public:
-	Rect( int x_, int y_, int w_, int h_ ) :
+	Rect( int x_ = 0, int y_ = 0, int w_ = 0, int h_ = 0 ) :
 		_x( x_ ),
 		_y( y_ ),
 		_w( w_ ),
@@ -575,6 +575,10 @@ public:
 	int y() const { return _y; }
 	int w() const { return _w; }
 	int h() const { return _h; }
+	void x( int x_ ) { _x = x_; }
+	void y( int y_ ) { _y = y_; }
+	void w( int w_ ) { _w = w_; }
+	void h( int h_ ) { _h = h_; }
 	virtual std::ostream &printOn( std::ostream &os_ ) const;
 private:
 	static bool within( int x_, int y_, const Rect& r_ )
@@ -1995,6 +1999,7 @@ public:
 		_max_height( -1 ),
 		_bg_color( FL_GREEN ),
 		_disabled( false ),
+		_beam( false ),
 		_dx( 0 )
 	{
 		_state = Random::Rand() % 400;
@@ -2029,22 +2034,28 @@ public:
 	{
 		_disabled = disable_;
 	}
+	bool beam() const { return _beam; }
+	bool disabled() const { return _disabled; }
+	Rect beam_rect() const { return _beam_rect; }
 	void draw()
 	{
 		Inherited::draw();
 		int state = _state % 40;
-		if ( state >= 36 )
+		_beam = state >= 36;
+		if ( _beam )
 		{
+			int w = lround( SCALE_Y * 3 );
+			_beam_rect = Rect( cx() - w / 2, _max_height, w, y() - _max_height );
 			fl_color( fl_contrast( FL_BLUE, _bg_color ) );
-			fl_line_style( FL_SOLID, lround( SCALE_Y * 3 ) );
-			fl_line( cx(), y(), cx() + lround( SCALE_X * _dx ), _max_height );
-			fl_line_style( 0 );
+			fl_rectf( _beam_rect.x(), _beam_rect.y(), _beam_rect.w(), _beam_rect.h() );
 		}
 	}
 private:
 	int _max_height;
 	Fl_Color _bg_color;
 	bool _disabled;
+	bool _beam;
+	Rect _beam_rect;
 	int _dx;
 };
 
@@ -4080,6 +4091,15 @@ bool FltWin::collision() const
 		{
 			o.started() ? o.explode( 0.5 ) : o.explode();
 			return true;
+		}
+		else if ( o.type() == O_PHASER )
+		{
+			Phaser& ph = (Phaser &)o;
+			if ( ph.beam() && !ph.disabled() )
+			{
+				if ( _spaceship->rect().intersects( ph.beam_rect() ) )
+					return true;
+			}
 		}
 	}
 	return false;
