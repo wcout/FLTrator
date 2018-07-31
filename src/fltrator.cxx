@@ -3036,7 +3036,7 @@ private:
 	bool collisionWithLandscape( const Object& o_ ) const;
 	bool collisionWithLandscapeCheck( const Object& o_ ) const;
 	bool collisionCheck( const Object& o_, const Object& o1_ ) const;
-	bool collision();
+	bool collision() const;
 
 	void create_explosion( int x_, int y_, Explosion::ExplosionType type_,
 		                    double strength_ = 1.0, const Fl_Color *colors_ = 0, int nColors = 0 );
@@ -4065,7 +4065,7 @@ bool FltWin::collisionCheck( const Object& o_, const Object& o1_ ) const
 	return o_.collisionWithObject( o1_ );
 }
 
-bool FltWin::collision()
+bool FltWin::collision() const
 //-------------------------------------------------------------------------------
 {
 	if ( collisionWithLandscapeCheck( *_spaceship ) )
