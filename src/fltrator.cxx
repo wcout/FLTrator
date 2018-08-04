@@ -3533,7 +3533,8 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		{
 			arg = argv_[argi++];
 			--argc;
-			if ( arg[0] == '-' && ( arg != "-i" && arg[1] != 'U' && arg[1] != 'y' ) )
+			if ( arg[0] == '-' && ( arg[1] != 'U' &&
+                                 arg.substr(1).find_first_not_of( "Uisby" ) != string::npos ) )
 				defaultArgs.erase();
 		}
 		else
