@@ -1692,9 +1692,9 @@ void Object::draw()
 void Object::draw_collision() const
 //-------------------------------------------------------------------------------
 {
-	int sz = ( w() > h() ? w() : h() ) / 10;
-	++sz &= ~1;
-	int pts = w() * h() / sz / sz * 20;
+	int sz = ( w() > h() ? w() : h() ) / 8;
+	++sz;
+	int pts = w() * h() / sz / sz * 10;
 	for ( int i = 0; i < pts; i++ )
 	{
 		unsigned X = Random::pRand() % w();
