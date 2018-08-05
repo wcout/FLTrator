@@ -5902,7 +5902,6 @@ void FltWin::draw_title()
 void FltWin::draw_shaded_background( int xoff_, int W_ )
 //-------------------------------------------------------------------------------
 {
-	// draw a shaded bg
 	T.check();
 	int sky_min = T.min_sky;
 	int ground_min = T.min_ground;
@@ -6006,7 +6005,6 @@ void FltWin::draw_outline( int xoff_, int W_, int outline_width_,
                            Fl_Color outline_color_ground_ ) const
 //-------------------------------------------------------------------------------
 {
-	// draw ONLY outline
 	// NOTE: WIN32 must set line style AFTER setting drawing color
 	outline_width_ = lround( SCALE_Y * outline_width_ );
 
@@ -6059,7 +6057,6 @@ void FltWin::draw_outline( int xoff_, int W_, int outline_width_,
 void FltWin::draw_landscape( int xoff_, int W_ )
 //-------------------------------------------------------------------------------
 {
-	// draw landscape
 	if ( _effects && !classic() )
 		return draw_shaded_landscape( xoff_, W_ );
 
@@ -6116,7 +6113,7 @@ bool FltWin::draw_decoration()
 	bool redraw( false );
 	if ( TBG.flags & 2 )
 	{
-		// test starfield
+		// display starfield
 		int xoff = _xoff / 4;	// scrollfactor 1/4
 		fl_color( FL_YELLOW );
 		for ( size_t x = 0; x < SCREEN_W; x++ )
@@ -6138,7 +6135,7 @@ bool FltWin::draw_decoration()
 		}
 		redraw = true;
 	}
-	// test decoration object
+	// display decoration object
 	if ( _effects && _gimmicks && _landscape && !_classic ) // only possible with image-cached terrain
 	{
 		static Object deco;
@@ -6172,7 +6169,7 @@ bool FltWin::draw_decoration()
 	}
 	if ( TBG.flags & 1 && !classic() )
 	{
-		// test for "parallax scrolling" background plane
+		// handle "parallax scrolling" background plane
 		int xoff = _xoff / 3;	// scrollfactor 1/3
 		fl_color( fl_lighter( T.bg_color ) );
 		for ( size_t i = 0; i < SCREEN_W; i++ )
@@ -6760,10 +6757,10 @@ void FltWin::update_rocket( Rocket& rocket_ )
 void FltWin::update_objects()
 //-------------------------------------------------------------------------------
 {
-	// delete finished objects or objects scrolled offscreen
 	for ( size_t i = 0; i < _objects.size(); i++ )
 	{
 		if ( _objects[i]->type() == O_SHIP ) continue;
+		// delete finished objects or objects scrolled offscreen
 		if ( _objects[i]->done() || _objects[i]->x() < -4 * _objects[i]->w() )
 		{
 			delete _objects[i];
