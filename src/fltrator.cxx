@@ -6769,10 +6769,8 @@ void FltWin::update_objects()
 			delete _objects[i];
 			_objects.erase( _objects.begin() + i );
 			i--;
+			continue;
 		}
-	}
-	for ( size_t i = 0; i < _objects.size(); i++ )
-	{
 		Object* o = _objects[i];
 		if ( !paused() &&  o->type() != O_SHIP && o->type() != O_MISSILE && o->type() != O_BOMB )
 			o->x( o->x() - _xdelta );
