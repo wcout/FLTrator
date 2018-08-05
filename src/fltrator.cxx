@@ -6338,7 +6338,7 @@ bool FltWin::check_bomb_hit( Bomb& b_, Object& o_ )
 		return true;
 	}
 
-	if ( o_.type() == O_RADAR )
+	if ( o_.type() == O_RADAR && b_.rect().inside( o_.rect() ) )
 	{
 		// radar hit by bomb
 		Audio::instance()->play( "x_bomb" );
