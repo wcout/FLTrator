@@ -6804,7 +6804,7 @@ void FltWin::setTitle()
 //-------------------------------------------------------------------------------
 {
 	ostringstream os;
-	if ( _state == LEVEL || _state == DEMO || _trainMode)
+	if ( _state == LEVEL || _state == DEMO || _trainMode )
 	{
 		if ( _state == DEMO )
 			os << "DEMO ";
@@ -7624,7 +7624,6 @@ void FltWin::onTitleScreen()
 void FltWin::onUpdateDemo()
 //-------------------------------------------------------------------------------
 {
-
 	int cx = 0;
 	int cy = 0;
 	bool bomb( false );
