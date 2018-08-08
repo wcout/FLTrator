@@ -3159,7 +3159,7 @@ private:
 	Object *lastObject( ObjectType o_ )
 	{
 		if ( _objects.empty() ) return (Object *)0;
-		for ( size_t i = _objects.size() - 1; i >= 0; --i ) if ( _objects[i]->type() == o_ ) return _objects[i];
+		for ( int i = _objects.size() - 1; i >= 0; --i ) if ( _objects[i]->type() == o_ ) return _objects[i];
 		return (Object *)0;
 	}
 
