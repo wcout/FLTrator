@@ -8325,7 +8325,16 @@ static void signalHandler( int sig_ )
 {
 	signal( sig_, SIG_DFL );
 	if ( sig_ != SIGINT && sig_ != SIGTERM )
+	{
 		PERR(  endl << "Sorry, FLTrator crashed (signal " << sig_ << ")." );
+#ifdef __linux__
+#ifndef NDEBUG
+		void *bt[ 20 ];
+		size_t size = backtrace( bt, 20 );
+		backtrace_symbols_fd( bt, size, STDERR_FILENO );
+#endif
+#endif
+	}
 	cleanup();
 	exit( EXIT_FAILURE );
 }

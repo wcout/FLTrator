@@ -23,7 +23,7 @@ OBJ3=\
 
 INCLUDE=-I$(ROOT)/include -I.
 
-LDFLAGS=`$(FLTK_CONFIG) --use-images --ldstaticflags`
+LDFLAGS=-rdynamic `$(FLTK_CONFIG) --use-images --ldstaticflags`
 ifdef HAVE_XRANDR
 LDLIBS+=-lXrandr
 endif
