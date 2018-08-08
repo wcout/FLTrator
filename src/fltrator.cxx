@@ -79,6 +79,7 @@
 #define srandom srand
 #else
 #include <sys/time.h>
+#include <execinfo.h>
 #endif
 
 // fallback Windows native
@@ -1143,7 +1144,7 @@ bool Audio::terminate_player( pid_t pid_, const string& pidfile_ )
 #else
 	success = TerminateProcess( pid_, 0 );
 	// WIN32: terminated process can't close pidfile, so we must do this
-	DBG(( "remove pidfile '%s'", pidfile_.c_str() ));
+	DBG( "remove pidfile " << pidfile_ );
 	std::remove( pidfile_.c_str() );
 #endif
 	return success;
