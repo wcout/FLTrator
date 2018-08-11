@@ -621,12 +621,6 @@ public:
 		int ship;
 	};
 	Cfg( const char *vendor_, const char *appl_ );
-	void load();
-	void writeUser( const string& user_,
-	                int score_ = -1,
-	                int level_ = -1,
-	                int completed_ = 0,
-	                int ship_ = -1 );
 	const User& readUser( const string& user_ );
 	const User& readUser( User& user_ );
 	const User& writeUser( User& user_ );
@@ -638,6 +632,13 @@ public:
 	bool existsUser( const string& user_ ) const;
 	const string& last_user() const { return _last_user; }
 	const string& pathName() const { return _pathName; }
+protected:
+	void writeUser( const string& user_,
+	                int score_ = -1,
+	                int level_ = -1,
+	                int completed_ = 0,
+	                int ship_ = -1 );
+	void load();
 private:
 	vector<User> _users;
 	string _last_user;
@@ -4769,7 +4770,7 @@ bool FltWin::create_terrain()
 			_demoData.seed( seed );
 		}
 	}
-	DBG(  "seed #" << _level << ": " << seed );
+	DBG( "seed #" << _level << ": " << seed );
 	Random::Srand( seed );
 
 	_cheatMode = getenv( "FLTRATOR_CHEATMODE" );
@@ -6860,7 +6861,6 @@ void FltWin::resetUser()
 	_first_level = 1;
 	_level = 1;
 	_cfg->writeUser( _user );	// but no flush() - must play one level to make permanent!
-	_cfg->load();
 	keyClick();
 	changeState( TITLE, true );	// immediate display + reset demo timer
 }
