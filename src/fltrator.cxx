@@ -3060,7 +3060,6 @@ private:
 	bool check_bomb_hit( Bomb& b_, Object& o_ );
 	bool check_drop_hit( Drop& d_, Object& o_ );
 	bool check_missile_hit( Missile& m_, Object& o_ );
-//	bool check_rocket_hit( Rocket& r_, Object& o_ );
 	void check_hits();
 
 	bool correctDX();
@@ -8121,13 +8120,13 @@ int FltWin::handle( int e_ )
 			_speed_right = 0;
 	}
 
-	if ( e_ == FL_KEYDOWN )
+	if ( e_ == FL_KEYDOWN && Fl::get_key( c  ) )
 	{
 		if ( F10_KEY != c )
 			setPaused( false );
 		if ( KEY_LEFT == c )
 			_left = true;
-		else if ( KEY_RIGHT == c )
+		else if ( KEY_RIGHT == c && !Fl::has_timeout( cb_fire_key_delay, this ) && !_right )
 		{
 			Fl::remove_timeout( cb_fire_key_delay, this );
 			Fl::add_timeout( 0.15, cb_fire_key_delay, this );
@@ -8138,7 +8137,7 @@ int FltWin::handle( int e_ )
 			_down = true;
 		return 1;
 	}
-	if ( e_ == FL_KEYUP )
+	if ( e_ == FL_KEYUP && !Fl::get_key( c ) )
 	{
 		if ( KEY_LEFT == c )
 			_left = false;
