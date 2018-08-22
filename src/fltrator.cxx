@@ -8086,9 +8086,7 @@ int FltWin::handle( int e_ )
 			else if ( '-' == Fl::event_text()[0] )
 				setup( FPS - 1, _HAVE_SLOW_CPU, _USE_FLTK_RUN );
 			else if ( '+' == Fl::event_text()[0] )
-			{
 				setup( -FPS - 1, _HAVE_SLOW_CPU, _USE_FLTK_RUN );
-			}
 		}
 		if ( ( e_ == FL_KEYDOWN && ' ' == c ) ||
 		     ( e_ == FL_JOY_BUTTON_DOWN ) )
