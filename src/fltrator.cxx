@@ -203,6 +203,7 @@ static int MAX_SCREEN_H = 1200;
 #define KEY_RIGHT  KEYSET[G_leftHanded].right
 #define KEY_UP     KEYSET[G_leftHanded].up
 #define KEY_DOWN   KEYSET[G_leftHanded].down
+#define KEY_FIRE   ' '
 
 using namespace std;
 
@@ -3105,6 +3106,9 @@ private:
 	bool dropBomb();
 	bool fireMissile();
 	int handle( int e_ );
+	int handleJoystick( int e_ );
+	int handleMouse( int e_ );
+	int handleKey( int e_, int c );
 	void keyClick() const;
 
 	void onActionKey( bool delay_ = true );
@@ -4340,7 +4344,7 @@ bool FltWin::loadDemoData( unsigned level_/* = 0*/, bool dryrun_/* = false*/ )
 		f >> bomb;
 		f >> missile;
 		int c = f.peek();	// have value for seed?
-		if ( ' ' == c || '\t' == c )
+		if ( KEY_FIRE == c || '\t' == c )
 		{
 			f >> seed;
 			f >> seed2;
@@ -7817,185 +7821,171 @@ public:
 	}
 };
 
-int FltWin::handle( int e_ )
+int FltWin::handleMouse( int e_ )
+//-------------------------------------------------------------------------------
+{
+	static int x0 = 0;
+	static int y0 = 0;
+	static bool dragging = false;
+	static int pushed = 0;
+	static int wheel = 0;
+	static bool bomb = false;
+
+	int x = Fl::event_x();
+	int y = Fl::event_y();
+	switch ( e_ )
+	{
+		case TIMER_CALLBACK:
+			// trigger bomb with longer, non-dragging button press
+			if ( pushed )
+				pushed += _DX;
+			if ( bomb || ( pushed > 40 * SCALE_X && !dragging ) )
+			{
+				dropBomb();
+				pushed = 0;
+			}
+			bomb = false;
+			static int cnt = 0;
+			cnt += _DX;
+			if ( cnt >= 10 )
+			{
+				cnt = 0;
+				if ( wheel )
+				{
+					wheel--;
+					if ( !wheel )
+					{
+						_up = _down = false;
+					}
+				}
+			}
+			return 1;
+			break;
+		case FL_LEAVE:
+			dragging = false;
+			pushed = 0;
+			bomb = false;
+			_left = _right = _up = _down = false;
+			break;
+		case FL_DRAG:
+		{
+			int dx = x - x0;
+			int dy = y - y0;
+			if ( !dragging && abs( dx ) <= 3 && abs( dy ) <= 3 )
+				break;
+			dragging = true;
+			if ( dx == 0 && dy == 0 )
+				break;
+
+			// try smoother x/y movement if one direction dominates...
+			if ( dy && abs( dx ) >= abs( dy ) * 4 )
+			{
+				dy = 0;
+			}
+			else if ( dx && abs( dy ) >= abs( dx ) * 4 )
+			{
+				dx = 0;
+			}
+			// determine movement of ship
+			if ( dx < 0 )
+			{
+				_left = true;
+				_right = false;
+			}
+			if ( dx > 0 )
+			{
+				_right = true;
+				_left = false;
+			}
+			if ( dy < 0 )
+			{
+				_up = true;
+				_down = false;
+			}
+			if ( dy > 0 )
+			{
+				_down = true;
+				_up = false;
+			}
+			if ( dx == 0 )
+			{
+				_left = _right = false;
+			}
+			if ( dy == 0 )
+			{
+				_up = _down = false;
+			}
+			x0 = x;
+			y0 = y;
+			break;
+		}
+		case FL_MOUSEWHEEL:
+			if ( _state == TITLE )
+			{
+				( Fl::event_dy() > 0 ) ? toggleUser() : toggleShip();
+				break;
+			}
+			wheel++;
+			if ( Fl::event_dy() < 0 )
+			{
+				_up = true;
+				_down = false;
+			}
+			else if ( Fl::event_dy() > 0 )
+			{
+				_down = true;
+				_up = false;
+			}
+			break;
+		case FL_PUSH:
+			setPaused( false );
+			dragging = false;
+			pushed = _state == LEVEL;
+			bomb = Fl::event_button3();	// always trigger bomb with right mouse
+			x0 = x;
+			y0 = y;
+			break;
+		case FL_RELEASE:
+			if ( _state == TITLE || _state == SCORE || _state == DEMO || _done )
+			{
+				if ( x < 40 * SCALE_X && y < 40 * SCALE_Y )
+				{
+					hide();
+					return 1;
+				}
+				else
+				{
+					setPaused( false );
+					keyClick();
+					onActionKey();
+				}
+				break;
+			}
+			// trigger missile with short non-dragging button press
+			if ( pushed && !dragging )
+			{
+				_speed_right = 0;	//???
+				fireMissile();
+			}
+			_left = _right = _up = _down = false;
+			dragging = false;
+			pushed = 0;
+			bomb = false;
+			break;
+	}
+	return 0;
+}	// handleMouse
+
+int FltWin::handleKey( int e_, int c )
 //-------------------------------------------------------------------------------
 {
 #define F10_KEY  (FL_F + 10)
 #define F12_KEY  (FL_F + 12)
+
 	static bool ignore_space = false;
 
-	if ( FL_FOCUS == e_ )
-	{
-		Fl::focus( this );
-		onGotFocus();
-		return 1;
-	}
-	if ( FL_UNFOCUS == e_ )
-	{
-		onLostFocus();
-		return 1;
-	}
-
-	if ( _disableKeys )
-		return Inherited::handle( e_ );
-
-	if ( _mouseMode )
-	{
-		static int x0 = 0;
-		static int y0 = 0;
-		static bool dragging = false;
-		static int pushed = 0;
-		static int wheel = 0;
-		static bool bomb = false;
-
-		int x = Fl::event_x();
-		int y = Fl::event_y();
-		switch ( e_ )
-		{
-			case TIMER_CALLBACK:
-				// trigger bomb with longer, non-dragging button press
-				if ( pushed )
-					pushed += _DX;
-				if ( bomb || ( pushed > 40 * SCALE_X && !dragging ) )
-				{
-					dropBomb();
-					pushed = 0;
-				}
-				bomb = false;
-				static int cnt = 0;
-				cnt += _DX;
-				if ( cnt >= 10 )
-				{
-					cnt = 0;
-					if ( wheel )
-					{
-						wheel--;
-						if ( !wheel )
-						{
-							_up = _down = false;
-						}
-					}
-				}
-				return 1;
-				break;
-			case FL_LEAVE:
-				dragging = false;
-				pushed = 0;
-				bomb = false;
-				_left = _right = _up = _down = false;
-				break;
-			case FL_DRAG:
-			{
-				int dx = x - x0;
-				int dy = y - y0;
-				if ( !dragging && abs( dx ) <= 3 && abs( dy ) <= 3 )
-					break;
-				dragging = true;
-				if ( dx == 0 && dy == 0 )
-					break;
-
-				// try smoother x/y movement if one direction dominates...
-				if ( dy && abs( dx ) >= abs( dy ) * 4 )
-				{
-					dy = 0;
-				}
-				else if ( dx && abs( dy ) >= abs( dx ) * 4 )
-				{
-					dx = 0;
-				}
-				// determine movement of ship
-				if ( dx < 0 )
-				{
-					_left = true;
-					_right = false;
-				}
-				if ( dx > 0 )
-				{
-					_right = true;
-					_left = false;
-				}
-				if ( dy < 0 )
-				{
-					_up = true;
-					_down = false;
-				}
-				if ( dy > 0 )
-				{
-					_down = true;
-					_up = false;
-				}
-				if ( dx == 0 )
-				{
-					_left = _right = false;
-				}
-				if ( dy == 0 )
-				{
-					_up = _down = false;
-				}
-				x0 = x;
-				y0 = y;
-				break;
-			}
-			case FL_MOUSEWHEEL:
-				if ( _state == TITLE )
-				{
-					( Fl::event_dy() > 0 ) ? toggleUser() : toggleShip();
-					break;
-				}
-				wheel++;
-				if ( Fl::event_dy() < 0 )
-				{
-					_up = true;
-					_down = false;
-				}
-				else if ( Fl::event_dy() > 0 )
-				{
-					_down = true;
-					_up = false;
-				}
-				break;
-			case FL_PUSH:
-				setPaused( false );
-				dragging = false;
-				pushed = _state == LEVEL;
-				bomb = Fl::event_button3();	// always trigger bomb with right mouse
-				x0 = x;
-				y0 = y;
-				break;
-			case FL_RELEASE:
-				if ( _state == TITLE || _state == SCORE || _state == DEMO || _done )
-				{
-					if ( x < 40 * SCALE_X && y < 40 * SCALE_Y )
-					{
-						hide();
-						return 1;
-					}
-					else
-					{
-						setPaused( false );
-						keyClick();
-						onActionKey();
-					}
-					break;
-				}
-				// trigger missile with short non-dragging button press
-				if ( pushed && !dragging )
-				{
-					_speed_right = 0;	//???
-					fireMissile();
-				}
-				_left = _right = _up = _down = false;
-				dragging = false;
-				pushed = 0;
-				bomb = false;
-				break;
-		}
-	}	// _mouseMode
-
-	int c = Fl::event_key();
-
 	//	handle event 'e' / key 'c'
-	if ( ( e_ == FL_KEYDOWN || e_ == FL_KEYUP ) && c == FL_Escape )
+	if ( c == FL_Escape )
 	{
 		// get rid of escape key closing window (except in boss mode and title screen)
 		if ( _enable_boss_key || _state == TITLE || fullscreen_active() )
@@ -8050,13 +8040,6 @@ int FltWin::handle( int e_ )
 	}
 	if ( _state == TITLE || _state == SCORE || _state == DEMO || _done )
 	{
-		if ( e_ == FL_JOY_AXIS )
-		{
-			if ( _joystick.left() ) { e_ = FL_KEYUP; c = KEY_LEFT; }
-			if ( _joystick.right() ) { e_ = FL_KEYUP; c = KEY_RIGHT; }
-			if ( _joystick.up() ) { e_ = FL_KEYUP; c = KEY_UP; }
-			if ( _joystick.down() ) { e_ = FL_KEYUP; c = KEY_DOWN; }
-		}
 		if ( _state == SCORE && e_ == FL_KEYUP && c >= '0' && c < 'z' )
 		{
 			keyClick();
@@ -8088,8 +8071,7 @@ int FltWin::handle( int e_ )
 			else if ( '+' == Fl::event_text()[0] )
 				setup( -FPS - 1, _HAVE_SLOW_CPU, _USE_FLTK_RUN );
 		}
-		if ( ( e_ == FL_KEYDOWN && ' ' == c ) ||
-		     ( e_ == FL_JOY_BUTTON_DOWN ) )
+		if ( e_ == FL_KEYDOWN && KEY_FIRE == c )
 		{
 			setPaused( false );
 			ignore_space = true;
@@ -8097,25 +8079,6 @@ int FltWin::handle( int e_ )
 			onActionKey();
 		}
 		return Inherited::handle( e_ );
-	}
-
-	// joystick handling
-	if ( FL_JOY_BUTTON_DOWN == e_ )
-	{
-		unsigned int button = _joystick.event().number;
-		if ( button > _joystick.numberOfButtons() / 2 )
-			fireMissile();
-		else
-			dropBomb();
-	}
-	else if ( FL_JOY_AXIS == e_ )
-	{
-		_left = _joystick.left();
-		_right = _joystick.right();
-		_up = _joystick.up();
-		_down = _joystick.down();
-		if ( !_left && !_right )
-			_speed_right = 0;
 	}
 
 	if ( e_ == FL_KEYDOWN && Fl::get_key( c  ) )
@@ -8147,7 +8110,7 @@ int FltWin::handle( int e_ )
 				fireMissile();
 			Fl::remove_timeout( cb_fire_key_delay, this );
 		}
-		else if ( ' ' == c )
+		else if ( KEY_FIRE == c )
 		{
 			if ( !ignore_space )
 				dropBomb();
@@ -8167,6 +8130,79 @@ int FltWin::handle( int e_ )
 		}
 		return 1;
 	}
+	return 0;
+}
+
+int FltWin::handleJoystick( int e_ )
+//-------------------------------------------------------------------------------
+{
+	if ( FL_JOY_BUTTON_DOWN == e_ )
+	{
+		if ( _state == TITLE || _state == SCORE || _state == DEMO || _done )
+			return handleKey( FL_KEYDOWN, KEY_FIRE );
+
+		unsigned int button = _joystick.event().number;
+		if ( button > _joystick.numberOfButtons() / 2 )
+			fireMissile();
+		else
+			dropBomb();
+		return 1;
+	}
+	else if ( FL_JOY_AXIS == e_ )
+	{
+		if ( _state == TITLE || _state == SCORE || _state == DEMO || _done )
+		{
+			if ( _joystick.left() ) { return handleKey( FL_KEYUP, KEY_LEFT ); }
+			if ( _joystick.right() ) { return handleKey( FL_KEYUP, KEY_RIGHT ); }
+			if ( _joystick.up() ) { return handleKey( FL_KEYUP, KEY_UP ); }
+			if ( _joystick.down() ) { return handleKey( FL_KEYUP, KEY_DOWN ); }
+			return 1;
+		}
+
+		_left = _joystick.left();
+		_right = _joystick.right();
+		_up = _joystick.up();
+		_down = _joystick.down();
+		if ( !_left && !_right )
+			_speed_right = 0;
+		return 1;
+	}
+	return 0;
+}
+
+int FltWin::handle( int e_ )
+//-------------------------------------------------------------------------------
+{
+	if ( FL_FOCUS == e_ )
+	{
+		Fl::focus( this );
+		onGotFocus();
+		return 1;
+	}
+	if ( FL_UNFOCUS == e_ )
+	{
+		onLostFocus();
+		return 1;
+	}
+
+	if ( _disableKeys )
+		return Inherited::handle( e_ );
+
+	if ( _mouseMode )
+	{
+		int ret = handleMouse( e_ );
+		if ( ret ) return ret;
+	}
+
+	if ( e_ == FL_KEYDOWN || e_ == FL_KEYUP )
+	{
+		int c = Fl::event_key();
+		return handleKey( e_, c );
+	}
+
+	if ( FL_JOY_BUTTON_DOWN == e_ ||  FL_JOY_AXIS == e_ )
+		return handleJoystick( e_ );
+
 	return Inherited::handle( e_ );
 }
 
