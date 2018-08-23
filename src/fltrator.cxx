@@ -3108,7 +3108,7 @@ private:
 	int handle( int e_ );
 	int handleJoystick( int e_ );
 	int handleMouse( int e_ );
-	int handleKey( int e_, int c );
+	int handleKey( int e_, int c_ );
 	void keyClick() const;
 
 	void onActionKey( bool delay_ = true );
@@ -7976,7 +7976,7 @@ int FltWin::handleMouse( int e_ )
 	return 0;
 }	// handleMouse
 
-int FltWin::handleKey( int e_, int c )
+int FltWin::handleKey( int e_, int c_ )
 //-------------------------------------------------------------------------------
 {
 #define F10_KEY  (FL_F + 10)
@@ -7985,7 +7985,7 @@ int FltWin::handleKey( int e_, int c )
 	static bool ignore_space = false;
 
 	//	handle event 'e' / key 'c'
-	if ( c == FL_Escape )
+	if ( c_ == FL_Escape )
 	{
 		// get rid of escape key closing window (except in boss mode and title screen)
 		if ( _enable_boss_key || _state == TITLE || fullscreen_active() )
@@ -8005,7 +8005,7 @@ int FltWin::handleKey( int e_, int c )
 	{
 		if ( _state != SCORE )
 		{
-			if ( 's' == c )
+			if ( 's' == c_ )
 			{
 				if ( _state == TITLE )
 					keyClick();
@@ -8016,62 +8016,62 @@ int FltWin::handleKey( int e_, int c )
 					onTitleScreen();	// update display
 				}
 			}
-			else if ( 'b' == c )
+			else if ( 'b' == c_ )
 			{
 				if ( _state == TITLE )
 					keyClick();
 				toggleBgSound();
 			}
-			else if ( 'x' == c )
+			else if ( 'x' == c_ )
 			{
 				if ( _state == TITLE )
 					keyClick();
 				Audio::instance()->noExplosions( !Audio::instance()->noExplosions() );
 			}
 		}
-		if ( F10_KEY == c && ( _state != LEVEL || G_paused ) )
+		if ( F10_KEY == c_ && ( _state != LEVEL || G_paused ) )
 		{
 			toggleFullscreen();
 		}
-		else if ( F12_KEY == c && ( _state != LEVEL || G_paused ) )
+		else if ( F12_KEY == c_ && ( _state != LEVEL || G_paused ) )
 		{
 			toggleBorder();
 		}
 	}
 	if ( _state == TITLE || _state == SCORE || _state == DEMO || _done )
 	{
-		if ( _state == SCORE && e_ == FL_KEYUP && c >= '0' && c < 'z' )
+		if ( _state == SCORE && e_ == FL_KEYUP && c_ >= '0' && c_ < 'z' )
 		{
 			keyClick();
-			_input += c;
+			_input += c_;
 		}
-		if ( _state == SCORE && e_ == FL_KEYUP && c == FL_BackSpace && _input.size() )
+		if ( _state == SCORE && e_ == FL_KEYUP && c_ == FL_BackSpace && _input.size() )
 		{
 			keyClick();
 			_input.erase( _input.size() - 1 );
 		}
 		if ( _state == TITLE && e_ == FL_KEYUP )
 		{
-			if ( KEY_LEFT == c )
+			if ( KEY_LEFT == c_ )
 				toggleUser( true );
-			else if ( KEY_RIGHT == c )
+			else if ( KEY_RIGHT == c_ )
 				toggleUser();
-			else if ( KEY_UP == c )
+			else if ( KEY_UP == c_ )
 				toggleShip( true );
-			else if ( KEY_DOWN == c )
+			else if ( KEY_DOWN == c_ )
 				toggleShip();
-			else if ( 'r' == c )
+			else if ( 'r' == c_ )
 				resetUser();
-			else if ( 'n' == c )
+			else if ( 'n' == c_ )
 				newUser();
-			else if ( 'd' == c )
+			else if ( 'd' == c_ )
 				cb_demo( this );
 			else if ( '-' == Fl::event_text()[0] )
 				setup( FPS - 1, _HAVE_SLOW_CPU, _USE_FLTK_RUN );
 			else if ( '+' == Fl::event_text()[0] )
 				setup( -FPS - 1, _HAVE_SLOW_CPU, _USE_FLTK_RUN );
 		}
-		if ( e_ == FL_KEYDOWN && KEY_FIRE == c )
+		if ( e_ == FL_KEYDOWN && KEY_FIRE == c_ )
 		{
 			setPaused( false );
 			ignore_space = true;
@@ -8081,28 +8081,28 @@ int FltWin::handleKey( int e_, int c )
 		return Inherited::handle( e_ );
 	}
 
-	if ( e_ == FL_KEYDOWN && Fl::get_key( c  ) )
+	if ( e_ == FL_KEYDOWN )
 	{
-		if ( F10_KEY != c )
+		if ( F10_KEY != c_ )
 			setPaused( false );
-		if ( KEY_LEFT == c )
+		if ( KEY_LEFT == c_ )
 			_left = true;
-		else if ( KEY_RIGHT == c && !Fl::has_timeout( cb_fire_key_delay, this ) && !_right )
+		else if ( KEY_RIGHT == c_ && !Fl::has_timeout( cb_fire_key_delay, this ) && !_right )
 		{
 			Fl::remove_timeout( cb_fire_key_delay, this );
 			Fl::add_timeout( 0.15, cb_fire_key_delay, this );
 		}
-		else if ( KEY_UP == c )
+		else if ( KEY_UP == c_ )
 			_up = true;
-		else if ( KEY_DOWN == c )
+		else if ( KEY_DOWN == c_ )
 			_down = true;
 		return 1;
 	}
-	if ( e_ == FL_KEYUP && !Fl::get_key( c ) )
+	if ( e_ == FL_KEYUP )
 	{
-		if ( KEY_LEFT == c )
+		if ( KEY_LEFT == c_ )
 			_left = false;
-		else if ( KEY_RIGHT == c )
+		else if ( KEY_RIGHT == c_ )
 		{
 			_right = false;
 			_speed_right = 0;
@@ -8110,18 +8110,18 @@ int FltWin::handleKey( int e_, int c )
 				fireMissile();
 			Fl::remove_timeout( cb_fire_key_delay, this );
 		}
-		else if ( KEY_FIRE == c )
+		else if ( KEY_FIRE == c_ )
 		{
 			if ( !ignore_space )
 				dropBomb();
 			ignore_space = false;
 			return 1;
 		}
-		else if ( KEY_UP == c )
+		else if ( KEY_UP == c_ )
 			_up = false;
-		else if ( KEY_DOWN == c )
+		else if ( KEY_DOWN == c_ )
 			_down = false;
-		else if ( '7' <= c && '9' >= c )
+		else if ( '7' <= c_ && '9' >= c_ )
 		{
 			if ( !_done && !_collision )
 			{
@@ -8197,6 +8197,9 @@ int FltWin::handle( int e_ )
 	if ( e_ == FL_KEYDOWN || e_ == FL_KEYUP )
 	{
 		int c = Fl::event_key();
+		bool is_down_now = Fl::get_key( c );
+		if ( e_ == FL_KEYDOWN && !is_down_now ) return 0;
+		if ( e_ == FL_KEYUP && is_down_now ) return 0;
 		return handleKey( e_, c );
 	}
 
