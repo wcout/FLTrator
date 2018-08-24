@@ -7833,6 +7833,7 @@ int FltWin::handleMouse( int e_ )
 
 	int x = Fl::event_x();
 	int y = Fl::event_y();
+	bool handled = true;
 	switch ( e_ )
 	{
 		case TIMER_CALLBACK:
@@ -7859,7 +7860,6 @@ int FltWin::handleMouse( int e_ )
 					}
 				}
 			}
-			return 1;
 			break;
 		case FL_LEAVE:
 			dragging = false;
@@ -7972,15 +7972,17 @@ int FltWin::handleMouse( int e_ )
 			pushed = 0;
 			bomb = false;
 			break;
+		default:
+			handled = false;
 	}
-	return 0;
+	return handled;
 }	// handleMouse
 
 int FltWin::handleKey( int e_, int c_ )
 //-------------------------------------------------------------------------------
 {
-#define F10_KEY  (FL_F + 10)
-#define F12_KEY  (FL_F + 12)
+	static const int F10_KEY = FL_F + 10;
+	static const int F12_KEY = FL_F + 12;
 
 	static bool ignore_space = false;
 
@@ -8080,7 +8082,6 @@ int FltWin::handleKey( int e_, int c_ )
 		}
 		return Inherited::handle( e_ );
 	}
-
 	if ( e_ == FL_KEYDOWN )
 	{
 		if ( F10_KEY != c_ )
@@ -8203,7 +8204,7 @@ int FltWin::handle( int e_ )
 		return handleKey( e_, c );
 	}
 
-	if ( FL_JOY_BUTTON_DOWN == e_ ||  FL_JOY_AXIS == e_ )
+	if ( FL_JOY_BUTTON_DOWN == e_ || FL_JOY_AXIS == e_ )
 		return handleJoystick( e_ );
 
 	return Inherited::handle( e_ );
