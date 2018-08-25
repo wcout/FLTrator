@@ -3174,9 +3174,6 @@ private:
 	void togglePaused();
 	void setBgSoundFile();
 	void startBgSound() const;
-#ifdef NO_MULTIRES
-#define flt_draw( buf_, n_, x_, y_ ) fl_draw( buf_, n_, x_, y_ )
-#else
 	void flt_draw( const char* buf_, int n_, int x_, int y_ )
 	{
 		x_ = lround( SCALE_X * x_ );
@@ -3187,7 +3184,6 @@ private:
 			y_ = h() + y_;
 		fl_draw( buf_, n_, x_, y_ );
 	}
-#endif
 protected:
 	Terrain T;
 	Terrain TBG;
