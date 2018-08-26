@@ -2944,8 +2944,8 @@ class IniParameter : public map<string, string>
 {
 public:
 	IniParameter() : _found( false ) {}
-	int value( const string& id_ ) { return strtol( at( id_ ).c_str(), NULL, 0 ); }
-	double dvalue( const string& id_ ) { return atof( at( id_ ).c_str() ); }
+	int value( const string& id_ ) const { return strtol( at( id_ ).c_str(), NULL, 0 ); }
+	double dvalue( const string& id_ ) const { return atof( at( id_ ).c_str() ); }
 	int value( const string& id_, int min_, int max_, int default_ )
 	{
 		_found = false;
