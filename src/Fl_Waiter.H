@@ -148,7 +148,6 @@ private:
 #endif
 	unsigned int _elapsedMicroSeconds;
 	double _fltkWaitDelay;
-	double _correctionFactor;
 	unsigned int _FPS;
 	bool _ready;
 };
