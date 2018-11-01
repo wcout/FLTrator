@@ -2984,8 +2984,7 @@ public:
 			return default_;
 
 		_found = true;
-		static string value;
-		value = at( id_ );
+		string& value = at( id_ );
 		if ( value.size() > max_ )
 			value.erase( max_ );
 
