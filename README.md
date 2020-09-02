@@ -183,7 +183,7 @@ Have fun with **FLTrator**!
 Links
 -----
 
-   [Sourceforge project site](http://sourceforge.net/projects/fltrator/)
+   [Original Sourceforge project site (outdatet)](http://sourceforge.net/projects/fltrator/)
 
    [FLTK](http://www.fltk.org/)
 
