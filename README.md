@@ -10,6 +10,8 @@ Introduction
 **FLTrator** is a *VERY* retro style game in which you steer a spaceship through a scrolling
 landscape with hostile rockets and other obstacles.
 
+![](https://wcout.github.io/screenshots/fltrator_v2.2_anim.gif)
+
 It is loosely inspired by a game called 'Penetrator', which was an arcade game from 1983(!)
 on the Sinclair ZX Spectrum. (I always found it a nearly perfect made game both from a
 technical and playability point of view, considering it had to fit in only 48k of ram).
