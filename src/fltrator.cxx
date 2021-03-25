@@ -4616,7 +4616,11 @@ static void faintout_rgb_image( Fl_Image *img_ )
 		return;
 
 	uchar *p = (uchar *)img_->data()[0];
+#if FLTK_HAS_IMAGE_SCALING
+	uchar *e = p + img_->data_w() * img_->data_h() * img_->d();
+#else
 	uchar *e = p + img_->w() * img_->h() * img_->d();
+#endif
 	while ( p < e )
 	{
 		Fl_Color c( fl_rgb_color( p[0], p[1], p[2] ) );
