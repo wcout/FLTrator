@@ -31,6 +31,8 @@
 #define FLTK_HAS_NEW_FUNCTIONS FL_MAJOR_VERSION > 1 || \
     (FL_MAJOR_VERSION == 1 && \
     ((FL_MINOR_VERSION == 3 && FL_PATCH_VERSION >= 3) || FL_MINOR_VERSION > 3))
+#define FLTK_HAS_IMAGE_SCALING FL_MAJOR_VERSION > 1 || \
+    (FL_MAJOR_VERSION == 1 && FL_MINOR_VERSION >= 4)
 
 #if !(FLTK_HAS_NEW_FUNCTIONS)
 #define NO_PREBUILD_LANDSCAPE
@@ -1433,6 +1435,9 @@ public:
 	{
 		// valid only for pixmaps!
 		x_ += _ox; // for animated images use the current frame
+#if FLTK_HAS_IMAGE_SCALING
+		assert( _image->w() == _image->data_w() && _image->h() == _image->data_h() );
+#endif
 		assert( (int)x_ < _image->w() && (int)y_ < _image->h() );
 		return _image->data()[y_ + 2][x_] == ' ';
 	}
@@ -4588,6 +4593,9 @@ static void color_to_transparence( Fl_Image *img_, Fl_Color c_, uchar alpha_ = 0
 	uchar r, g, b;
 	Fl::get_color( c_, r, g, b );
 
+#if FLTK_HAS_IMAGE_SCALING
+	assert( img_->w() == img_->data_w() && img_->h() == img_->data_h() );
+#endif
 	uchar *p = (uchar *)img_->data()[0];
 	uchar *e = p + img_->w() * img_->h() * img_->d();
 	while ( p < e )
@@ -7095,8 +7103,8 @@ void FltWin::setIcon()
 //-------------------------------------------------------------------------------
 {
 #if FLTK_HAS_NEW_FUNCTIONS
-	if ( _spaceship && _spaceship->image() )
-		Fl_Window::default_icon( (Fl_RGB_Image *)_spaceship->image() );
+	if ( _spaceship && _spaceship->origImage() )
+		Fl_Window::default_icon( (Fl_RGB_Image *)_spaceship->origImage() );
 	else
 	{
 		Fl_GIF_Image defIcon( imgPath.get( "spaceship0.gif" ).c_str() );
@@ -7267,7 +7275,7 @@ bool FltWin::setFullscreen( bool fullscreen_ )
 	{
 		// Check special case resolution matches work area
 		Fl::screen_work_area( X, Y, W, H );
-		if ( fullscreen_ && W == (int)SCREEN_W && H == (int)SCREEN_H )
+		if ( W == (int)SCREEN_W && H == (int)SCREEN_H )
 		{
 			PERR( "Use full screen work area " << X << "/" << Y << " " << W << "x" << H );
 			border( 0 );

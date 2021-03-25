@@ -386,7 +386,12 @@ Fl_Image * fl_copy_image(Fl_Image * im, int w2, int h2)
 #endif
   if(im->count() != 1 || !im->d()) // bitmap or pixmap
     return im->copy(w2, h2);
-
+#if FLTK_HAS_IMAGE_SCALING
+#pragma message( "FLTK_HAS_IMAGE_SCALING" )
+  Fl_Image *ni = im->copy();
+  ni->scale(w2, h2, 0, 1); // let the hardware do the scaling!
+#else
+  return im->copy(w2, h2);
   int ld = im->ld();
   int w1 = im->w();
   int pixel_stride = im->d();
@@ -395,5 +400,6 @@ Fl_Image * fl_copy_image(Fl_Image * im, int w2, int h2)
   unsigned char * array = resample(w2, h2, data, w1, im->h(), pixel_stride, pixel_stride, row_stride, 0, 0, 0, (im->d() == 4));
   Fl_RGB_Image * ni = new Fl_RGB_Image(array, w2, h2, pixel_stride);
   ni->alloc_array = 1;
+#endif
   return ni;
 }
