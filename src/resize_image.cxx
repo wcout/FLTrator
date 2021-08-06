@@ -1,4 +1,7 @@
 #include <FL/Fl_Image.H>
+
+#if !(FLTK_HAS_IMAGE_SCALING)
+
 #include <string.h>
 #include <stdint.h> // uint64_t
 
@@ -368,6 +371,7 @@ unsigned char * resample(int w2, int h2, const unsigned char * const source,
 
 }  // end of anonymous namespace
 
+#endif //!(FLTK_HAS_IMAGE_SCALING)
 
 // This is a simple function to replace Fl_RGB_Image::copy().
 // Note a clumsy hack to detect Fl_RGB_IMAGE (or subclass) using count() and d() methods.
