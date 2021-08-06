@@ -641,6 +641,7 @@ public:
 	void onClose();
 	void onLoad( int level_ = 0 );
 	void onSave() { save(); }
+	void onTogglePreview();
 	void onQuit() { _dont_save = true; onClose(); }
 	void onSaveAs();
 	void onXoff();
@@ -656,6 +657,7 @@ private:
 	static void quit_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onQuit();}
 	static void save_as_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onSaveAs(); }
 	static void save_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onSave();}
+	static void toggle_preview_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onTogglePreview();}
 	static void xoff_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onXoff();}
 private:
 	LS *_ls;
@@ -1022,7 +1024,8 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 				{0},
 			{ "Save level as..", 0, save_as_cb, this, 0 },
 			{ "Save", 0, save_cb, this, FL_MENU_DIVIDER },
-			{ "Exit without saving", 0, quit_cb, this, FL_MENU_DIVIDER, 0, FL_BOLD },
+			{ "Toggle preview window", FL_ALT+'p', toggle_preview_cb, this, FL_MENU_DIVIDER },
+			{ "Exit without saving", 0, quit_cb, this, FL_MENU_DIVIDER, 0, FL_BOLD, 0, FL_RED },
 			{ "Help..", FL_F+1, help_cb, this, 0, 0, 0, 18 },
 			{ 0 },
 		{ 0 }
@@ -1617,6 +1620,13 @@ void LSEditor::onSaveAs()
 		return;
 	_name = name;
 	save();
+}
+
+void LSEditor::onTogglePreview()
+//--------------------------------------------------------------------------
+{
+	_preview->shown() ? _preview->hide() : _preview->show();
+	show();
 }
 
 void LSEditor::onXoff()
