@@ -10,6 +10,7 @@ usage()
 	echo "Options:"
 	echo "   --enable-fltk-run (default)"
 	echo "   --disable-fltk-run"
+	echo "   --disable-prebuild"
 	echo "   --enable-slow-cpu"
 	echo "   --disable-slow-cpu (default)"
 	echo "   --disable-xrandr"
@@ -32,6 +33,7 @@ USE_FLTK_RUN=1
 HAVE_SLOW_CPU=0
 FLTK_DIR=""
 HAVE_XRANDR=1
+PREBUILD_LANDSCAPE=1
 
 rm -f $LOG
 
@@ -52,6 +54,9 @@ while [ "$1" != "" ]; do
 				;;
 		--disable-fltk-run )
 				USE_FLTK_RUN=0
+				;;
+		--disable-prebuild )
+				PREBUILD_LANDSCAPE=0
 				;;
 		--disable-slow-cpu )
 				HAVE_SLOW_CPU=0
@@ -127,6 +132,9 @@ destwrite "FLTK_DIR="
 fi
 destwrite "USE_FLTK_RUN=$USE_FLTK_RUN"
 destwrite "HAVE_SLOW_CPU=$HAVE_SLOW_CPU"
+if [ "$PREBUILD_LANDSCAPE" = "0" ]; then
+destwrite "NO_PREBUILD_LANDSCAPE=1"
+fi
 if [ "$HAVE_XRANDR" = "1" ]; then
 destwrite "HAVE_XRANDR=1"
 fi

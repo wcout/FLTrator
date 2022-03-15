@@ -1,11 +1,11 @@
 //
-// Copyright 2015-2018 Christian Grabner.
+// Copyright 2015-2022 Christian Grabner.
 //
 // This file is part of FLTrator.
 //
 // FLTrator is free software: you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
-// the Free Software Foundation,  either version 3 of the License, or
+// the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 //
 // FLTrator is distributed in the hope that it will be useful, but
@@ -3518,8 +3518,10 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	LOG( "defaultArgs: '" << defaultArgs << "'" );
 
 	// use Verdana as application font (or value from ini file)
-	static string font = _ini.value( "font", 50, " Verdana" );
-	static string ifont = _ini.value( "ifont", 50, "PVerdana" );
+	const char *defaultFont = Fl::get_font( FL_HELVETICA );
+	bool oldFontNameFormat = defaultFont && defaultFont[0] == ' '; // Xft format?
+	static string font = _ini.value( "font", 50, oldFontNameFormat ? " Verdana" : "Verdana" );
+	static string ifont = _ini.value( "ifont", 50, oldFontNameFormat ? "PVerdana" : "Verdana bold italic" );
 	Fl::set_font( FL_HELVETICA,  font.c_str() );	// font name must be static!
 	Fl::set_font( FL_HELVETICA_BOLD_ITALIC, ifont.c_str() );
 
@@ -6204,6 +6206,7 @@ bool FltWin::draw_decoration()
 		}
 		redraw = true;
 	}
+#ifndef NO_PREBUILD_LANDSCAPE
 	// test decoration object
 	if ( _effects && _gimmicks && _landscape && !_classic ) // only possible with image-cached terrain
 	{
@@ -6236,6 +6239,7 @@ bool FltWin::draw_decoration()
 			}
 		}
 	}
+#endif
 	if ( TBG.flags & 1 && !classic() )
 	{
 		// test for "parallax scrolling" background plane
