@@ -133,7 +133,7 @@ fi
 destwrite "USE_FLTK_RUN=$USE_FLTK_RUN"
 destwrite "HAVE_SLOW_CPU=$HAVE_SLOW_CPU"
 if [ "$PREBUILD_LANDSCAPE" = "0" ]; then
-destwrite "NO_PREBUILD_LANDSCAPE=1"
+destwrite "PREBUILD_LANDSCAPE=0"
 fi
 if [ "$HAVE_XRANDR" = "1" ]; then
 destwrite "HAVE_XRANDR=1"
