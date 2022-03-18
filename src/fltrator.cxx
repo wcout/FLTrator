@@ -5442,7 +5442,7 @@ int FltWin::drawTable( int w_, int y_, const char *text_, size_t sz_, Fl_Color c
 	lw = ( ( lw + DOT_SIZE / 2 ) / DOT_SIZE + 1 ) * DOT_SIZE;
 	int lx = x + wl + 2 * DOT_SIZE;
 	for ( int i = 0; i < lw / ( DOT_SIZE * 2 ); i++ )
-		fl_rectf( lx + SCALE_Y * 2 + i * DOT_SIZE * 2, y_ - SCALE_Y * 3, DOT_SIZE, DOT_SIZE );
+		fl_rectf( lx + SCALE_Y * 2 + i * DOT_SIZE * 2, y_ - SCALE_Y * 4, DOT_SIZE, DOT_SIZE );
 	fl_color( c_ );
 	fl_draw( l, strlen( l ), x, y_ );
 	if ( r )
