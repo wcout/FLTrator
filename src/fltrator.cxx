@@ -1282,10 +1282,10 @@ public:
 	}
 	~FltImage()
 	{
+		// NOTE: we don't release images, so they stay cached
+		//       within Fl_Shared_Image
 //		if ( _image )
 //			_image->release();
-//		delete _imageForDrawing;
-//		delete _origImageForDrawing;
 	}
 	void nextFrame()
 	{
@@ -1314,8 +1314,9 @@ public:
 	{
 		ImageInfo ii = _icache[ image_ ];
 		bool image_path_changed( false );
-		if ( !ii.valid )
+		if ( !ii.valid ) // image not yet cached?
 		{
+			// load image once and cache it
 			Fl_Shared_Image *image = Fl_Shared_Image::get( image_ );
 			if ( image && image->count() )
 			{
@@ -1387,10 +1388,6 @@ public:
 //					_image->release();
 				ii.image = image;
 				LOG( "image '" << image_ << "' " << image->w() << "x" << image->h() << " cached" );
-//				delete _imageForDrawing;
-//				_imageForDrawing = 0;
-//				delete _origImageForDrawing;
-//				_origImageForDrawing = 0;
 #if FLTK_HAS_NEW_FUNCTIONS
 				Fl_Image *rgb = ii.orig_image;
 				if ( ii.orig_image->count() > 2 )
@@ -1401,7 +1398,6 @@ public:
 					assert( rgb );
 					ii.origImageForDrawing = (Fl_RGB_Image *)rgb;
 				}
-//				ii.imageForDrawing = (Fl_RGB_Image *)rgb->copy( image->w(), image->h() );
 				ii.imageForDrawing = (Fl_RGB_Image *)fl_copy_image( rgb, image->w(), image->h() );
 #endif
 
