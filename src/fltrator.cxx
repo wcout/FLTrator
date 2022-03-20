@@ -3299,8 +3299,8 @@ class Fireworks : public Fl_Fireworks
 {
 typedef Fl_Fireworks Inherited;
 public:
-	Fireworks( FltWin& win_, const char *greeting_ = "", bool fullscreen_ = false ) :
-		Inherited( win_, fullscreen_ ? 20.0 : 10.0 ),
+	Fireworks( FltWin& win_, const char *greeting_ = "", size_t duration_ = 20 ) :
+		Inherited( win_, duration_ ),
 		_text( 0 ), _fltwin( &win_ )
 	{
 		callback( cb_fireworks );
@@ -3847,7 +3847,9 @@ void FltWin::onStateChange( State from_state_ )
 					_showFirework = false;
 					_disableKeys = true;
 					Fireworks fireworks( *this, _texts.value( "greeting", 50,
-					                     "proudly presents..." ), isFullscreen() );
+					                     "proudly presents..." ), isFullscreen() ?
+					                     _ini.value( "fw_duration_fs", 0, 30, 20 ) :
+					                     _ini.value( "fw_duration", 0, 30, 10 ) );
 					_disableKeys = false;
 				}
 				if ( shown() )

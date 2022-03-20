@@ -34,6 +34,10 @@ bady_dx_range=2
 # disable drawing deco objects fainted out
 #faintout_deco=0
 
+# fireworks duration (0=turn off)
+#fw_duration=10
+#fw_duration_fs=20
+
 # some ship definitions
 ships=4
 spaceship0.bomb_x_offset=10
