@@ -5635,9 +5635,11 @@ void FltWin::draw_score()
 	}
 	else
 	{
-		n = snprintf( buf, sizeof( buf ), "%u%s       Score: %06d",
-	                 _level, ( _level < 10 ? " " : "" ), _user.score );
+		n = snprintf( buf, sizeof( buf ), "%u", _level );
 		flt_draw( buf, n, 20, -30 );
+		n = snprintf( buf, sizeof( buf ), "Score: %06d", _user.score );
+		flt_draw( buf, n, 130, -30 );
+
 		int lifes = MAX_LEVEL_REPEAT - _level_repeat;
 		if ( lifes )
 		{
