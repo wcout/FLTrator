@@ -5892,7 +5892,7 @@ void FltWin::draw_title()
 			drawTable( 360, y, "%05u\t%s", 30,
 			              _cfg->users()[i].completed ? FL_YELLOW : FL_WHITE,
 			              _cfg->users()[i].score, name.empty() ? DEFAULT_USER : name.c_str() );
-			y += 42;
+			y += 44;
 		}
 	}
 	else
@@ -5914,7 +5914,7 @@ void FltWin::draw_title()
 			"%c\tfire missile\n"
 			"space\tdrop bomb\n"
 			"7-9\thold game" ),
-		   30, 42, FL_WHITE,
+		   30, 44, FL_WHITE,
 			KEY_UP, KEY_DOWN,
 			KEY_LEFT, KEY_RIGHT,
 			KEY_RIGHT );
