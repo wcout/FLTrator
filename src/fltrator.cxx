@@ -8529,7 +8529,7 @@ string FltWin::firstTimeSetup()
 	int fast_slow = fl_choice( "Do you have a fast computer?\n\n"
 	                           "If you have any recent hardware\n"
 	                           "you should answer 'yes'.",
-	                           "ASK ME LATER",  NO, YES );
+	                           "ASK ME LATER",  YES, NO );
 	if ( !fast_slow )	// abort by Esc or "ask me later'
 	{
 		fl_message_title_default( 0 );
@@ -8537,7 +8537,7 @@ string FltWin::firstTimeSetup()
 	}
 
 	int speed = 0;
-	if ( fast_slow == 2 )
+	if ( fast_slow == 1 ) // fast computer
 	{
 		speed = fl_choice( "*How* fast is your computer?\n\n"
 		                   "'Very fast' enables all features,\n"
@@ -8557,20 +8557,20 @@ string FltWin::firstTimeSetup()
 				cmd = "-FF";
 		}
 	}
-	else if ( fast_slow == 1 )
+	else if ( fast_slow == 2 ) // slow computer
 	{
 		speed = fl_choice( "*How* slow is your computer?\n\n"
 		                   "'Slow' lowers the frame rate,\n"
 		                   "'Very slow' enables frame correction,\n"
 		                   "'Creepy slow' will disable sound too.",
-		                   "SLOW", "VERY SLOW", "CREEPY SLOW" );
+		                   "VERY SLOW", "SLOW", "CREEPY SLOW" );
 		switch ( speed )
 		{
-			case 0: // SLOW
-				cmd = "-S";
-				break;
-			case 1: // VERY SLOW
+			case 0: // VERY SLOW
 				cmd = "-SCb";
+				break;
+			case 1: // SLOW
+				cmd = "-S";
 				break;
 			case 2: // CREEPY SLOW
 				cmd = "-SCsbe";
@@ -8578,11 +8578,11 @@ string FltWin::firstTimeSetup()
 	}
 	int ship = fl_choice( "Use penetrator like spaceship type?\n\n"
 	                      "'No' uses the standard ship.",
-	                      NULL, NO, YES );
-	if ( ship == 2 )
+	                      NULL, YES, NO );
+	if ( ship == 1 ) // penetrator like ship
 		cmd += " -a";
 
-	if ( fast_slow == 2 )
+	if ( fast_slow == 1 ) // fast computer
 	{
 		int fullscreen = fl_choice( "Start in fullscreen mode?\n\n"
 		                            "NOTE: You can always toggle fullscreen mode\n"
