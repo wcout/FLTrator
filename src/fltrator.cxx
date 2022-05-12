@@ -1419,11 +1419,11 @@ public:
 		_h = _image ? _image->h() : 0;
 		_w = _image ? _image->w() : 0;
 		if ( _frames > 1 )
-			_w = _image->w() / _frames;
+			_w /= _frames;
 		_orig_h = _orig_image ? _orig_image->h() : 0;
 		_orig_w = _orig_image ? _orig_image->w() : 0;
 		if ( _frames > 1 )
-			_orig_w = _orig_image->w() / _frames;
+			_orig_w /= _frames;
 
 		return image_path_changed;
 	}
