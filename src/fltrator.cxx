@@ -3146,7 +3146,7 @@ private:
 	void togglePaused();
 	void setBgSoundFile();
 	void startBgSound() const;
-	void flt_draw( const char* buf_, int n_, int x_, int y_ )
+	void flt_draw( const char* buf_, int n_, int x_, int y_, int &sx_, int &sy_ )
 	{
 		x_ = lround( SCALE_X * x_ );
 		y_ = lround( SCALE_Y * y_ );
@@ -3154,7 +3154,14 @@ private:
 			x_ = w() - fl_width( buf_ ) + x_;
 		if ( y_ < 0 )
 			y_ = h() + y_;
+		sx_ = x_;
+		sy_ = y_;
 		fl_draw( buf_, n_, x_, y_ );
+	}
+	void flt_draw( const char* buf_, int n_, int x_, int y_ )
+	{
+		int sx, sy;
+		flt_draw( buf_, n_, x_, y_, sx, sy );
 	}
 protected:
 	Terrain T;
@@ -5600,7 +5607,12 @@ void FltWin::draw_score()
 
 	char buf[50];
 	int n = snprintf( buf, sizeof( buf ), "Hiscore: %06u", _hiscore );
-	flt_draw( buf, n, -15, -30 );
+	static int sx = 0;
+	static int sy = 0;
+	if ( !sx )
+		flt_draw( buf, n, -15, -30 );
+	else	// avoid costly fl_width()
+		fl_draw( buf, n, sx, sy );
 
 	if ( !_effects )
 	{
