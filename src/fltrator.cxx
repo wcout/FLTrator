@@ -3151,7 +3151,7 @@ private:
 		x_ = lround( SCALE_X * x_ );
 		y_ = lround( SCALE_Y * y_ );
 		if ( x_ < 0 )
-			x_ = w() + x_;
+			x_ = w() - fl_width( buf_ ) + x_;
 		if ( y_ < 0 )
 			y_ = h() + y_;
 		fl_draw( buf_, n_, x_, y_ );
@@ -5600,7 +5600,7 @@ void FltWin::draw_score()
 
 	char buf[50];
 	int n = snprintf( buf, sizeof( buf ), "Hiscore: %06u", _hiscore );
-	flt_draw( buf, n, -280, -30 );
+	flt_draw( buf, n, -15, -30 );
 
 	if ( !_effects )
 	{
