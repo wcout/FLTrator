@@ -187,18 +187,12 @@ static bool G_leftHanded = false;
 static unsigned _DX = DX;
 static double _DDX = DX;	// floating scroll offset
 
-#ifdef NO_MULTIRES
-#define SCALE_X 1
-#define SCALE_Y 1
-#define _YF     1
-#else
 static double SCALE_X = (double)SCREEN_W / 800;
 static double SCALE_Y = (double)SCREEN_H / 600;
 static double _YF = 1.;		// ratio screen ratio/original screen ratio
 static int MAX_SCREEN_W = 1920;
 static int MIN_SCREEN_W = 320;
 static int MAX_SCREEN_H = 1200;
-#endif
 
 #define KEY_LEFT   KEYSET[G_leftHanded].left
 #define KEY_RIGHT  KEYSET[G_leftHanded].right
@@ -234,7 +228,6 @@ enum ObjectType
 	O_EXPLOSION = 1 << 19
 };
 
-#ifndef NO_MULTIRES
 static void flt_font( int f_, int s_ ) { fl_font( f_, lround( SCALE_X * s_ ) ); }
 
 static bool setupScreenSize( int W_, int H_ )
@@ -302,9 +295,6 @@ static bool setupScreenSize( const string& cmd_, int& W_, int& H_ )
 	}
 	return false;
 }
-#else
-#define flt_font( f_, s_ ) fl_font( f_, s_ )
-#endif
 
 static void setup( int fps_, bool have_slow_cpu_, bool use_fltk_run_ )
 //-------------------------------------------------------------------------------
@@ -342,12 +332,10 @@ static void setup( int fps_, bool have_slow_cpu_, bool use_fltk_run_ )
 	}
 	SCORE_STEP = lround( SCALE_X * SCORE_STEP );
 	LOG( "setup: FRAMES = " << FRAMES << " _DDX = " << _DDX << " SCORE_STEP = " << SCORE_STEP );
-#ifndef NO_MULTIRES
 	double ro = (double)SCREEN_NORMAL_W / SCREEN_NORMAL_H;
 	double r =  (double)SCREEN_W / SCREEN_H;
 	_YF = ro / r;
 	LOG( "_YF = " << _YF );
-#endif
 }
 
 static const string& homeDir()
@@ -3158,9 +3146,6 @@ private:
 	void togglePaused();
 	void setBgSoundFile();
 	void startBgSound() const;
-#ifdef NO_MULTIRES
-#define flt_draw( buf_, n_, x_, y_ ) fl_draw( buf_, n_, x_, y_ )
-#else
 	void flt_draw( const char* buf_, int n_, int x_, int y_ )
 	{
 		x_ = lround( SCALE_X * x_ );
@@ -3171,7 +3156,6 @@ private:
 			y_ = h() + y_;
 		fl_draw( buf_, n_, x_, y_ );
 	}
-#endif
 protected:
 	Terrain T;
 	Terrain TBG;
@@ -3470,12 +3454,10 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_lang = _ini.value( "lang", 3, "" );
 	loadTranslations();
 
-#ifndef NO_MULTIRES
 	// override max allowed screen dimensions from ini
 	MAX_SCREEN_W = _ini.value( "MAX_SCREEN_W", 800, 3840, 1920 );
 	MIN_SCREEN_W = _ini.value( "MIN_SCREEN_W", 320, 640, 320 );
 	MAX_SCREEN_H = _ini.value( "MAX_SCREEN_H", 600, 2160, 1200 );
-#endif
 
 	// override fltkWaitDelay from ini
 	double fltkWaitDelay = _ini.value( "fltk_wait_delay", 0.0, 0.01, _waiter.fltkWaitDelay() );
@@ -3597,7 +3579,6 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		{
 			setup( atoi( arg.substr( 2 ).c_str() ), _HAVE_SLOW_CPU, arg[1] == 'r' );
 		}
-#ifndef NO_MULTIRES
 		else if ( arg.find( "-W" ) == 0 )
 		{
 			int W, H;
@@ -3615,7 +3596,6 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 				setup( FPS, _HAVE_SLOW_CPU, _USE_FLTK_RUN );
 			}
 		}
-#endif
 		else if ( arg[0] == '-' )
 		{
 			for ( size_t i = 1; i < arg.size(); i++ )
@@ -3736,11 +3716,9 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		     << "  -R/r{value}\tset runtype (r=FLTK, R=custom) and frame rate to 'value' fps [20,25,40,50,100,200]" << endl
 		     << "  -S\trun with settings for slow computer (turns off gimmicks/features)" << endl
 		     << "  -Uusername\tstart as user 'username'" << endl
-#ifndef NO_MULTIRES
 		     << "  -Wwidthxheight\tuse screen size width x height" << endl
 		     << "  -W\tuse whole screen work area as screen size" << endl
 		     << "  -Wf\tuse full screen area as screen size" << endl
-#endif
 		     << "  -X\tturn off explosion sounds (for a more chilled experience)" << endl
 		     << endl
 		     << "  --classic\tplay in classic look (same color for landscape/sky/ground + outline)" << endl
