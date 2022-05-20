@@ -5610,8 +5610,8 @@ void FltWin::draw_score()
 	static int sx = 0;
 	static int sy = 0;
 	if ( !sx )
-		flt_draw( buf, n, -15, -30 );
-	else	// avoid costly fl_width()
+		flt_draw( buf, n, -15, -30, sx, sy ); // calc. coordionates
+	else	// to avoid costly fl_width() call
 		fl_draw( buf, n, sx, sy );
 
 	if ( !_effects )
