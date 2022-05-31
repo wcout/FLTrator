@@ -127,9 +127,15 @@ static const Fl_Color multicolors[] = {
 	FL_YELLOW
 };
 
-static const Fl_Color drop_explosion_color[] = { fl_rgb_color( 66, 189, 216 ) };
-static const Fl_Color radar_explosion[] = { fl_rgb_color( 153, 204, 255 ), fl_rgb_color( 204, 153, 255 ),
-                                      fl_rgb_color( 255, 204, 0 ) };
+static const Fl_Color drop_explosion_color[] = {
+	fl_rgb_color( 66, 189, 216 )
+};
+
+static const Fl_Color radar_explosion_color[] = {
+	fl_rgb_color( 153, 204, 255 ),
+	fl_rgb_color( 204, 153, 255 ),
+	fl_rgb_color( 255, 204, 0 )
+};
 
 #ifdef WIN32
 #define FAST_FPS 100
@@ -6444,7 +6450,7 @@ void FltWin::check_bomb_hits()
 				(*ra)->explode();
 				create_explosion( (*ra)->cx(), (*ra)->cy(),
 					Explosion::MC_FALLOUT_STRIKE, 0.8,
-					radar_explosion, nbrOfItems( radar_explosion ) );
+					radar_explosion_color, nbrOfItems( radar_explosion_color ) );
 				add_score( 50 );
 
 				// bomb also is gone...
@@ -6554,7 +6560,7 @@ void FltWin::check_missile_hits()
 					(*ra)->explode();
 					create_explosion( (*ra)->cx(), (*ra)->cy(),
 						Explosion::MC_FALLOUT_STRIKE, 0.5,
-						radar_explosion, nbrOfItems( radar_explosion ) );
+						radar_explosion_color, nbrOfItems( radar_explosion_color ) );
 					add_score( 40 );
 				}
 				// missile also is gone...
@@ -8133,8 +8139,8 @@ public:
 int FltWin::handle( int e_ )
 //-------------------------------------------------------------------------------
 {
-#define F10_KEY  (FL_F + 10)
-#define F12_KEY  (FL_F + 12)
+	static const int F10_KEY = FL_F + 10;
+	static const int F12_KEY = FL_F + 12;
 	static bool ignore_space = false;
 
 	if ( FL_FOCUS == e_ )
