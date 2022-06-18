@@ -3517,6 +3517,11 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	Fl::set_font( FL_HELVETICA_BOLD_ITALIC, ifont.c_str() );
 
 	string defaultArgsSave = defaultArgs;	// needed for --info
+	if ( argc == 2 && ((string)argv_[1]) == "--info" ) // --info for default parameters
+	{
+		info = true;
+		--argc;
+	}
 	while ( defaultArgs.size() || argc > 1 )
 	{
 		if ( unknown_option.size() )
