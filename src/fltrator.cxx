@@ -1701,16 +1701,16 @@ void Object::draw_collision() const
 void Object::cb_update( void *d_ )
 //-------------------------------------------------------------------------------
 {
-	((Object *)d_)->update();
 	Fl::repeat_timeout( ((Object *)d_)->_timeout, cb_update, d_ );
+	((Object *)d_)->update();
 }
 
 /*static*/
 void Object::cb_animate( void *d_ )
 //-------------------------------------------------------------------------------
 {
-	((Object *)d_)->animate();
 	Fl::repeat_timeout( ((Object *)d_)->animate_timeout(), cb_animate, d_ );
+	((Object *)d_)->animate();
 }
 
 void Object::onExplosionEnd()
@@ -2456,8 +2456,9 @@ private:
 	static void cb_update( void *d_ )
 	{
 		ImageAnimation *this_ptr = (ImageAnimation *)d_;
-		if ( !this_ptr->update() )
-			Fl::repeat_timeout( this_ptr->_duration / this_ptr->_frames, cb_update, d_ );
+		Fl::repeat_timeout( this_ptr->_duration / this_ptr->_frames, cb_update, d_ );
+		if ( this_ptr->update() )
+			Fl::remove_timeout( cb_update, d_ );
 	}
 private:
 	bool _done;
@@ -6263,6 +6264,8 @@ bool FltWin::draw_decoration()
 void FltWin::draw()
 //-------------------------------------------------------------------------------
 {
+	if ( children() ) // Fix flicker when/after fireworks/ZXAttr are drawn
+		return;
 	int xoff = _xoff;
 	_xoff = _draw_xoff;
 	do_draw();
@@ -7547,10 +7550,10 @@ void FltWin::cb_paused( void *d_ )
 void FltWin::cb_update( void *d_ )
 //-------------------------------------------------------------------------------
 {
-	FltWin *f = (FltWin *)d_;
-	f->state() == FltWin::DEMO ? f->onUpdateDemo() : f->onUpdate();
 	if ( _USE_FLTK_RUN )
 		Fl::repeat_timeout( FRAMES, cb_update, d_ );
+	FltWin *f = (FltWin *)d_;
+	f->state() == FltWin::DEMO ? f->onUpdateDemo() : f->onUpdate();
 }
 
 /*static*/
