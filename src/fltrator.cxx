@@ -8531,6 +8531,13 @@ string FltWin::firstTimeSetup()
 	fl_message_title_default( "FLTrator first time setup" );
 	static const char YES[] = "YES";
 	static const char NO[] = "NO";
+
+	// put messages to screen center
+	int X, Y, W, H;
+	Fl::screen_xywh( X, Y, W, H );
+	X += W / 2;
+	Y += H / 2;
+	fl_message_position( X, Y, 1 );
 	int fast_slow = fl_choice( "Do you have a fast computer?\n\n"
 	                           "If you have any recent hardware\n"
 	                           "you should answer 'yes'.",
@@ -8544,6 +8551,7 @@ string FltWin::firstTimeSetup()
 	int speed = 0;
 	if ( fast_slow == 1 ) // fast computer
 	{
+		fl_message_position( X, Y, 1 );
 		speed = fl_choice( "*How* fast is your computer?\n\n"
 		                   "'Very fast' enables all features,\n"
 		                   "'Fast' most features.\n"
@@ -8564,6 +8572,7 @@ string FltWin::firstTimeSetup()
 	}
 	else if ( fast_slow == 2 ) // slow computer
 	{
+		fl_message_position( X, Y, 1 );
 		speed = fl_choice( "*How* slow is your computer?\n\n"
 		                   "'Slow' lowers the frame rate,\n"
 		                   "'Very slow' enables frame correction,\n"
@@ -8581,6 +8590,7 @@ string FltWin::firstTimeSetup()
 				cmd = "-SCsbe";
 		}
 	}
+	fl_message_position( X, Y, 1 );
 	int ship = fl_choice( "Use penetrator like spaceship type?\n\n"
 	                      "'No' uses the standard ship.",
 	                      NULL, YES, NO );
@@ -8589,6 +8599,7 @@ string FltWin::firstTimeSetup()
 
 	if ( fast_slow == 1 ) // fast computer
 	{
+		fl_message_position( X, Y, 1 );
 		int fullscreen = fl_choice( "Start in fullscreen mode?\n\n"
 		                            "NOTE: You can always toggle fullscreen mode\n"
 		                            "on game title screen with F10.",
@@ -8612,6 +8623,7 @@ string FltWin::firstTimeSetup()
 
 		if ( speed == 2 )	// very fast computer
 		{
+			fl_message_position( X, Y, 1 );
 			int all_effects = fl_choice( "Turn on ALL effects?\n\n",
 			                             NULL, NO, YES );
 			if ( all_effects == 2 ) // YES
@@ -8625,6 +8637,7 @@ string FltWin::firstTimeSetup()
 
 	trim( cmd );
 	_cfg->set( "defaultArgs", cmd.c_str() );
+	fl_message_position( X, Y, 1 );
 	fl_message( "Configuration saved to\n"
 	            "'%s'.\n\n"
 	            "To re-run next time start with\n"
