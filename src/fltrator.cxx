@@ -2220,7 +2220,7 @@ class AnimText : public Object
 {
 // NOTE: This is just a quick impl. for showing "animated" text.
 //       and should probably be made more flexible. Also the text
-//       drawing could be combined with the FltWin::drawText().
+//       drawing could be combined with the FLTrator::drawText().
 	typedef Object Inherited;
 public:
 	AnimText( int x_, int y_, int w_, const char *text_,
@@ -2983,7 +2983,7 @@ private:
 };
 
 //-------------------------------------------------------------------------------
-class FltWin : public Fl_Double_Window
+class FLTrator : public Fl_Double_Window
 //-------------------------------------------------------------------------------
 {
 #define DEFAULT_USER "N.N."
@@ -3002,7 +3002,7 @@ public:
 	   SCORE,
 	   NO_STATE
 	};
-	FltWin( int argc_ = 0, const char *argv_[] = 0 );
+	FLTrator( int argc_ = 0, const char *argv_[] = 0 );
 	int run();
 	bool trainMode() const { return _trainMode; }
 	bool isFullscreen() const { return fullscreen_active() || !border(); }
@@ -3288,7 +3288,7 @@ private:
 	bool _dimmout;
 };
 
-/*static*/ Fl_Waiter FltWin::_waiter;
+/*static*/ Fl_Waiter FLTrator::_waiter;
 
 #include "Fl_Fireworks.H"
 //-------------------------------------------------------------------------------
@@ -3297,9 +3297,9 @@ class Fireworks : public Fl_Fireworks
 {
 typedef Fl_Fireworks Inherited;
 public:
-	Fireworks( FltWin& win_, const char *greeting_ = "", size_t duration_ = 20 ) :
+	Fireworks( FLTrator& win_, const char *greeting_ = "", size_t duration_ = 20 ) :
 		Inherited( win_, duration_ ),
-		_text( 0 ), _fltwin( &win_ )
+		_text( 0 ), _fltrator( &win_ )
 	{
 		callback( cb_fireworks );
 		string yearStr;
@@ -3338,7 +3338,7 @@ public:
 	{
 		Inherited::draw();
 		_text->draw();
-		_fltwin->draw_tv();
+		_fltrator->draw_tv();
 	}
 	int handle( int e_ )
 	{
@@ -3381,13 +3381,13 @@ public:
 	double scale_y() const { return SCALE_Y; }
 private:
 	AnimText *_text;
-	FltWin *_fltwin;
+	FLTrator *_fltrator;
 };
 
 //-------------------------------------------------------------------------------
-// class FltWin : public Fl_Double_Window
+// class FLTrator : public Fl_Double_Window
 //-------------------------------------------------------------------------------
-FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
+FLTrator::FLTrator( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	Inherited( SCREEN_W, SCREEN_H, "FLTrator " VERSION ),
 	_state( START ),
 	_last_state( NO_STATE ),
@@ -3827,7 +3827,7 @@ FltWin::FltWin( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	show();
 }
 
-void FltWin::onStateChange( State from_state_ )
+void FLTrator::onStateChange( State from_state_ )
 //-------------------------------------------------------------------------------
 {
 	_last_state = from_state_;
@@ -3929,7 +3929,7 @@ void FltWin::onStateChange( State from_state_ )
 	}
 }
 
-FltWin::State FltWin::changeState( State toState_/* = NEXT_STATE*/,
+FLTrator::State FLTrator::changeState( State toState_/* = NEXT_STATE*/,
                                    bool force_/* = false*/ )
 //-------------------------------------------------------------------------------
 {
@@ -3977,14 +3977,14 @@ FltWin::State FltWin::changeState( State toState_/* = NEXT_STATE*/,
 	return _state;
 }
 
-void FltWin::add_score( unsigned score_ )
+void FLTrator::add_score( unsigned score_ )
 //-------------------------------------------------------------------------------
 {
 	if ( _state != DEMO )
 		_user.score += score_;
 }
 
-void FltWin::position_spaceship()
+void FLTrator::position_spaceship()
 //-------------------------------------------------------------------------------
 {
 	int X = _spaceship->w() + 10; // on left side of terrain
@@ -3996,7 +3996,7 @@ void FltWin::position_spaceship()
 	_spaceship->cy( h() - Y );
 }
 
-void FltWin::addScrollinZone()
+void FLTrator::addScrollinZone()
 //-------------------------------------------------------------------------------
 {
 	T.insert( T.begin(), T[0] );	// TODO: this makes size() an odd number
@@ -4006,7 +4006,7 @@ void FltWin::addScrollinZone()
 	_final_xoff = T.size();
 }
 
-void FltWin::addScrolloutZone()
+void FLTrator::addScrolloutZone()
 //-------------------------------------------------------------------------------
 {
 	_final_xoff = T.size();
@@ -4017,7 +4017,7 @@ void FltWin::addScrolloutZone()
 		T.push_back( T.back() );
 }
 
-bool FltWin::collisionWithTerrain( const Object& o_ ) const
+bool FLTrator::collisionWithTerrain( const Object& o_ ) const
 //-------------------------------------------------------------------------------
 {
 	int xoff = 0;
@@ -4071,15 +4071,15 @@ bool FltWin::collisionWithTerrain( const Object& o_ ) const
 				collided = true;
 				break;
 			}
+			if ( collided ) break;
 		}
-		if ( collided ) break;
 	}
 	delete[] screen;
 
 	return collided;
 } // collisionWithTerrain
 
-int FltWin::iniValue( const string& id_,
+int FLTrator::iniValue( const string& id_,
                       int min_, int max_, int default_ )
 //-------------------------------------------------------------------------------
 {
@@ -4089,7 +4089,7 @@ int FltWin::iniValue( const string& id_,
 	return _ini.value( id_, min_, max_, default_ );
 }
 
-double FltWin::iniValue( const string& id_,
+double FLTrator::iniValue( const string& id_,
                          double min_, double max_, double default_ )
 //-------------------------------------------------------------------------------
 {
@@ -4099,7 +4099,7 @@ double FltWin::iniValue( const string& id_,
 	return _ini.value( id_, min_, max_, default_ );
 }
 
-const char* FltWin::iniValue( const string& id_,
+const char* FLTrator::iniValue( const string& id_,
                               size_t max_, const char* default_ )
 //-------------------------------------------------------------------------------
 {
@@ -4109,7 +4109,7 @@ const char* FltWin::iniValue( const string& id_,
 	return _ini.value( id_, max_, default_ );
 }
 
-void FltWin::init_parameter()
+void FLTrator::init_parameter()
 //-------------------------------------------------------------------------------
 {
 	// all parameters we understand
@@ -4226,7 +4226,7 @@ void FltWin::init_parameter()
 	_phaser_dx_range = iniValue( phaser_dx_range,0, 10, 0 );
 }
 
-string FltWin::demoFileName( unsigned level_/* = 0*/ ) const
+string FLTrator::demoFileName( unsigned level_/* = 0*/ ) const
 //-------------------------------------------------------------------------------
 {
 	ostringstream os;
@@ -4242,13 +4242,13 @@ string FltWin::demoFileName( unsigned level_/* = 0*/ ) const
 	return demoPath( os.str() );
 }
 
-bool FltWin::validDemoData( unsigned level_/* = 0*/ )
+bool FLTrator::validDemoData( unsigned level_/* = 0*/ )
 //-------------------------------------------------------------------------------
 {
 	return loadDemoData( level_, true );
 }
 
-unsigned FltWin::pickRandomDemoLevel( unsigned minLevel_/* = 0*/, unsigned maxLevel_/* = 0*/ )
+unsigned FLTrator::pickRandomDemoLevel( unsigned minLevel_/* = 0*/, unsigned maxLevel_/* = 0*/ )
 //-------------------------------------------------------------------------------
 {
 	// pick a random level between [minLevel, maxLevel]
@@ -4269,7 +4269,7 @@ unsigned FltWin::pickRandomDemoLevel( unsigned minLevel_/* = 0*/, unsigned maxLe
 	return minLevel;	// return a valid level even if there's no demo data
 }
 
-bool FltWin::loadDemoData( unsigned level_/* = 0*/, bool dryrun_/* = false*/ )
+bool FLTrator::loadDemoData( unsigned level_/* = 0*/, bool dryrun_/* = false*/ )
 //-------------------------------------------------------------------------------
 {
 	if ( !dryrun_ )
@@ -4330,7 +4330,7 @@ bool FltWin::loadDemoData( unsigned level_/* = 0*/, bool dryrun_/* = false*/ )
 	return true;
 }
 
-bool FltWin::saveDemoData() const
+bool FLTrator::saveDemoData() const
 //-------------------------------------------------------------------------------
 {
 	ofstream f( demoFileName().c_str() );
@@ -4441,7 +4441,7 @@ static void loadParameter( ifstream& f_, IniParameter& ini_ )
 	}
 }
 
-bool FltWin::loadDefaultIniParameter()
+bool FLTrator::loadDefaultIniParameter()
 //-------------------------------------------------------------------------------
 {
 	string iniFileName( levelPath( "ini.txt" ) );
@@ -4453,7 +4453,7 @@ bool FltWin::loadDefaultIniParameter()
 	return true;
 }
 
-bool FltWin::loadTranslations()
+bool FLTrator::loadTranslations()
 //-------------------------------------------------------------------------------
 {
 	if ( _lang.empty() )
@@ -4468,7 +4468,7 @@ bool FltWin::loadTranslations()
 	return true;
 }
 
-bool FltWin::loadLevel( unsigned level_, string& levelFileName_ )
+bool FLTrator::loadLevel( unsigned level_, string& levelFileName_ )
 //-------------------------------------------------------------------------------
 {
 	string levelFileName( levelFileName_ );
@@ -4547,7 +4547,7 @@ bool FltWin::loadLevel( unsigned level_, string& levelFileName_ )
 }
 
 #ifndef NO_PREBUILD_LANDSCAPE
-void FltWin::clear_level_image_cache()
+void FLTrator::clear_level_image_cache()
 //-------------------------------------------------------------------------------
 {
 	delete _terrain;
@@ -4558,7 +4558,7 @@ void FltWin::clear_level_image_cache()
 	_background = 0;
 }
 
-Fl_Image *FltWin::terrain_as_image()
+Fl_Image *FLTrator::terrain_as_image()
 //-------------------------------------------------------------------------------
 {
 	int W = T.size();
@@ -4638,7 +4638,7 @@ static Fl_RGB_Image *read_RGBA_image( int W_, int H_ )
 
 static const Fl_Color BlueBoxColor = fl_rgb_color( 254, 254, 254 );
 
-Fl_Image *FltWin::background_as_image()
+Fl_Image *FLTrator::background_as_image()
 //-------------------------------------------------------------------------------
 {
 	int W = T.size();
@@ -4668,7 +4668,7 @@ Fl_Image *FltWin::background_as_image()
 	return image;
 }
 
-Fl_Image *FltWin::landscape_as_image()
+Fl_Image *FLTrator::landscape_as_image()
 //-------------------------------------------------------------------------------
 {
 	int W = T.size();
@@ -4700,7 +4700,7 @@ Fl_Image *FltWin::landscape_as_image()
 
 #endif //NO_PREBUILD_LANDSCAPE
 
-bool FltWin::create_terrain()
+bool FLTrator::create_terrain()
 //-------------------------------------------------------------------------------
 {
 	assert( _level > 0 && _level <= MAX_LEVEL );
@@ -4871,7 +4871,7 @@ bool FltWin::create_terrain()
 	return true;
 }
 
-bool FltWin::revert_level()
+bool FLTrator::revert_level()
 //-------------------------------------------------------------------------------
 {
 	if ( reversLevel() )
@@ -4975,7 +4975,7 @@ static void connectPoints( vector<Point> &terrain_, Terrain& T_, bool edgy_ )
 	}
 }
 
-void FltWin::create_level()
+void FLTrator::create_level()
 //-------------------------------------------------------------------------------
 {
 	struct terrain_data
@@ -5230,7 +5230,7 @@ void FltWin::create_level()
 	addScrolloutZone();
 }
 
-void FltWin::draw_badies() const
+void FLTrator::draw_badies() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Badies.size(); i++ )
@@ -5239,7 +5239,7 @@ void FltWin::draw_badies() const
 	}
 }
 
-void FltWin::draw_bombs() const
+void FLTrator::draw_bombs() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Bombs.size(); i++ )
@@ -5248,7 +5248,7 @@ void FltWin::draw_bombs() const
 	}
 }
 
-void FltWin::draw_cumuluses() const
+void FLTrator::draw_cumuluses() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Cumuluses.size(); i++ )
@@ -5257,7 +5257,7 @@ void FltWin::draw_cumuluses() const
 	}
 }
 
-void FltWin::draw_drops() const
+void FLTrator::draw_drops() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Drops.size(); i++ )
@@ -5266,7 +5266,7 @@ void FltWin::draw_drops() const
 	}
 }
 
-void FltWin::draw_explosions() const
+void FLTrator::draw_explosions() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Explosions.size(); i++ )
@@ -5275,7 +5275,7 @@ void FltWin::draw_explosions() const
 	}
 }
 
-void FltWin::draw_missiles() const
+void FLTrator::draw_missiles() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Missiles.size(); i++ )
@@ -5284,7 +5284,7 @@ void FltWin::draw_missiles() const
 	}
 }
 
-void FltWin::draw_phasers() const
+void FLTrator::draw_phasers() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Phasers.size(); i++ )
@@ -5293,7 +5293,7 @@ void FltWin::draw_phasers() const
 	}
 }
 
-void FltWin::draw_radars() const
+void FLTrator::draw_radars() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Radars.size(); i++ )
@@ -5302,7 +5302,7 @@ void FltWin::draw_radars() const
 	}
 }
 
-void FltWin::draw_rockets() const
+void FLTrator::draw_rockets() const
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Rockets.size(); i++ )
@@ -5311,7 +5311,7 @@ void FltWin::draw_rockets() const
 	}
 }
 
-void FltWin::draw_objects( bool pre_ ) const
+void FLTrator::draw_objects( bool pre_ ) const
 //-------------------------------------------------------------------------------
 {
 	if ( pre_ )
@@ -5331,7 +5331,7 @@ void FltWin::draw_objects( bool pre_ ) const
 	}
 }
 
-int FltWin::drawText( int x_, int y_, const char *text_, size_t sz_, Fl_Color c_, ... ) const
+int FLTrator::drawText( int x_, int y_, const char *text_, size_t sz_, Fl_Color c_, ... ) const
 //-------------------------------------------------------------------------------
 {
 	char buf[200];
@@ -5364,7 +5364,7 @@ int FltWin::drawText( int x_, int y_, const char *text_, size_t sz_, Fl_Color c_
 	return lround( x / SCALE_X );
 }
 
-int FltWin::drawTextBlock( int x_, int y_, const char *text_, size_t sz_,
+int FLTrator::drawTextBlock( int x_, int y_, const char *text_, size_t sz_,
                            int line_height_, Fl_Color c_, ... ) const
 //-------------------------------------------------------------------------------
 {
@@ -5400,7 +5400,7 @@ int FltWin::drawTextBlock( int x_, int y_, const char *text_, size_t sz_,
 	return x;
 }
 
-int FltWin::drawTable( int w_, int y_, const char *text_, size_t sz_, Fl_Color c_, ... ) const
+int FLTrator::drawTable( int w_, int y_, const char *text_, size_t sz_, Fl_Color c_, ... ) const
 //-------------------------------------------------------------------------------
 {
 	char buf[200];
@@ -5453,7 +5453,7 @@ int FltWin::drawTable( int w_, int y_, const char *text_, size_t sz_, Fl_Color c
 	return x;
 }
 
-int FltWin::drawTableBlock( int w_, int y_, const char *text_, size_t sz_,
+int FLTrator::drawTableBlock( int w_, int y_, const char *text_, size_t sz_,
                             int line_height_, Fl_Color c_, ... ) const
 //-------------------------------------------------------------------------------
 {
@@ -5490,7 +5490,7 @@ int FltWin::drawTableBlock( int w_, int y_, const char *text_, size_t sz_,
 	return w_ < 0 ? max_w : x;
 }
 
-void FltWin::draw_fadeout()
+void FLTrator::draw_fadeout()
 //-------------------------------------------------------------------------------
 {
 	if ( _dimmout || ( _effects > 1 && _state == PAUSED && !_done ) )
@@ -5532,7 +5532,7 @@ void FltWin::draw_fadeout()
 	}
 }
 
-void FltWin::draw_tvmask() const
+void FLTrator::draw_tvmask() const
 //-------------------------------------------------------------------------------
 {
 	// NOTE: the idea for screen mask display and the mask values are taken from:
@@ -5567,7 +5567,7 @@ void FltWin::draw_tvmask() const
 	tvmask->draw( 0, 0 );
 }
 
-void FltWin::draw_tv() const
+void FLTrator::draw_tv() const
 //-------------------------------------------------------------------------------
 {
 	if ( _scanlines )
@@ -5592,7 +5592,7 @@ void FltWin::draw_tv() const
 		draw_tvmask();
 }
 
-void FltWin::draw_score()
+void FLTrator::draw_score()
 //-------------------------------------------------------------------------------
 {
 	static FltImage _lifes[3];
@@ -5750,7 +5750,7 @@ void FltWin::draw_score()
 	}
 }
 
-void FltWin::draw_scores()
+void FLTrator::draw_scores()
 //-------------------------------------------------------------------------------
 {
 	fl_rectf( 0, 0, w(), h(), 0x11111100 );
@@ -5796,7 +5796,7 @@ void FltWin::draw_scores()
 	draw_tv();
 }
 
-void FltWin::draw_title()
+void FLTrator::draw_title()
 //-------------------------------------------------------------------------------
 {
 	static Fl_Image *bgImage = 0;
@@ -5969,7 +5969,7 @@ void FltWin::draw_title()
 	draw_fadeout();
 }
 
-void FltWin::draw_shaded_background( int xoff_, int W_ )
+void FLTrator::draw_shaded_background( int xoff_, int W_ )
 //-------------------------------------------------------------------------------
 {
 	// draw a shaded bg
@@ -6003,7 +6003,7 @@ void FltWin::draw_shaded_background( int xoff_, int W_ )
 	}
 }
 
-void FltWin::draw_shaded_landscape( int xoff_, int W_ )
+void FLTrator::draw_shaded_landscape( int xoff_, int W_ )
 //-------------------------------------------------------------------------------
 {
 	T.check();
@@ -6071,7 +6071,7 @@ void FltWin::draw_shaded_landscape( int xoff_, int W_ )
 	}
 }
 
-void FltWin::draw_outline( int xoff_, int W_, int outline_width_,
+void FLTrator::draw_outline( int xoff_, int W_, int outline_width_,
                            Fl_Color outline_color_sky_,
                            Fl_Color outline_color_ground_ ) const
 //-------------------------------------------------------------------------------
@@ -6126,7 +6126,7 @@ void FltWin::draw_outline( int xoff_, int W_, int outline_width_,
 	fl_line_style( 0 );
 }
 
-void FltWin::draw_landscape( int xoff_, int W_ )
+void FLTrator::draw_landscape( int xoff_, int W_ )
 //-------------------------------------------------------------------------------
 {
 	// draw landscape
@@ -6180,7 +6180,7 @@ void FltWin::draw_landscape( int xoff_, int W_ )
 		draw_outline( xoff_, W_, outline_width, outline_color_sky, outline_color_ground );
 }
 
-bool FltWin::draw_decoration()
+bool FLTrator::draw_decoration()
 //-------------------------------------------------------------------------------
 {
 	bool redraw( false );
@@ -6261,7 +6261,7 @@ bool FltWin::draw_decoration()
 	return redraw;
 }
 
-void FltWin::draw()
+void FLTrator::draw()
 //-------------------------------------------------------------------------------
 {
 	if ( children() ) // Fix flicker when/after fireworks/ZXAttr are drawn
@@ -6272,7 +6272,7 @@ void FltWin::draw()
 	_xoff = xoff;
 }
 
-void FltWin::do_draw()
+void FLTrator::do_draw()
 //-------------------------------------------------------------------------------
 {
 	_frame++;
@@ -6399,7 +6399,7 @@ void FltWin::do_draw()
 	draw_fadeout();
 }
 
-void FltWin::check_bomb_hits()
+void FLTrator::check_bomb_hits()
 //-------------------------------------------------------------------------------
 {
 	vector <Bomb *>::iterator b = Bombs.begin();
@@ -6474,7 +6474,7 @@ void FltWin::check_bomb_hits()
 	}
 }
 
-void FltWin::check_drop_hits()
+void FLTrator::check_drop_hits()
 //-------------------------------------------------------------------------------
 {
 	vector<Drop *>::iterator d = Drops.begin();
@@ -6507,7 +6507,7 @@ void FltWin::check_drop_hits()
 	}
 }
 
-void FltWin::check_missile_hits()
+void FLTrator::check_missile_hits()
 //-------------------------------------------------------------------------------
 {
 	vector<Missile *>::iterator m = Missiles.begin();
@@ -6630,7 +6630,7 @@ void FltWin::check_missile_hits()
 	}
 }
 
-void FltWin::check_rocket_hits()
+void FLTrator::check_rocket_hits()
 //-------------------------------------------------------------------------------
 {
 	vector<Rocket *>::iterator r = Rockets.begin();
@@ -6651,7 +6651,7 @@ void FltWin::check_rocket_hits()
 	}
 }
 
-void FltWin::check_hits()
+void FLTrator::check_hits()
 //-------------------------------------------------------------------------------
 {
 	check_missile_hits();
@@ -6661,7 +6661,7 @@ void FltWin::check_hits()
 	check_drop_hits();
 }
 
-void FltWin::create_explosion( int x_, int y_, Explosion::ExplosionType type_, double strength_,
+void FLTrator::create_explosion( int x_, int y_, Explosion::ExplosionType type_, double strength_,
                                const Fl_Color *colors_, int nColors_ )
 //-------------------------------------------------------------------------------
 {
@@ -6672,7 +6672,7 @@ void FltWin::create_explosion( int x_, int y_, Explosion::ExplosionType type_, d
 	}
 }
 
-void FltWin::create_spaceship()
+void FLTrator::create_spaceship()
 //-------------------------------------------------------------------------------
 {
 	delete _spaceship;
@@ -6689,7 +6689,7 @@ void FltWin::create_spaceship()
 	_spaceship->missileColor( (Fl_Color)( missile_color << 8 ) );
 }
 
-void FltWin::create_objects()
+void FLTrator::create_objects()
 //-------------------------------------------------------------------------------
 {
 	// Only consider scrolled part!
@@ -6777,7 +6777,7 @@ void FltWin::create_objects()
 	}
 }
 
-void FltWin::delete_objects()
+void FLTrator::delete_objects()
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Rockets.size(); i++ )
@@ -6803,7 +6803,7 @@ void FltWin::delete_objects()
 	Cumuluses.clear();
 }
 
-void FltWin::update_badies()
+void FLTrator::update_badies()
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Badies.size(); i++ )
@@ -6840,7 +6840,7 @@ void FltWin::update_badies()
 	}
 }
 
-void FltWin::update_bombs()
+void FLTrator::update_bombs()
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Bombs.size(); i++ )
@@ -6858,7 +6858,7 @@ void FltWin::update_bombs()
 	}
 }
 
-void FltWin::update_cumuluses()
+void FLTrator::update_cumuluses()
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Cumuluses.size(); i++ )
@@ -6895,7 +6895,7 @@ void FltWin::update_cumuluses()
 	}
 }
 
-void FltWin::update_drops()
+void FLTrator::update_drops()
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Drops.size(); i++ )
@@ -6945,7 +6945,7 @@ void FltWin::update_drops()
 	}
 }
 
-void FltWin::update_explosions()
+void FLTrator::update_explosions()
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Explosions.size(); i++ )
@@ -6964,7 +6964,7 @@ void FltWin::update_explosions()
 	}
 }
 
-void FltWin::update_missiles()
+void FLTrator::update_missiles()
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Missiles.size(); i++ )
@@ -6984,7 +6984,7 @@ void FltWin::update_missiles()
 	}
 }
 
-void FltWin::update_phasers()
+void FLTrator::update_phasers()
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Phasers.size(); i++ )
@@ -7005,7 +7005,7 @@ void FltWin::update_phasers()
 	}
 }
 
-void FltWin::update_radars()
+void FLTrator::update_radars()
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Radars.size(); i++ )
@@ -7026,7 +7026,7 @@ void FltWin::update_radars()
 	}
 }
 
-void FltWin::update_rockets()
+void FLTrator::update_rockets()
 //-------------------------------------------------------------------------------
 {
 	for ( size_t i = 0; i < Rockets.size(); i++ )
@@ -7097,7 +7097,7 @@ void FltWin::update_rockets()
 	}
 }
 
-void FltWin::update_objects()
+void FLTrator::update_objects()
 //-------------------------------------------------------------------------------
 {
 	update_missiles();
@@ -7111,7 +7111,7 @@ void FltWin::update_objects()
 	update_explosions();
 }
 
-void FltWin::setIcon()
+void FLTrator::setIcon()
 //-------------------------------------------------------------------------------
 {
 #if FLTK_HAS_NEW_FUNCTIONS
@@ -7126,7 +7126,7 @@ void FltWin::setIcon()
 #endif
 }
 
-void FltWin::setTitle()
+void FLTrator::setTitle()
 //-------------------------------------------------------------------------------
 {
 	ostringstream os;
@@ -7147,7 +7147,7 @@ void FltWin::setTitle()
 	copy_label( os.str().c_str() );
 }
 
-void FltWin::newUser()
+void FLTrator::newUser()
 //-------------------------------------------------------------------------------
 {
 	_user.name = DEFAULT_USER;
@@ -7156,7 +7156,7 @@ void FltWin::newUser()
 	changeState( TITLE, true );	// immediate display + reset demo timer
 }
 
-void FltWin::setUser()
+void FLTrator::setUser()
 //-------------------------------------------------------------------------------
 {
 	_user = _cfg->readUser( _user.name );
@@ -7176,7 +7176,7 @@ void FltWin::setUser()
 	DBG( "user " << _user.name << " completed: " << _user.completed );
 }
 
-void FltWin::resetUser()
+void FLTrator::resetUser()
 //-------------------------------------------------------------------------------
 {
 	_user.score = 0;
@@ -7190,7 +7190,7 @@ void FltWin::resetUser()
 	changeState( TITLE, true );	// immediate display + reset demo timer
 }
 
-void FltWin::setBgSoundFile()
+void FLTrator::setBgSoundFile()
 //-------------------------------------------------------------------------------
 {
 	_bgsound.erase();
@@ -7232,7 +7232,7 @@ void FltWin::setBgSoundFile()
 	}
 }
 
-void FltWin::setPaused( bool paused_ )
+void FLTrator::setPaused( bool paused_ )
 //-------------------------------------------------------------------------------
 {
 	if ( G_paused != paused_ )
@@ -7246,20 +7246,20 @@ void FltWin::setPaused( bool paused_ )
 	}
 }
 
-void FltWin::startBgSound() const
+void FLTrator::startBgSound() const
 //-------------------------------------------------------------------------------
 {
 	if ( _bgsound.size() )
 		Audio::instance()->play( _bgsound.c_str(), true );
 }
 
-void FltWin::keyClick() const
+void FLTrator::keyClick() const
 //-------------------------------------------------------------------------------
 {
 	Audio::instance()->play( "drop" );
 }
 
-void FltWin::toggleBgSound() const
+void FLTrator::toggleBgSound() const
 //-------------------------------------------------------------------------------
 {
 	if ( Audio::hasBgSound() )
@@ -7276,7 +7276,7 @@ void FltWin::toggleBgSound() const
 	}
 }
 
-bool FltWin::setFullscreen( bool fullscreen_ )
+bool FLTrator::setFullscreen( bool fullscreen_ )
 //-------------------------------------------------------------------------------
 {
 	static int ox = 0;
@@ -7361,7 +7361,7 @@ bool FltWin::setFullscreen( bool fullscreen_ )
 }
 
 /*virtual*/
-void FltWin::show()
+void FLTrator::show()
 //-------------------------------------------------------------------------------
 {
 	Inherited::show();
@@ -7378,7 +7378,7 @@ void FltWin::show()
 	}
 }
 
-bool FltWin::toggleBorder()
+bool FLTrator::toggleBorder()
 //-------------------------------------------------------------------------------
 {
 	if ( !fullscreen_active() )
@@ -7401,19 +7401,19 @@ bool FltWin::toggleBorder()
 	return false;
 }
 
-bool FltWin::toggleFullscreen()
+bool FLTrator::toggleFullscreen()
 //-------------------------------------------------------------------------------
 {
 	return setFullscreen( !fullscreen_active() );
 }
 
-void FltWin::toggleSound() const
+void FLTrator::toggleSound() const
 //-------------------------------------------------------------------------------
 {
 	Audio::instance()->disable( !Audio::instance()->disabled() );
 }
 
-void FltWin::togglePaused()
+void FLTrator::togglePaused()
 //-------------------------------------------------------------------------------
 {
 	_dimmout = !G_paused;
@@ -7429,7 +7429,7 @@ void FltWin::togglePaused()
 	}
 }
 
-void FltWin::toggleShip( bool prev_/* = false */ )
+void FLTrator::toggleShip( bool prev_/* = false */ )
 //-------------------------------------------------------------------------------
 {
 	int ships = _defaultIniParameter.value( "ships", 2, 9, 4 );
@@ -7446,7 +7446,7 @@ void FltWin::toggleShip( bool prev_/* = false */ )
 	changeState( TITLE, true );	// immediate display + reset demo timer
 }
 
-void FltWin::toggleUser( bool prev_/* = false */ )
+void FLTrator::toggleUser( bool prev_/* = false */ )
 //-------------------------------------------------------------------------------
 {
 	int found = -1;
@@ -7483,7 +7483,7 @@ void FltWin::toggleUser( bool prev_/* = false */ )
 	}
 }
 
-bool FltWin::dropBomb()
+bool FLTrator::dropBomb()
 //-------------------------------------------------------------------------------
 {
 	if ( !_bomb_lock && !paused() && Bombs.size() < 5 )
@@ -7502,7 +7502,7 @@ bool FltWin::dropBomb()
 	return false;
 }
 
-bool FltWin::fireMissile()
+bool FLTrator::fireMissile()
 //-------------------------------------------------------------------------------
 {
 	if ( Missiles.size() < 5 && !paused() )
@@ -7519,60 +7519,60 @@ bool FltWin::fireMissile()
 	return false;
 }
 
-void FltWin::bombUnlock()
+void FLTrator::bombUnlock()
 //-------------------------------------------------------------------------------
 {
 	_bomb_lock = false;
 }
 
 /*static*/
-void FltWin::cb_bomb_unlock( void *d_ )
+void FLTrator::cb_bomb_unlock( void *d_ )
 //-------------------------------------------------------------------------------
 {
-	((FltWin *)d_)->bombUnlock();
+	((FLTrator *)d_)->bombUnlock();
 }
 
 /*static*/
-void FltWin::cb_demo( void *d_ )
+void FLTrator::cb_demo( void *d_ )
 //-------------------------------------------------------------------------------
 {
-	((FltWin *)d_)->changeState( DEMO );
+	((FLTrator *)d_)->changeState( DEMO );
 }
 
 /*static*/
-void FltWin::cb_paused( void *d_ )
+void FLTrator::cb_paused( void *d_ )
 //-------------------------------------------------------------------------------
 {
-	((FltWin *)d_)->changeState();
+	((FLTrator *)d_)->changeState();
 }
 
 /*static*/
-void FltWin::cb_update( void *d_ )
+void FLTrator::cb_update( void *d_ )
 //-------------------------------------------------------------------------------
 {
 	if ( _USE_FLTK_RUN )
 		Fl::repeat_timeout( FRAMES, cb_update, d_ );
-	FltWin *f = (FltWin *)d_;
-	f->state() == FltWin::DEMO ? f->onUpdateDemo() : f->onUpdate();
+	FLTrator *f = (FLTrator *)d_;
+	f->state() == FLTrator::DEMO ? f->onUpdateDemo() : f->onUpdate();
 }
 
 /*static*/
-void FltWin::cb_action_key_delay( void *d_ )
+void FLTrator::cb_action_key_delay( void *d_ )
 //-------------------------------------------------------------------------------
 {
-	FltWin *f = (FltWin *)d_;
+	FLTrator *f = (FLTrator *)d_;
 	f->onActionKey( false );
 }
 
 /*static*/
-void FltWin::cb_fire_key_delay( void *d_ )
+void FLTrator::cb_fire_key_delay( void *d_ )
 //-------------------------------------------------------------------------------
 {
-	FltWin *f = (FltWin *)d_;
+	FLTrator *f = (FLTrator *)d_;
 	f->_right = true;
 }
 
-void FltWin::onActionKey( bool delay_/* = true*/ )
+void FLTrator::onActionKey( bool delay_/* = true*/ )
 //-------------------------------------------------------------------------------
 {
 	Fl::remove_timeout( cb_demo, this );
@@ -7624,7 +7624,7 @@ void FltWin::onActionKey( bool delay_/* = true*/ )
 	changeState();
 }
 
-void FltWin::onCollision()
+void FLTrator::onCollision()
 //-------------------------------------------------------------------------------
 {
 	if ( _done || ( _state == DEMO && !_exit_demo_on_collision ) )
@@ -7641,14 +7641,14 @@ void FltWin::onCollision()
 		_done = true;
 }
 
-void FltWin::onPaused()
+void FLTrator::onPaused()
 //-------------------------------------------------------------------------------
 {
 	Audio::instance()->stop_bg();
 	setTitle();
 }
 
-void FltWin::onContinued()
+void FLTrator::onContinued()
 //-------------------------------------------------------------------------------
 {
 	if ( _state == LEVEL )
@@ -7658,7 +7658,7 @@ void FltWin::onContinued()
 	setTitle();
 }
 
-void FltWin::onGotFocus()
+void FLTrator::onGotFocus()
 //-------------------------------------------------------------------------------
 {
 	if ( !_focus_out && !_showFirework )
@@ -7680,7 +7680,7 @@ void FltWin::onGotFocus()
 	setTitle();
 }
 
-void FltWin::onLostFocus()
+void FLTrator::onLostFocus()
 //-------------------------------------------------------------------------------
 {
 	if ( !_focus_out )
@@ -7696,7 +7696,7 @@ void FltWin::onLostFocus()
 	setTitle();
 }
 
-void FltWin::onDemo()
+void FLTrator::onDemo()
 //-------------------------------------------------------------------------------
 {
 	// starting demo...
@@ -7704,7 +7704,7 @@ void FltWin::onDemo()
 	onNextScreen( true );
 }
 
-void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
+void FLTrator::onNextScreen( bool fromBegin_/* = false*/ )
 //-------------------------------------------------------------------------------
 {
 	DBG( "onNextScreen(" << fromBegin_ << ") " << _first_level );
@@ -7859,7 +7859,7 @@ void FltWin::onNextScreen( bool fromBegin_/* = false*/ )
 	}
 }
 
-bool FltWin::zoominShip( bool updateOrigin_ )
+bool FLTrator::zoominShip( bool updateOrigin_ )
 //-------------------------------------------------------------------------------
 {
 	if ( !_gimmicks )
@@ -7899,7 +7899,7 @@ bool FltWin::zoominShip( bool updateOrigin_ )
 	return true;
 }
 
-bool FltWin::zoomoutShip()
+bool FLTrator::zoomoutShip()
 //-------------------------------------------------------------------------------
 {
 	if ( !_gimmicks )
@@ -7926,7 +7926,7 @@ bool FltWin::zoomoutShip()
 	return true;
 }
 
-void FltWin::onTitleScreen()
+void FLTrator::onTitleScreen()
 //-------------------------------------------------------------------------------
 {
 	if ( _trainMode )
@@ -7946,7 +7946,7 @@ void FltWin::onTitleScreen()
 	}
 }
 
-void FltWin::onUpdateDemo()
+void FLTrator::onUpdateDemo()
 //-------------------------------------------------------------------------------
 {
 
@@ -8017,7 +8017,7 @@ void FltWin::onUpdateDemo()
 	}
 }
 
-bool FltWin::correctDX()
+bool FLTrator::correctDX()
 //-------------------------------------------------------------------------------
 {
 //#define CORRECT_DX_LIMIT 10
@@ -8038,7 +8038,7 @@ bool FltWin::correctDX()
 	return true;
 }
 
-void FltWin::onUpdate()
+void FLTrator::onUpdate()
 //-------------------------------------------------------------------------------
 {
 	if ( _mouseMode )
@@ -8144,7 +8144,7 @@ public:
 	}
 };
 
-int FltWin::handle( int e_ )
+int FLTrator::handle( int e_ )
 //-------------------------------------------------------------------------------
 {
 	static const int F10_KEY = FL_F + 10;
@@ -8499,7 +8499,7 @@ int FltWin::handle( int e_ )
 	return Inherited::handle( e_ );
 }
 
-int FltWin::run()
+int FLTrator::run()
 //-------------------------------------------------------------------------------
 {
 	if ( !Fl::first_window() )
@@ -8524,7 +8524,7 @@ int FltWin::run()
 	return 0;
 }
 
-string FltWin::firstTimeSetup()
+string FLTrator::firstTimeSetup()
 //-------------------------------------------------------------------------------
 {
 	string cmd;
@@ -8699,6 +8699,6 @@ int main( int argc_, const char *argv_[] )
 	int seed = time( 0 );
 	Random::pSrand( seed );
 
-	FltWin fltrator( argc_, argv_ );
+	FLTrator fltrator( argc_, argv_ );
 	return fltrator.run();
 }
