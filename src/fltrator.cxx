@@ -4073,6 +4073,7 @@ bool FLTrator::collisionWithTerrain( const Object& o_ ) const
 			}
 			if ( collided ) break;
 		}
+		if ( collided ) break;
 	}
 	delete[] screen;
 
