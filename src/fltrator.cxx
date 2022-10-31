@@ -4803,7 +4803,7 @@ bool FLTrator::create_terrain()
 		T[0].bg_color = T.bg_color;
 	}
 #ifndef NO_PREBUILD_LANDSCAPE
-	if ( _level != lastCachedTerrainLevel || !_terrain )
+	if ( ( _level != lastCachedTerrainLevel || !_terrain ) && T.size() < 16384 )
 	{
 		clear_level_image_cache();
 		// terrains with color change cannot be prebuild as image!
@@ -5831,11 +5831,11 @@ void FLTrator::draw_title()
 			for ( int n = 0; n < stripe_h; n++ )
 			{
 				if ( y + n <= border_h || y + n >= h() - border_h )
-					fl_line( 0, y + n , w(), y + n );
+					fl_xyline( 0, y + n , w() );
 				else
 				{
-					fl_line( 0, y + n, border_w, y + n );
-					fl_line( w() - border_w, y + n, w(), y + n );
+					fl_xyline( 0, y + n, border_w );
+					fl_xyline( w() - border_w, y + n, w() );
 				}
 			}
 			ci++;
