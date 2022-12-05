@@ -93,6 +93,10 @@
 // macro to send error output to cerr AND logfile
 #define PERR(x) { cerr << x << endl; LOG(x) }
 
+#if FLTK_HAS_IMAGE_SCALING
+#include <config.h>
+#endif
+
 static const unsigned MAX_LEVEL = 10;
 static const unsigned MAX_LEVEL_REPEAT = 3;
 
@@ -4803,15 +4807,27 @@ bool FLTrator::create_terrain()
 		T[0].bg_color = T.bg_color;
 	}
 #ifndef NO_PREBUILD_LANDSCAPE
-	if ( ( _level != lastCachedTerrainLevel || !_terrain ) && T.size() < 16384 )
+	if ( ( _level != lastCachedTerrainLevel || !_terrain ) )
 	{
-		clear_level_image_cache();
-		// terrains with color change cannot be prebuild as image!
-		_terrain = T.hasColorChange() ? 0 : terrain_as_image();
-		if ( _terrain && _gimmicks && _effects && !_classic )
+#ifdef FLTK_USE_CAIRO
+		static const size_t MAX_LEVEL_IMAGE_SIZE = 16383;
+#else
+		static const size_t MAX_LEVEL_IMAGE_SIZE = 32767;
+#endif
+		if ( T.size() <= MAX_LEVEL_IMAGE_SIZE )
 		{
-			_landscape = landscape_as_image();
-			_background = background_as_image();
+			clear_level_image_cache();
+			// terrains with color change cannot be prebuild as image!
+			_terrain = T.hasColorChange() ? 0 : terrain_as_image();
+			if ( _terrain && _gimmicks && _effects && !_classic )
+			{
+				_landscape = landscape_as_image();
+				_background = background_as_image();
+			}
+		}
+		else
+		{
+			PERR( "Can't prebuild landscape: T.size() > " << MAX_LEVEL_IMAGE_SIZE << " (" << T.size() << ")" );
 		}
 	}
 #endif
@@ -8525,6 +8541,15 @@ int FLTrator::run()
 	return 0;
 }
 
+static void message_position( int x_, int y_, int center_ )
+//-------------------------------------------------------------------------------
+{
+#if FLTK_HAS_IMAGE_SCALING
+	// this is not available in FLTK 1.3!
+	fl_message_position( x_, y_, center_ );
+#endif
+}
+
 string FLTrator::firstTimeSetup()
 //-------------------------------------------------------------------------------
 {
@@ -8538,7 +8563,7 @@ string FLTrator::firstTimeSetup()
 	Fl::screen_xywh( X, Y, W, H );
 	X += W / 2;
 	Y += H / 2;
-	fl_message_position( X, Y, 1 );
+	message_position( X, Y, 1 );
 	int fast_slow = fl_choice( "Do you have a fast computer?\n\n"
 	                           "If you have any recent hardware\n"
 	                           "you should answer 'yes'.",
@@ -8552,7 +8577,7 @@ string FLTrator::firstTimeSetup()
 	int speed = 0;
 	if ( fast_slow == 1 ) // fast computer
 	{
-		fl_message_position( X, Y, 1 );
+		message_position( X, Y, 1 );
 		speed = fl_choice( "*How* fast is your computer?\n\n"
 		                   "'Very fast' enables all features,\n"
 		                   "'Fast' most features.\n"
@@ -8573,7 +8598,7 @@ string FLTrator::firstTimeSetup()
 	}
 	else if ( fast_slow == 2 ) // slow computer
 	{
-		fl_message_position( X, Y, 1 );
+		message_position( X, Y, 1 );
 		speed = fl_choice( "*How* slow is your computer?\n\n"
 		                   "'Slow' lowers the frame rate,\n"
 		                   "'Very slow' enables frame correction,\n"
@@ -8591,7 +8616,7 @@ string FLTrator::firstTimeSetup()
 				cmd = "-SCsbe";
 		}
 	}
-	fl_message_position( X, Y, 1 );
+	message_position( X, Y, 1 );
 	int ship = fl_choice( "Use penetrator like spaceship type?\n\n"
 	                      "'No' uses the standard ship.",
 	                      NULL, YES, NO );
@@ -8600,7 +8625,7 @@ string FLTrator::firstTimeSetup()
 
 	if ( fast_slow == 1 ) // fast computer
 	{
-		fl_message_position( X, Y, 1 );
+		message_position( X, Y, 1 );
 		int fullscreen = fl_choice( "Start in fullscreen mode?\n\n"
 		                            "NOTE: You can always toggle fullscreen mode\n"
 		                            "on game title screen with F10.",
@@ -8624,7 +8649,7 @@ string FLTrator::firstTimeSetup()
 
 		if ( speed == 2 )	// very fast computer
 		{
-			fl_message_position( X, Y, 1 );
+			message_position( X, Y, 1 );
 			int all_effects = fl_choice( "Turn on ALL effects?\n\n",
 			                             NULL, NO, YES );
 			if ( all_effects == 2 ) // YES
@@ -8638,7 +8663,7 @@ string FLTrator::firstTimeSetup()
 
 	trim( cmd );
 	_cfg->set( "defaultArgs", cmd.c_str() );
-	fl_message_position( X, Y, 1 );
+	message_position( X, Y, 1 );
 	fl_message( "Configuration saved to\n"
 	            "'%s'.\n\n"
 	            "To re-run next time start with\n"
