@@ -3,6 +3,7 @@ export ROOT?=$(PWD)
 APPLICATION=fltrator
 LANDSCAPE=fltrator-landscape
 PLAYSOUND=playsound
+FIREWORKS=fireworks
 
 FLTK_CONFIG=$(FLTK_DIR)fltk-config
 
@@ -20,6 +21,9 @@ OBJ2=\
 
 OBJ3=\
 	$(PLAYSOUND).o
+
+OBJ4=\
+	$(FIREWORKS).o
 
 INCLUDE=-I$(ROOT)/include -I.
 
@@ -75,6 +79,8 @@ TARGET2=$(LANDSCAPE)
 
 TARGET3=$(PLAYSOUND)
 
+TARGET4=$(FIREWORKS)
+
 export TARGET_NAME=$(TARGET1)-$(shell ./$(TARGET1) --version)
 export TARGET_PATH=$(TARGET_ROOT)/$(TARGET_NAME)
 
@@ -93,6 +99,10 @@ $(TARGET2): depend $(OBJ2)
 $(TARGET3): depend $(OBJ3)
 	@echo Linking $@...
 	$(CXX) -o $@  $(OBJ3) $(LDFLAGS)
+
+$(TARGET4): depend $(OBJ4)
+	@echo Linking $@...
+	$(CXX) -o $@  $(OBJ4) $(LDFLAGS)
 
 %.o: $(SRC)/%.cxx
 	@echo Compiling $@...
