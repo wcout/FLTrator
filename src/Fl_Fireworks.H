@@ -1,7 +1,7 @@
 //
 // Fl_Fireworks
 //
-// Copyright 2015-2016 Christian Grabner.
+// Copyright 2015-2023 Christian Grabner.
 //
 // This file is part of FLTrator.
 //
@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <cstdarg>
 #include <cmath>
+#include <ctime> // time()
 #include <vector>
 
 class Fl_Fireworks : public Fl_Double_Window
@@ -346,7 +347,7 @@ protected:
 	}
 	int handle( int e_ )
 	{
-		DBG( "handle " << e_ << " key: 0x" << hex << Fl::event_key()  << dec );
+		DBG( "handle " << e_ << " key: 0x" << std::hex << Fl::event_key()  << std::dec );
 		if ( e_ == FL_FOCUS || e_ == FL_UNFOCUS )
 			return 1;
 		if ( e_ == FL_KEYDOWN || e_ == FL_SHORTCUT || e_ == FL_RELEASE )

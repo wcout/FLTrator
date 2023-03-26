@@ -3635,6 +3635,7 @@ FLTrator::FLTrator( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 						_hide_cursor = true;
 						break;
 					case 'C':
+						LOG( "Using speed correction" );
 						_correct_speed = true;
 						_USE_FLTK_RUN = false;
 						break;
@@ -4295,7 +4296,7 @@ bool FLTrator::loadDemoData( unsigned level_/* = 0*/, bool dryrun_/* = false*/ )
 		return false;
 	if ( dryrun_ )
 		return true;
-	LOG( "using demo data " <<  demoFileName().c_str() );
+	LOG( "Using demo data " <<  demoFileName().c_str() );
 	_demoData.seed( seed );
 	unsigned long flags;
 	f >> flags;
@@ -4425,7 +4426,7 @@ static void loadParameter( ifstream& f_, IniParameter& ini_ )
 			continue;
 		if ( line[0] == ';' || line[0] == '/' || line[0] == '#' )
 			continue;
-		size_t pos = line.find( "=" );
+		size_t pos = line.find( '=' );
 		if ( pos == string::npos )
 			continue;
 		string name = line.substr( 0, pos );
@@ -8526,12 +8527,12 @@ int FLTrator::run()
 
 	if ( _USE_FLTK_RUN )
 	{
-		LOG( "using Fl::run()" );
+		LOG( "Using Fl::run()" );
 		Fl::add_timeout( FRAMES, cb_update, this );
 		return Fl::run();
 	}
 
-	LOG( "using own main loop" );
+	LOG( "Using own main loop" );
 	while ( Fl::first_window() )
 	{
 		_waiter.wait( FPS );
