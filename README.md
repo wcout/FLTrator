@@ -282,17 +282,13 @@ unneccessary screen effects:
 
     -S (start with settings for a slow computer).
 
-You should also turn on speed correction using:
+You can also try the auto-frame-correction mode by specifying `-C`.
 
-    -C (use speed correction measurement).
+     This tries to dynamically adjust the scrolling speed.
 
 Your best combination of command line switches for a slow computer:
 
     -CScpsb
-
-
-**NEW**: You can also try the auto-frame-correction mode by specifying `-C`.
-         This tries to dynamically adjust the scrolling speed.
 
 ### Fast Machine?
 
