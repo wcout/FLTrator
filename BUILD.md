@@ -168,10 +168,13 @@ Download FLTK into some directory say: `~/fltk-1.3-mingw/`:
     cd ~/fltk-1.3-mingw
 
     make clean
-    ./configure --host=i686-w64-mingw32 --enable-cygwin --enable-localjpeg  --enable-localpng --enable-localzlib
+    ./configure --host=i686-w64-mingw32 --disable-gdiplus --enable-cygwin --enable-localjpeg  --enable-localpng --enable-localzlib
 
 *Note*: Use the mingw host you have installed on your machine in the `--host=...` switch
         (The above was mine under Ubuntu 14.04).
+
+*Note*: I recommmend disabling GDIPLUS to speed up the drawing of explosions considerably (no antialiasing).
+
 
 The compilation may stop (at least it did until recently) somewhere within fluid.
 But this doesn't matter, as the FLTK libraries are built already at this point.
