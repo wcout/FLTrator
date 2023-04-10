@@ -282,9 +282,13 @@ unneccessary screen effects:
 
     -S (start with settings for a slow computer).
 
+You should also turn on speed correction using:
+
+    -C (use speed correction measurement).
+
 Your best combination of command line switches for a slow computer:
 
-    -Scpsb
+    -CScpsb
 
 
 **NEW**: You can also try the auto-frame-correction mode by specifying `-C`.
