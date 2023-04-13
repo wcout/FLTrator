@@ -1,5 +1,5 @@
 //
-// Copyright 2015-2022 Christian Grabner.
+// Copyright 2015-2023 Christian Grabner.
 //
 // This file is part of FLTrator.
 //
@@ -187,6 +187,11 @@ static unsigned FPS = DEFAULT_FPS;
 
 static double FRAMES = 1. / FPS;
 static unsigned DX = 200 / FPS;
+#ifdef REDRAW_FPS
+static double REDRAWS = 1. / REDRAW_FPS;
+#else
+static double REDRAWS = 0.;
+#endif
 static unsigned SCORE_STEP = (int)( 200. / (double)DX ) * DX;
 
 static bool G_paused = true;
@@ -3141,6 +3146,7 @@ private:
 	static void cb_bomb_unlock( void *d_ );
 	static void cb_demo( void *d_ );
 	static void cb_paused( void *d_ );
+	static void cb_redraw( void *d_ );
 	static void cb_update( void *d_ );
 	State state() const { return _state; }
 	State last_state() const { return _last_state; }
@@ -3848,6 +3854,7 @@ void FLTrator::onStateChange( State from_state_ )
 				{
 					_showFirework = false;
 					_disableKeys = true;
+					Fl_Fireworks::REDRAW_DELAY = REDRAWS;
 					Fireworks fireworks( *this, _texts.value( "greeting", 50,
 					                     "proudly presents..." ), isFullscreen() ?
 					                     _ini.value( "fw_duration_fs", 0, 30, 20 ) :
@@ -7565,6 +7572,15 @@ void FLTrator::cb_paused( void *d_ )
 }
 
 /*static*/
+void FLTrator::cb_redraw( void *d_ )
+//-------------------------------------------------------------------------------
+{
+	Fl::repeat_timeout( REDRAWS, cb_redraw, d_ );
+	FLTrator *f = (FLTrator *)d_;
+	f->redraw();
+}
+
+/*static*/
 void FLTrator::cb_update( void *d_ )
 //-------------------------------------------------------------------------------
 {
@@ -7605,7 +7621,7 @@ void FLTrator::onActionKey( bool delay_/* = true*/ )
 		// feedback is required.
 		Fl::add_timeout( 1. / 50, cb_action_key_delay, this );
 		_dimmout = true;	// signal: gray out screen
-		redraw();	// update the screen
+		if ( !REDRAWS ) redraw();	// update the screen
 		return;
 	}
 
@@ -8014,7 +8030,7 @@ void FLTrator::onUpdateDemo()
 	}
 
 	_draw_xoff = _xoff;
-	redraw();
+	if ( !REDRAWS ) redraw();	// update the screen
 
 	if ( _done )
 	{
@@ -8067,7 +8083,7 @@ void FLTrator::onUpdate()
 	if ( _state == TITLE || _state == SCORE || G_paused )
 	{
 		_draw_xoff = _xoff;
-		redraw();
+		if ( !REDRAWS ) redraw();	// update the screen
 		return;
 	}
 
@@ -8085,7 +8101,7 @@ void FLTrator::onUpdate()
 	{
 		Audio::instance()->check( true );	// reliably stop bg-sound
 		_draw_xoff = _xoff;
-		redraw();
+		if ( !REDRAWS ) redraw();	// update the screen
 		return;
 	}
 
@@ -8118,7 +8134,7 @@ void FLTrator::onUpdate()
 	_demoData.setShip( _xoff, _spaceship->cx(), _spaceship->cy() );
 
 	_draw_xoff = _xoff;
-	redraw();
+	if ( !REDRAWS ) redraw();	// update the screen
 	if ( _collision )
 		changeState( LEVEL_FAIL );
 	else if ( _done )
@@ -8525,6 +8541,11 @@ int FLTrator::run()
 
 	changeState();
 
+	if ( REDRAWS )
+	{
+		LOG( "Using synced redraw with " << 1. / REDRAWS << " fps" );
+		Fl::add_timeout( REDRAWS, cb_redraw, this );
+	}
 	if ( _USE_FLTK_RUN )
 	{
 		LOG( "Using Fl::run()" );
@@ -8536,7 +8557,13 @@ int FLTrator::run()
 	while ( Fl::first_window() )
 	{
 		_waiter.wait( FPS );
-		_correct_speed && correctDX();
+		// Workaround: due to initial system image caching, there may be
+		// delays at the begin of a terrain, that lead to speed correction,
+		// making it unplayable (ship collides with first obstacle).
+		// As a "fix" do not make speed correction as long as the ship
+		// is zoom out animated at level begin.
+		if ( !_zoomoutShip || _zoomoutShip->done() )
+			_correct_speed && correctDX();
 		_state == DEMO ? onUpdateDemo() : onUpdate();
 	}
 	return 0;

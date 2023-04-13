@@ -1,4 +1,9 @@
 
+# REDRAW_FPS limits the screen redraw rate
+# i.e. makes it indepent then from the scene update rate.
+# Uncomment this line if you have performance issues
+#REDRAW_FPS=30
+
 export ROOT?=$(PWD)
 APPLICATION=fltrator
 LANDSCAPE=fltrator-landscape
@@ -40,6 +45,9 @@ endif
 FLTKCXXFLAGS = `$(FLTK_CONFIG) --cxxflags`
 CXXDEFS+=-DUSE_FLTK_RUN=$(USE_FLTK_RUN)
 CXXDEFS+=-DHAVE_SLOW_CPU=$(HAVE_SLOW_CPU)
+ifneq "$(REDRAW_FPS)" ""
+CXXDEFS+=-DREDRAW_FPS=$(REDRAW_FPS)
+endif
 
 ifdef HAVE_XRANDR
 CXXDEFS+=-DHAVE_XRANDR

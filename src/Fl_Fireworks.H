@@ -29,7 +29,11 @@
 class Fl_Fireworks : public Fl_Double_Window
 {
 	typedef Fl_Double_Window Inherited;
-	static const double POLL_DELAY;
+
+public:
+	static double POLL_DELAY;
+	static double REDRAW_DELAY;
+
 private:
 
 	class Fl_Firework_Particle
@@ -323,6 +327,8 @@ public:
 		DBG( "after show" );
 
 		Fl::add_timeout( 0.1, cb_poll, this );
+		if ( REDRAW_DELAY )
+			Fl::add_timeout( 0.1, cb_redraw, this );
 	}
 	void explodeColor( Fl_Color c_ ) { _explodeColor = c_; }
 	Fl_Color explodeColor() const { return _explodeColor; }
@@ -343,7 +349,7 @@ protected:
 		do_callback( this, -1 );
 		for ( size_t i = 0; i < _rockets.size(); i++ )
 			_rockets[i]->update();
-		redraw();
+		if ( !REDRAW_DELAY ) redraw();
 	}
 	int handle( int e_ )
 	{
@@ -368,6 +374,7 @@ private:
 		DBG( "terminate" );
 		hide();
 		Fl::remove_timeout( cb_poll, this );
+		Fl::remove_timeout( cb_redraw, this );
 		for ( size_t i = 0; i < _rockets.size(); i++ )
 			delete _rockets[i];
 		_rockets.clear();
@@ -383,6 +390,12 @@ private:
 		((Fl_Fireworks *)d_)->onUpdate();
 		Fl::repeat_timeout( POLL_DELAY, cb_poll, d_ );
 	}
+	static void cb_redraw( void *d_ )
+	{
+		DBG( "cb_redraw" );
+		((Fl_Fireworks *)d_)->redraw();
+		Fl::repeat_timeout( REDRAW_DELAY, cb_redraw, d_ );
+	}
 private:
 	std::vector <Fl_Firework_Rocket *> _rockets;
 	Fl_Window *_baseWin;
@@ -391,4 +404,6 @@ private:
 };
 
 /*static*/
-const double Fl_Fireworks::POLL_DELAY = 0.02;
+double Fl_Fireworks::POLL_DELAY = 0.02;
+/*static*/
+double Fl_Fireworks::REDRAW_DELAY = 0.05;

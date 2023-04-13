@@ -1,18 +1,18 @@
 FLTrator Build/Installation notes
 =================================
 
-I developed this game on Linux (Ubuntu 14.04 64 bit).
+I developed this game on Linux (initially on Ubuntu 14.04 64 bit, later on Ubuntu 20.04 64 bit).
 
 It is written with **FLTK**, and has **no other dependencies**.
 
 To compile it, you first need FLTK 1.3 (I recommend to use at least version 1.3.3)
-or above.
+or above (FLTrator is already optimized for FLTK 1.4 too).
 
 As I have no access to and no knowledge about Apple OSX I can only assume
 that the code should compile and run on this platform (as FLTK works well on OSX).
 
 I have successfully tested and run a Mingw compiled version of the program
-under Windows XP and Windows 7.
+under Windows XP, Windows 7 and Windows 10/11.
 
 Under Linux the program was tested with various distros, also some older ones.
 
@@ -173,7 +173,8 @@ Download FLTK into some directory say: `~/fltk-1.3-mingw/`:
 *Note*: Use the mingw host you have installed on your machine in the `--host=...` switch
         (The above was mine under Ubuntu 14.04).
 
-*Note*: I recommmend disabling GDIPLUS to speed up the drawing of explosions considerably (no antialiasing).
+*Note*: `disable-gdiplus` is only for FLTK 1.4. I recommmend disabling GDIPLUS to speed up
+        the drawing of explosions considerably (no antialiasing).
 
 
 The compilation may stop (at least it did until recently) somewhere within fluid.

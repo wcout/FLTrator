@@ -18,6 +18,10 @@
 
 #include <cstdlib>
 #include <sstream>
+#include <string>
+
+static double Scale = 1.;
+
 static bool playSound( const char *wav_ )
 {
 	int ret = 0;
@@ -60,6 +64,8 @@ public:
 			}
 		}
 	}
+	virtual double scale_x() const { return Scale; }
+	virtual double scale_y() const { return Scale; }
 private:
 	Fl_Color _orig_bg;
 };
@@ -74,9 +80,14 @@ int main( int argc_, const char *argv_[] )
 	Fl_Double_Window win( 800, 600, "Fireworks demo" );
 	win.resizable(win);
 	win.show();
-	if ( argc_ > 1 )
-		win.fullscreen();
-//	win.wait_for_expose();
+	for ( int i = 1; i < argc_; i++ )
+	{
+		std::string arg( argv_[i] );
+		if ( arg.find( 'f' ) != std::string::npos )
+			win.fullscreen();
+		if ( arg.find( 's' ) != std::string::npos )
+			Scale++;
+	}
 	Fireworks fireworks( win  );
 	while (win.shown() && win.children())
 		Fl::wait();
