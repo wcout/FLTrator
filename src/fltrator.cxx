@@ -8719,7 +8719,7 @@ int main( int argc_, const char *argv_[] )
 
 	string cmd;
 	for ( int i = 1; i < argc_; i++ )
-		cmd += ( i > 1 ? (string)" " : (string)"" + argv_[i] );
+		cmd += ( i > 1 ? (string)" " + argv_[i] : (string)"" + argv_[i] );
 	LOG( "cmd: '" << cmd << "'" );
 	fl_register_images();
 	Fl::scheme( "gtk+" );
