@@ -3,6 +3,13 @@ FLTK_DIR=../../fltk-1.3-mingw32/
 USE_FLTK_RUN=0
 HAVE_SLOW_CPU=0
 
+# REDRAW_FPS limits the screen redraw rate
+# i.e. makes it indepent then from the scene update rate.
+# Windows seems to behave more responsive with that (but don't make it higher!).
+# If you have a very fast machine you could try to
+# comment out this line, to get a more smooth scrolling perhaps.
+REDRAW_FPS=30
+
 export ROOT?=$(PWD)/..
 
 HOST=i686-w64-mingw32
