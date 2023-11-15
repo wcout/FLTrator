@@ -4817,11 +4817,25 @@ bool FLTrator::create_terrain()
 #ifndef NO_PREBUILD_LANDSCAPE
 	if ( ( _level != lastCachedTerrainLevel || !_terrain ) )
 	{
-#ifdef FLTK_USE_CAIRO
-		static const size_t MAX_LEVEL_IMAGE_SIZE = 16383;
+		static size_t MAX_LEVEL_IMAGE_SIZE = 0;
+		if ( !MAX_LEVEL_IMAGE_SIZE )
+		{
+			MAX_LEVEL_IMAGE_SIZE = 32766;
+			const char *session = fl_getenv( "XDG_SESSION_TYPE" );
+			if ( session && (string)session == "wayland" )
+			{
+				// We are on wayland, but maybe we are using XWayland
+				// XWayland seems to have a limit for offscreen drawing
+#ifndef FLTK_USE_CAIRO
+				MAX_LEVEL_IMAGE_SIZE = 16383; // we use XWayland for sure
 #else
-		static const size_t MAX_LEVEL_IMAGE_SIZE = 32767;
+				// using Cairo
+				const char *backend = fl_getenv( "FLTK_BACKEND" );
+				if ( backend && (string)backend == "x11" )
+					MAX_LEVEL_IMAGE_SIZE = 16383; // FLTK forced to use XWayland
 #endif
+			}
+		}
 		if ( T.size() <= MAX_LEVEL_IMAGE_SIZE )
 		{
 			clear_level_image_cache();
@@ -4838,7 +4852,7 @@ bool FLTrator::create_terrain()
 			PERR( "Can't prebuild landscape: T.size() > " << MAX_LEVEL_IMAGE_SIZE << " (" << T.size() << ")" );
 		}
 	}
-#endif
+#endif // NO_PREBUILD_LANDSCAPE
 	if ( lastCachedTerrainLevel != _level )
 	{
 		// store last cached level + flags completed/classic (hacky!)
