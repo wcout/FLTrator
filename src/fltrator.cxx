@@ -3541,8 +3541,9 @@ FLTrator::FLTrator( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		{
 			arg = argv_[argi++];
 			--argc;
-			if ( arg[0] == '-' && ( arg != "-i" && arg[1] != 'U' ) )
-				defaultArgs.erase();
+			if ( arg.substr(0, 2) != "--" )
+				if ( arg[0] == '-' && ( arg != "-i" && arg[1] != 'U' ) )
+					defaultArgs.erase();
 		}
 		else
 		{
