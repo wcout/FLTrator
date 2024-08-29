@@ -94,7 +94,7 @@
 #define PERR(x) { cerr << x << endl; LOG(x) }
 
 #if FLTK_HAS_IMAGE_SCALING
-#include <config.h>
+#include <FL/fl_config.h>
 #endif
 
 static const unsigned MAX_LEVEL = 10;
