@@ -3461,6 +3461,7 @@ FLTrator::FLTrator( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_exit_demo_on_collision( false ),
 	_dimmout( false )
 {
+	resizable( this );
 	end();
 	_DX = DX;
 	int argc( argc_ );
