@@ -7422,7 +7422,6 @@ void FLTrator::show()
 bool FLTrator::toggleBorder()
 //-------------------------------------------------------------------------------
 {
-	static int border_h = -1;
 	if ( !fullscreen_active() )
 	{
 		if ( border() )
