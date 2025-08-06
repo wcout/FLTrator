@@ -3278,6 +3278,7 @@ private:
 	IniParameter _defaultIniParameter;
 	IniParameter _texts;
 	AnimText *_anim_text;
+	AnimText *_anim_start_again;
 	ImageAnimation *_zoomoutShip;
 	ImageAnimation *_zoominShip;
 	bool _disableKeys;
@@ -3449,6 +3450,7 @@ FLTrator::FLTrator( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_hide_cursor( false ),
 	_title( label() ),
 	_anim_text( 0 ),
+	_anim_start_again( 0 ),
 	_zoomoutShip( 0 ),
 	_zoominShip( 0 ),
 	_disableKeys( false ),
@@ -5783,10 +5785,16 @@ void FLTrator::draw_score()
 	}
 	else if ( _collision )
 	{
+		if ( !_anim_start_again )
+		{
+			string s = _texts.value( "start_again", 50, "START AGAIN!" );
+			(_anim_start_again = new AnimText( 0, SCALE_Y * 10, w(), s.c_str(),
+					FL_RED, FL_WHITE, 50, 30, false ))->start();
+		}
 		if ( _level_repeat + 1 > MAX_LEVEL_REPEAT )
 		{
-			drawTextBlock( -1, 50, _texts.value( "start_again", 50, "START AGAIN!" ),
-			               50, 60, FL_RED );
+			if ( _anim_start_again )
+				_anim_start_again->draw();
 		}
 	}
 }
@@ -7761,6 +7769,8 @@ void FLTrator::onNextScreen( bool fromBegin_/* = false*/ )
 	_spaceship = 0;
 	delete _anim_text;
 	_anim_text = 0;
+	delete _anim_start_again;
+	_anim_start_again = 0;
 
 	delete_objects();
 
