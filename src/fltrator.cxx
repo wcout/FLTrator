@@ -3463,7 +3463,6 @@ FLTrator::FLTrator( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_exit_demo_on_collision( false ),
 	_dimmout( false )
 {
-	resizable( this );
 	end();
 	_DX = DX;
 	int argc( argc_ );
@@ -3838,6 +3837,7 @@ FLTrator::FLTrator( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 
 	Fl::visual( FL_DOUBLE | FL_RGB );
 
+	resizable( fullscreen ? this : 0 );
 	setFullscreen( fullscreen );
 	show();
 }
@@ -7339,8 +7339,8 @@ bool FLTrator::setFullscreen( bool fullscreen_ )
 		if ( W == (int)SCREEN_W && H == (int)SCREEN_H )
 		{
 			PERR( "Use full screen work area " << X << "/" << Y << " " << W << "x" << H );
-			border( 0 );
-			position( X, Y );
+			size_range(SCREEN_W, SCREEN_H, 0, 0);
+			fullscreen();
 			show();
 			return true;
 		}
@@ -7360,27 +7360,26 @@ bool FLTrator::setFullscreen( bool fullscreen_ )
 			if ( setScreenResolution( SCREEN_W, SCREEN_H ) )
 			{
 				Fl::check();	// X11: neccessary for FLTK to register screen res. change!
+			}
+
+			// Check success to change resolution & if screen fits anyway
+			Fl::screen_xywh( X, Y, W, H );
+			if ( W == (int)SCREEN_W && H == (int)SCREEN_H )
+			{
+				// screen has just the right resolution, so fullscreen can be allowed
+				size_range(SCREEN_W, SCREEN_H, 0, 0); // enable resizable
 				fullscreen();
 			}
 			else
 			{
-				// failure to change resolution, check if screen fits anyway
-				Fl::screen_xywh( X, Y, W, H );
-				if ( W == (int)SCREEN_W && H == (int)SCREEN_H )
-				{
-					// screen has just the right resolution, so fullscreen can be allowed
-					fullscreen();
-				}
-				else
-				{
-					border( 1 );
-					PERR( "Failed to set resolution to " << SCREEN_W << "x"<< SCREEN_H <<
-					      " (is: " << W << "x" << H << ")" );
-				}
+				border( 1 );
+				size_range( SCREEN_W, SCREEN_H, SCREEN_W, SCREEN_H ); // disable resizable
+				PERR( "Failed to set resolution to " << SCREEN_W << "x"<< SCREEN_H <<
+				      " (is: " << W << "x" << H << ")" );
 			}
-			show();
-			size( SCREEN_W, SCREEN_H );	// WIN32: without window becomes size of screen!
 		}
+		show();
+		size( SCREEN_W, SCREEN_H );	// WIN32: without window becomes size of screen!
 	}
 	else
 	{
@@ -7405,6 +7404,7 @@ bool FLTrator::setFullscreen( bool fullscreen_ )
 			}
 			resize( ox, oy, SCREEN_W, SCREEN_H );
 		}
+		size_range(SCREEN_W, SCREEN_H, SCREEN_W, SCREEN_H); // disable resizable
 	}
 	return fullscreen_active();
 }
