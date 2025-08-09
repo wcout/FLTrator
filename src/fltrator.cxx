@@ -7331,7 +7331,7 @@ bool FLTrator::setFullscreen( bool fullscreen_ )
 	static int ox = 0;
 	static int oy = 0;
 	int X, Y, W, H;
-
+#if 0
 	if ( fullscreen_ )
 	{
 		// Check special case resolution matches work area
@@ -7345,7 +7345,7 @@ bool FLTrator::setFullscreen( bool fullscreen_ )
 			return true;
 		}
 	}
-
+#endif
 	bool isFull = fullscreen_active();
 
 	if ( fullscreen_ )
