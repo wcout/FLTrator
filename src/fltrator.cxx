@@ -3279,6 +3279,7 @@ private:
 	IniParameter _texts;
 	AnimText *_anim_text;
 	AnimText *_anim_start_again;
+	AnimText *_anim_level_finished;
 	ImageAnimation *_zoomoutShip;
 	ImageAnimation *_zoominShip;
 	bool _disableKeys;
@@ -3451,6 +3452,7 @@ FLTrator::FLTrator( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_title( label() ),
 	_anim_text( 0 ),
 	_anim_start_again( 0 ),
+	_anim_level_finished( 0 ),
 	_zoomoutShip( 0 ),
 	_zoominShip( 0 ),
 	_disableKeys( false ),
@@ -5776,8 +5778,15 @@ void FLTrator::draw_score()
 		}
 		else
 		{
-			drawText( -1, 50, _texts.value( "level_finished", 50,  "LEVEL %u FINISHED!" ),
-			          50, FL_WHITE, _level );
+			if ( !_anim_level_finished )
+			{
+				string s = _texts.value( "level_finished", 50,  "LEVEL %u FINISHED!" );
+				char buf[200];
+				snprintf( buf, sizeof( buf ), s.c_str(), _level );
+				(_anim_level_finished = new AnimText( 0, SCALE_Y * 10, w(), buf,
+						FL_WHITE, FL_BLACK, 50, 30, false ))->start();
+			}
+			_anim_level_finished->draw();
 		}
 		if ( _bonus > 0 )
 			drawText( -1, -80, _texts.value( "bonus", 20, "Bonus: %u" ),
@@ -5793,8 +5802,7 @@ void FLTrator::draw_score()
 		}
 		if ( _level_repeat + 1 > MAX_LEVEL_REPEAT )
 		{
-			if ( _anim_start_again )
-				_anim_start_again->draw();
+			_anim_start_again->draw();
 		}
 	}
 }
@@ -7771,6 +7779,8 @@ void FLTrator::onNextScreen( bool fromBegin_/* = false*/ )
 	_anim_text = 0;
 	delete _anim_start_again;
 	_anim_start_again = 0;
+	delete _anim_level_finished;
+	_anim_level_finished = 0;
 
 	delete_objects();
 
