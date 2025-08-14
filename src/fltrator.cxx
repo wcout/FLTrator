@@ -1644,7 +1644,7 @@ bool Object::image( const char *image_, double scale_/* = 1.*/ )
 //-------------------------------------------------------------------------------
 {
 	assert( image_ );
-	bool changed =_image.get( imgPath.get( image_ ).c_str(), scale_ );
+	bool changed = _image.get( imgPath.get( image_ ).c_str(), scale_ );
 	if ( changed )
 	{
 		Fl::remove_timeout( cb_animate, this );
@@ -6273,7 +6273,7 @@ bool FLTrator::draw_decoration()
 		static int deco_x = -1;
 		static int deco_y = -1;
 		bool changed = deco.image( imgPath.get( "deco.png" ).c_str(), 2 ); // scale deco images x 2
-		if ( changed && _faintout_deco )
+		if ( changed && deco.image() &&_faintout_deco )
 			faintout_rgb_image( deco.image() );
 		if ( ( !G_paused && _xoff < (int)_DX ) || deco_x == -1 || changed )
 		{
