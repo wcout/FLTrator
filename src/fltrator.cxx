@@ -1,5 +1,5 @@
 //
-// Copyright 2015-2023 Christian Grabner.
+// Copyright 2015-2025 Christian Grabner.
 //
 // This file is part of FLTrator.
 //
