@@ -2237,7 +2237,8 @@ public:
 	          Fl_Color bgColor_ = FL_BLACK,
 	          int maxSize_ = 30,
 	          int minSize_ = 10,
-	          bool once_ = true ) :
+	          bool once_ = true,
+	          bool effects_ = false ) :
 		Inherited( (ObjectType)0, x_, y_, 0, w_ ),
 		_text( text_ ),
 		_color( color_ ),
@@ -2245,6 +2246,7 @@ public:
 		_maxSize( maxSize_ ),
 		_minSize( minSize_ ),
 		_once( once_ ),
+		_effects( effects_ ),
 		_sz( _minSize ),
 		_up( true ),
 		_hold( 0 ),
@@ -2259,13 +2261,35 @@ public:
 		if ( _done )
 			return;
 		flt_font( FL_HELVETICA_BOLD_ITALIC, _sz );
+		int X = _x;
+		int Y = _y;
 		int W = 0;
 		int H = 0;
 		fl_measure( _text.c_str(), W, H, 1 );
+
 		fl_color( _bgColor );
-		fl_draw( _text.c_str(), _x + ceil( SCALE_Y * 2 ), _y + ceil( SCALE_Y * 2 ), _w, H, FL_ALIGN_CENTER, 0, 1 );
+		fl_draw( _text.c_str(), X + ceil( SCALE_Y * 2 ), Y + ceil( SCALE_Y * 2 ), _w, H, FL_ALIGN_CENTER, 0, 1 );
 		fl_color( _color );
-		fl_draw( _text.c_str(), _x, _y, _w, H, FL_ALIGN_CENTER, 0, 1 );
+		if ( _effects && !G_paused )
+		{
+			// nice color striped text effect
+			for ( int y = Y; y < Y + H; y += H / 30 )
+			{
+				fl_push_clip( X, y, X + _w, y + H / 30 );
+				switch ( rand() % 3 )
+				{
+					case 0:  fl_color( _color ); break;
+					case 1:  fl_color( fl_darker( _color ) ); break;
+					default: fl_color( fl_lighter( _color ) );
+				}
+				fl_draw( _text.c_str(), X, Y, _w, H, FL_ALIGN_CENTER, 0, 1 );
+				fl_pop_clip();
+			}
+		}
+		else
+		{
+			fl_draw( _text.c_str(), X, Y, _w, H, FL_ALIGN_CENTER, 0, 1 );
+		}
 		if ( W > _w - 30 )
 			_maxSize = _sz;
 	}
@@ -2315,6 +2339,7 @@ private:
 	int _maxSize;
 	int _minSize;
 	bool _once;
+	bool _effects;
 	int _sz;
 	bool _up;
 	int _hold;
@@ -5731,7 +5756,7 @@ void FLTrator::draw_score()
 				else
 					s = _texts.value( "mission_part", 50, "** WELL DONE! **" );
 				(_anim_text = new AnimText( 0, SCALE_Y * 10, w(), s.c_str(),
-					FL_WHITE, FL_RED, 50, 40, false ))->start();
+					FL_WHITE, FL_RED, 50, 40, false, gimmicks() ))->start();
 
 				// add a "completed" bonus
 				int completed_bonus = _bonus * ( _user.completed % 2 + 1 );
@@ -5936,7 +5961,8 @@ void FLTrator::draw_title()
 	}
 	if ( !title_anim )
 		(title_anim = new AnimText( 0, SCALE_Y * 45, w(), "FL'TRATOR",
-		                             FL_RED, FL_WHITE, 90, 80, false ))->start();
+		                             FL_RED, FL_WHITE, 90, 80, false,
+		                             gimmicks() ))->start();
 	if ( !G_paused && _cfg->non_zero_scores() && _flip++ % (FPS * 8) > ( FPS * 5) )
 	{
 		if ( bgImage2 )
