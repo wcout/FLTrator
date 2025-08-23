@@ -4855,7 +4855,9 @@ bool FLTrator::create_terrain()
 		}
 		else
 		{
-			PERR( "Can't prebuild landscape: T.size() > " << MAX_LEVEL_IMAGE_SIZE << " (" << T.size() << ")" );
+			PERR( "Can't prebuild landscape for level " << _level <<
+			      ": T.size() > " << MAX_LEVEL_IMAGE_SIZE <<
+			      " (" << T.size() << ")" );
 		}
 	}
 #endif // NO_PREBUILD_LANDSCAPE
@@ -5860,7 +5862,7 @@ void FLTrator::draw_title()
 	static Fl_Image *bgImage2 = 0;
 	static int _flip = 0;
 	static int reveal_height = 0;
-	static AnimText *title_anim;
+	static AnimText *title_anim = 0;
 
 	if ( _frame <= 1 )
 	{
@@ -5997,7 +5999,7 @@ void FLTrator::draw_title()
 		if ( !space_to_start )
 			(space_to_start = new AnimText( 0, h() - 100 * SCALE_Y, w(),
 				_texts.value( "space_to_start", 28, "** hit space to start **" ),
-			FL_YELLOW, FL_BLACK, 40, 36, false ))->start();
+			FL_YELLOW, FL_BLACK, 32, 26, false ))->start();
 		space_to_start->draw();
 		drawText( -1, -26, _texts.value( "title_help", 90, "%c/%c: toggle user     %c/%c: toggle ship     s: %s sound     b: %s music" ),
 			10, FL_GRAY,
@@ -8220,10 +8222,18 @@ int FLTrator::handle( int e_ )
 	static const int F12_KEY = FL_F + 12;
 	static bool ignore_space = false;
 
+	if ( e_ == FL_NO_EVENT ) return 1;
+
 	if ( FL_FOCUS == e_ )
 	{
-		Fl::focus( this );
-		onGotFocus();
+		// Skip handling if we already have focus, because
+		// we get the event repeatedly when dragging the window!
+		// (guess, because we - delebretaley - do not call the base class)
+		if (Fl::focus() != this )
+		{
+			Fl::focus( this );
+			onGotFocus();
+		}
 		return 1;
 	}
 	if ( FL_UNFOCUS == e_ )
