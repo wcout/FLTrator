@@ -3213,7 +3213,7 @@ private:
 	void toggleBgSound() const;
 	void toggleSound() const;
 	void togglePaused();
-	void setBgSoundFile();
+	void setBgSoundFile( const string &name_ = "bgsound", bool pick_random_ = true );
 	void startBgSound() const;
 	void flt_draw( const char* buf_, int n_, int x_, int y_, int &sx_, int &sy_ )
 	{
@@ -3937,6 +3937,8 @@ void FLTrator::onStateChange( State from_state_ )
 			onNextScreen( ( from_state_ != PAUSED || _done ) );
 			break;
 		case DEMO:
+//			NOTE: if intro music should stop at demo:
+//			Audio::instance()->stop_bg();
 			setPaused( false );
 			onDemo();
 			break;
@@ -7302,18 +7304,19 @@ void FLTrator::resetUser()
 	changeState( TITLE, true );	// immediate display + reset demo timer
 }
 
-void FLTrator::setBgSoundFile()
+void FLTrator::setBgSoundFile( const string &name_/* = "bgsound"*/,
+                               bool pick_random_/* = true*/ )
 //-------------------------------------------------------------------------------
 {
 	_bgsound.erase();
 	if ( Audio::hasBgSound() )
 	{
-		string bgfile = wavPath.get( "bgsound" );
+		string bgfile = wavPath.get( name_ );
 		if ( access( bgfile.c_str(), R_OK ) == 0 )
 		{
 			_bgsound = bgfile;
 		}
-		else
+		else if ( pick_random_ )
 		{
 			// pick a random bg sound from folder 'bgsound'
 			dirent **ls;
@@ -7377,9 +7380,11 @@ void FLTrator::toggleBgSound() const
 	if ( Audio::hasBgSound() )
 	{
 		Audio::instance()->bg_disable( !Audio::instance()->bg_disabled() );
-		if ( Audio::instance()->bg_enabled() && _state == LEVEL )
+		if ( Audio::instance()->bg_enabled() &&
+		     ( _state == LEVEL || _state == TITLE ) )
 			startBgSound();
-		else if ( Audio::instance()->bg_disabled() && _state == LEVEL )
+		else if ( Audio::instance()->bg_disabled() &&
+		          (_state == LEVEL || _state == TITLE ) )
 			Audio::instance()->stop_bg();
 	}
 	else
@@ -7698,6 +7703,7 @@ void FLTrator::onActionKey( bool delay_/* = true*/ )
 	Fl::remove_timeout( cb_demo, this );
 	Fl::remove_timeout( cb_paused, this );
 	Fl::remove_timeout( cb_action_key_delay, this );
+	Audio::instance()->stop_bg();
 	if ( delay_ )
 	{
 		// Delay handling of action key to allow re-entering mainloop
@@ -8061,6 +8067,7 @@ void FLTrator::onTitleScreen()
 	_state = TITLE;
 	_frame = 0;
 	Fl::remove_timeout( cb_demo, this );
+	Audio::instance()->stop_bg();
 	if ( !G_paused && Fl::focus() == this )
 	{
 		// set timeout for demo start
@@ -8072,6 +8079,12 @@ void FLTrator::onTitleScreen()
 
 		// start ship animation playscreen->titlescreen effect
 		zoominShip( enterTitle );
+
+		if ( gimmicks() )
+		{
+			setBgSoundFile( "intro", /*pick_random_*/false );
+			startBgSound();
+		}
 	}
 }
 
@@ -8127,6 +8140,8 @@ void FLTrator::onUpdateDemo()
 	_draw_xoff = _xoff;
 	if ( !REDRAWS ) redraw();	// update the screen
 
+	Audio::instance()->check();	// test bg-sound expired
+
 	if ( _done )
 	{
 		_demoData.clear();
@@ -8179,6 +8194,7 @@ void FLTrator::onUpdate()
 	{
 		_draw_xoff = _xoff;
 		if ( !REDRAWS ) redraw();	// update the screen
+		Audio::instance()->check();
 		return;
 	}
 
