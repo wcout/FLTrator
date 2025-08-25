@@ -139,6 +139,8 @@ See `ATTRIBUTION` file for files with Creative Commons licence.
 
    [OpenGameArt](http://www.opengameart.org)
 
+   [Pixabay](http://www.pixabay.com)
+
 that are licenced under `Attribution 3.0 licence` or are Public Domain.
 The sounds are modified slightly (duration, format), but keep their licence.
 
