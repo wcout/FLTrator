@@ -15,7 +15,7 @@
 // http://www.gnu.org/licenses/.
 //
 #ifndef VERSION
-#define VERSION "v2.6"
+#define VERSION "v2.7"
 #endif
 
 #ifdef WIN32
