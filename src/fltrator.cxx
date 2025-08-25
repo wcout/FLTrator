@@ -3973,7 +3973,7 @@ void FLTrator::onStateChange( State from_state_ )
 }
 
 FLTrator::State FLTrator::changeState( State toState_/* = NEXT_STATE*/,
-                                   bool force_/* = false*/ )
+                                       bool force_/* = false*/ )
 //-------------------------------------------------------------------------------
 {
 	State state = force_ ? NO_STATE : _state;
@@ -4124,7 +4124,7 @@ bool FLTrator::collisionWithTerrain( const Object& o_ ) const
 } // collisionWithTerrain
 
 int FLTrator::iniValue( const string& id_,
-                      int min_, int max_, int default_ )
+                        int min_, int max_, int default_ )
 //-------------------------------------------------------------------------------
 {
 	_ini.found( false );
@@ -4134,7 +4134,7 @@ int FLTrator::iniValue( const string& id_,
 }
 
 double FLTrator::iniValue( const string& id_,
-                         double min_, double max_, double default_ )
+                           double min_, double max_, double default_ )
 //-------------------------------------------------------------------------------
 {
 	_ini.found( false );
@@ -4144,7 +4144,7 @@ double FLTrator::iniValue( const string& id_,
 }
 
 const char* FLTrator::iniValue( const string& id_,
-                              size_t max_, const char* default_ )
+                                size_t max_, const char* default_ )
 //-------------------------------------------------------------------------------
 {
 	_ini.found( false );
@@ -5437,7 +5437,7 @@ int FLTrator::drawText( int x_, int y_, const char *text_, size_t sz_, Fl_Color 
 }
 
 int FLTrator::drawTextBlock( int x_, int y_, const char *text_, size_t sz_,
-                           int line_height_, Fl_Color c_, ... ) const
+                             int line_height_, Fl_Color c_, ... ) const
 //-------------------------------------------------------------------------------
 {
 	char buf[1024];
@@ -5526,7 +5526,7 @@ int FLTrator::drawTable( int w_, int y_, const char *text_, size_t sz_, Fl_Color
 }
 
 int FLTrator::drawTableBlock( int w_, int y_, const char *text_, size_t sz_,
-                            int line_height_, Fl_Color c_, ... ) const
+                              int line_height_, Fl_Color c_, ... ) const
 //-------------------------------------------------------------------------------
 {
 	char buf[1024];
@@ -6157,8 +6157,8 @@ void FLTrator::draw_shaded_landscape( int xoff_, int W_ )
 }
 
 void FLTrator::draw_outline( int xoff_, int W_, int outline_width_,
-                           Fl_Color outline_color_sky_,
-                           Fl_Color outline_color_ground_ ) const
+                             Fl_Color outline_color_sky_,
+                             Fl_Color outline_color_ground_ ) const
 //-------------------------------------------------------------------------------
 {
 	// draw ONLY outline
@@ -6747,7 +6747,7 @@ void FLTrator::check_hits()
 }
 
 void FLTrator::create_explosion( int x_, int y_, Explosion::ExplosionType type_, double strength_,
-                               const Fl_Color *colors_, int nColors_ )
+                                 const Fl_Color *colors_, int nColors_ )
 //-------------------------------------------------------------------------------
 {
 	if ( _gimmicks )
@@ -7942,7 +7942,9 @@ void FLTrator::onNextScreen( bool fromBegin_/* = false*/ )
 	{
 		(_anim_text = new AnimText( 0, SCALE_Y * 20, w(), _level_name.c_str() ))->start();
 		if ( _state == LEVEL )
+		{
 			setBgSoundFile();
+		}
 	}
 	// start ship animation titlescreen->playscreen effect
 	zoomoutShip();
