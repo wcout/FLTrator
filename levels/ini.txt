@@ -53,8 +53,22 @@ spaceship3.explosion_color=0xcccccc
 spaceship2.missile_color=0xff4600
 
 # use alternate font (normal/italic)
+# NOTE: Windows, X11, Xft need one character prefix ' ', 'I', 'B', 'P',
+# other platforms need the full name.
+
 #font=BComic Sans MS
 #ifont=PComic Sans MS
+#font= Comic Sans MS bold
+#ifont=Comic Sans MS bold italic
 
-#font=Bscreen
-#ifont=Pscreen
+#font=Verdana bold
+#ifont=Verdana bold italic
+
+# use alternate fixed font (normal/italic)
+# (see NOTE above)
+
+#mono_font=screen
+#mono_ifont=screen bold italic
+
+#mono_font= Monospace
+#mono_ifont=Monospace bold italic

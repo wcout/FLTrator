@@ -3575,13 +3575,21 @@ FLTrator::FLTrator( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	trim( defaultArgs );
 	LOG( "defaultArgs: '" << defaultArgs << "'" );
 
-	// use Verdana as application font (or value from ini file)
-	const char *defaultFont = Fl::get_font( FL_HELVETICA );
-	bool oldFontNameFormat = defaultFont && defaultFont[0] == ' '; // Xft format?
-	static string font = _ini.value( "font", 50, oldFontNameFormat ? " Verdana" : "Verdana" );
-	static string ifont = _ini.value( "ifont", 50, oldFontNameFormat ? "PVerdana" : "Verdana bold italic" );
-	Fl::set_font( FL_HELVETICA,  font.c_str() );	// font name must be static!
-	Fl::set_font( FL_HELVETICA_BOLD_ITALIC, ifont.c_str() );
+	// Use default FLTK serif font as application font (or value from ini file)
+	static string font = _ini.value( "font", 50, "" );
+	static string ifont = _ini.value( "ifont", 50, "" );
+	if ( font.size() )
+		Fl::set_font( FL_HELVETICA,  font.c_str() );	// font name must be static!
+	if ( ifont.size() )
+		Fl::set_font( FL_HELVETICA_BOLD_ITALIC, ifont.c_str() );
+
+	// Use default FLTK monospaced font as fixed font (or value from ini file)
+	static string mono_font = _ini.value( "mono_font", 50, "" );
+	static string mono_ifont = _ini.value( "mono_ifont", 50, "" );
+	if ( mono_font.size() )
+		Fl::set_font( FL_COURIER, mono_font.c_str() );	// font name must be static!
+	if ( mono_ifont.size() )
+		Fl::set_font( FL_COURIER_BOLD_ITALIC, mono_ifont.c_str() );
 
 	string defaultArgsSave = defaultArgs;	// needed for --info
 	if ( argc == 2 && ((string)argv_[1]) == "--info" ) // --info for default parameters
@@ -5509,7 +5517,7 @@ int FLTrator::drawTable( int w_, int y_, const char *text_, size_t sz_, Fl_Color
 	va_start( argp, c_ );
 	vsnprintf( buf, sizeof( buf ), text_, argp );
 	va_end( argp );
-	flt_font( FL_HELVETICA_BOLD_ITALIC, sz_ );
+	flt_font( FL_COURIER_BOLD_ITALIC, sz_ );
 	Fl_Color cc = fl_contrast( FL_WHITE, c_ );
 	fl_color( cc );
 
@@ -5715,7 +5723,7 @@ void FLTrator::draw_score()
 		drawText( -110, 20, _texts.value( "trainer", 7, "TRAINER" ), 20, FL_RED );
 	}
 
-	flt_font( FL_HELVETICA, 30 );
+	flt_font( FL_COURIER, 30 );
 	fl_color( fl_contrast( FL_WHITE, T.ground_color ) );
 
 	char buf[50];
