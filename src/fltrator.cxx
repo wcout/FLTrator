@@ -8038,7 +8038,10 @@ void FLTrator::onTitleScreen()
 	{
 		// set timeout for demo start
 		if ( !_no_demo )
-			Fl::add_timeout( 20.0, cb_demo, this );
+		{
+			static int demo_delay = _ini.value( "demo_delay", 20, 60, 20 );
+			Fl::add_timeout( demo_delay, cb_demo, this );
+		}
 
 		// start ship animation playscreen->titlescreen effect
 		zoominShip( enterTitle );
