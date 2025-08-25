@@ -2238,7 +2238,8 @@ public:
 	          int maxSize_ = 30,
 	          int minSize_ = 10,
 	          bool once_ = true,
-	          bool effects_ = false ) :
+	          bool effects_ = false,
+	          int angle_ = 0 ) :
 		Inherited( (ObjectType)0, x_, y_, 0, w_ ),
 		_text( text_ ),
 		_color( color_ ),
@@ -2247,6 +2248,7 @@ public:
 		_minSize( minSize_ ),
 		_once( once_ ),
 		_effects( effects_ ),
+		_angle( angle_ ),
 		_sz( _minSize ),
 		_up( true ),
 		_hold( 0 ),
@@ -2265,30 +2267,54 @@ public:
 		int Y = _y;
 		int W = 0;
 		int H = 0;
-		fl_measure( _text.c_str(), W, H, 1 );
+		fl_measure( _text.c_str(), W, H, _angle ? 0 : 1 );
+		int dh = fl_descent();
 
 		fl_color( _bgColor );
-		fl_draw( _text.c_str(), X + ceil( SCALE_Y * 2 ), Y + ceil( SCALE_Y * 2 ), _w, H, FL_ALIGN_CENTER, 0, 1 );
+		if ( _angle )
+		{
+			fl_draw( _angle, _text.c_str(), X + ceil( SCALE_Y * 2 ) + ( _w - W ) / 2,
+			         Y + ceil( SCALE_Y * 2 ) + H - dh );
+		}
+		else
+		{
+			fl_draw( _text.c_str(), X + ceil( SCALE_Y * 2 ), Y + ceil( SCALE_Y * 2 ), _w, H, FL_ALIGN_CENTER, 0, 1 );
+		}
 		fl_color( _color );
 		if ( _effects && !G_paused )
 		{
 			// nice color striped text effect
-			for ( int y = Y; y < Y + H; y += H / 30 )
+			int dy = H / 30;
+			for ( int y = Y; y < Y + H; y += dy )
 			{
-				fl_push_clip( X, y, X + _w, y + H / 30 );
+				fl_push_clip( X, y, X + _w, y + dy );
 				switch ( rand() % 3 )
 				{
 					case 0:  fl_color( _color ); break;
 					case 1:  fl_color( fl_darker( _color ) ); break;
 					default: fl_color( fl_lighter( _color ) );
 				}
-				fl_draw( _text.c_str(), X, Y, _w, H, FL_ALIGN_CENTER, 0, 1 );
+				if ( _angle )
+				{
+					fl_draw( _angle, _text.c_str(), X + ( _w - W ) / 2, Y + H - dh );
+				}
+				else
+				{
+					fl_draw( _text.c_str(), X, Y, _w, H, FL_ALIGN_CENTER, 0, 1 );
+				}
 				fl_pop_clip();
 			}
 		}
 		else
 		{
-			fl_draw( _text.c_str(), X, Y, _w, H, FL_ALIGN_CENTER, 0, 1 );
+			if ( _angle )
+			{
+				fl_draw( _angle, _text.c_str(), X + ( _w - W ) / 2, Y + H - dh);
+			}
+			else
+			{
+				fl_draw( _text.c_str(), X, Y, _w, H, FL_ALIGN_CENTER, 0, 1 );
+			}
 		}
 		if ( W > _w - 30 )
 			_maxSize = _sz;
@@ -2340,6 +2366,7 @@ private:
 	int _minSize;
 	bool _once;
 	bool _effects;
+	int _angle;
 	int _sz;
 	bool _up;
 	int _hold;
@@ -5960,9 +5987,9 @@ void FLTrator::draw_title()
 		bgImage2 = fl_copy_image( _rocket.origImage(), w() / 3, h() - SCALE_Y * 150 );
 	}
 	if ( !title_anim )
-		(title_anim = new AnimText( 0, SCALE_Y * 45, w(), "FL'TRATOR",
-		                             FL_RED, FL_WHITE, 90, 80, false,
-		                             gimmicks() ))->start();
+		(title_anim = new AnimText( 0, SCALE_Y * 20, w(), "FL'TRATOR",
+		                            FL_RED, FL_WHITE, 90, 80, false,
+		                            gimmicks(), 2 ))->start();
 	if ( !G_paused && _cfg->non_zero_scores() && _flip++ % (FPS * 8) > ( FPS * 5) )
 	{
 		if ( bgImage2 )
