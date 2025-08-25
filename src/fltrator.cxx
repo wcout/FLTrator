@@ -4872,7 +4872,7 @@ bool FLTrator::create_terrain()
 			clear_level_image_cache();
 			// terrains with color change cannot be prebuild as image!
 			_terrain = T.hasColorChange() ? 0 : terrain_as_image();
-			if ( _terrain && _gimmicks && _effects && !_classic )
+			if ( _terrain && _gimmicks && _effects && !classic() )
 			{
 				_landscape = landscape_as_image();
 				_background = background_as_image();
