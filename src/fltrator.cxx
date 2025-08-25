@@ -6295,7 +6295,7 @@ bool FLTrator::draw_decoration()
 	}
 #ifndef NO_PREBUILD_LANDSCAPE
 	// test decoration object
-	if ( _effects && _gimmicks && _landscape && !_classic ) // only possible with image-cached terrain
+	if ( _effects && _gimmicks && _landscape && !classic() ) // only possible with image-cached terrain
 	{
 		static Object deco;
 		static int deco_x = -1;
