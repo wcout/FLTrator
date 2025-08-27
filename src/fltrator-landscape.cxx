@@ -1,5 +1,5 @@
 //
-// Copyright 2015-2017 Christian Grabner.
+// Copyright 2015-2025 Christian Grabner.
 //
 // This file is part of FLTrator.
 //
@@ -532,10 +532,10 @@ private:
 };
 
 //--------------------------------------------------------------------------
-class ZoomWindow : public Fl_Double_Window
+class ZoomWindow : public Fl_Group
 //--------------------------------------------------------------------------
 {
-	typedef Fl_Double_Window Inherited;
+	typedef Fl_Group Inherited;
 public:
 	ZoomWindow( size_t sz_ );
 	int handle( int e_ );
@@ -548,12 +548,12 @@ public:
 	}
 	void show()
 	{
-		Inherited::show();
 		_hidden = false;
+		Inherited::show();
 	}
 	void hide()
 	{
-		if ( shown() )
+		if ( visible_r() )
 		{
 			_hidden = true;
 			Inherited::hide();
@@ -562,8 +562,8 @@ public:
 	void draw()
 	{
 		Inherited::draw();
-		fl_rect( 0, 0, w(), h(), FL_BLACK );
-		fl_rect( 1, 1, w() - 2, h() - 2, FL_WHITE );
+		fl_rect( x(), y(), w(), h(), FL_BLACK );
+		fl_rect( x() + 1, y() + 1, w() - 2, h() - 2, FL_WHITE );
 	}
 	bool hidden() const { return _hidden; }
 private:
@@ -713,7 +713,7 @@ public:
 //--------------------------------------------------------------------------
 ZoomWindow::ZoomWindow( size_t sz_ ) :
 //--------------------------------------------------------------------------
-	Inherited( 20 * sz_ + 4, 20 * sz_ + 4, "Zoom" ),
+	Inherited( 0, 0, 20 * sz_ + 4, 20 * sz_ + 4, "Zoom" ),
 	_sz( sz_ ),
 	_hidden( false )
 {
@@ -727,11 +727,9 @@ ZoomWindow::ZoomWindow( size_t sz_ ) :
 				b->box( FL_BORDER_BOX );
 		}
 	}
+	box( FL_FLAT_BOX );
+	color( FL_BLACK );
 	end();
-	border( 0 );
-	set_non_modal();
-	set_menu_window();
-//	show();
 }
 
 void ZoomWindow::setPoint( int x_, int y_, Fl_Color c_ )
@@ -1038,11 +1036,13 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_slider = new Slider( 0, SCREEN_H, w(), h() - SCREEN_H, w(), _ls->size() );
 	_slider->callback( xoff_cb, this );
 	_slider->visible_focus( 0 );
+	_zoom = new ZoomWindow( 11 );
+	_zoom->position( w() / 2, h() / 2 );
+	_zoom->close();
 	end();
 	setTitle();
 	_preview = new PreviewWindow( SCREEN_H, _ls );
 	show();
-	_zoom = new ZoomWindow( 11 );
 	callback( close_cb, this );
 }
 
@@ -1176,23 +1176,41 @@ void LSEditor::draw()
 void LSEditor::update_zoom( int x_, int y_ )
 //--------------------------------------------------------------------------
 {
-//	printf( "%d/%d\n", x_, y_ );
-	if ( !_zoom )
+	if ( !_zoom || _zoom->hidden() )
 		return;
-	if ( _zoom->hidden() )
-		_zoom->show();
-	if ( !_zoom->shown() )
-		return;
-
 	const int sz = _zoom->sz();
 	int X(  x_ - sz / 2 );
 	int Y(  y_ - sz / 2 );
 	int H = sz;
 	int W = sz;
+	if ( Y < 0 )
+	{
+		H += Y;
+		Y = 0;
+	}
+	if ( X < 0 )
+	{
+		W += X;
+		X = 0;
+	}
+	int EX = w() - ( X +  W);
+	if ( EX <  0 )
+	{
+		W += EX;
+	}
+	int EY = h() - ( Y +  H);
+	if ( EY <  0 )
+	{
+		H += EX;
+	}
+	if ( H <= 0 || W <= 0 )
+		return;
 	make_current();
 	const uchar *screen = fl_read_image( 0, X, Y, W, H );
 	if ( !screen )
+	{
 		return;
+	}
 
 	const int d = 3;
 	unsigned char r, g, b;
@@ -1213,9 +1231,14 @@ void LSEditor::update_zoom( int x_, int y_ )
 		}
 //		printf( "\n");
 	}
-	_zoom->position( this->x() + x_ + 30, this->y() + y_ + 30 ),
-//	_zoom->show();
-	      _zoom->redraw();
+	X = x_ + 30;
+	Y = y_ + 30;
+	if ( X + _zoom->w() >= this->w() )
+		X = x_ - _zoom->w() - 30;
+	if ( Y + _zoom->h() >= this->h() - 20 )
+		Y = y_ - _zoom->h() - 30;
+	_zoom->position( X, Y );
+	_zoom->window()->redraw();
 	delete[] screen;
 }
 
@@ -1263,12 +1286,20 @@ int LSEditor::handle( int e_ )
 	static int xo = -1;
 	static bool ground = true;
 	static int snap_to_y = -1;
-	int x = Fl::event_x();
-	int y = Fl::event_y();
+	static int x = SCREEN_W / 2;
+	static int y = SCREEN_H / 2;
 	int mode = Fl::event_clicks() > 0;
 
+	if ( e_ != FL_KEYDOWN )
+	{
+		x = Fl::event_x();
+		y = Fl::event_y();
+	}
+
 	if ( y >= SCREEN_H && e_ != FL_LEAVE && e_ != FL_ENTER )
+	{
 		return Inherited::handle( e_ );
+	}
 
 	switch ( e_ )
 	{
@@ -1309,17 +1340,17 @@ int LSEditor::handle( int e_ )
 				redraw();
 			}
 
-			if ( 'z' == key || ( _zoom && _zoom->shown() && FL_Escape == key ) )
+			if ( 'z' == key || ( _zoom && _zoom->visible_r() && FL_Escape == key ) )
 			{
 				Fl::event_key( 0 );
 				if ( _zoom )
 				{
-					if ( _zoom->shown() )
+					if ( _zoom->visible_r() )
 					{
 						_zoom->close();
 						return 1;	// do not propagate ESC
 					}
-					else
+					else if ( 'z' == key )
 					{
 						_zoom->show();
 						update_zoom( x, y );
@@ -1394,7 +1425,7 @@ int LSEditor::handle( int e_ )
 		}
 
 		case FL_LEAVE:
-			if ( _zoom && _zoom->shown() )
+			if ( _zoom && _zoom->visible_r() )
 			{
 				_zoom->hide();
 			}
@@ -1402,7 +1433,9 @@ int LSEditor::handle( int e_ )
 
 		case FL_ENTER:
 			if ( _zoom && _zoom->hidden() )
+			{
 				_zoom->show();
+			}
 			break;
 
 		case FL_PUSH:
@@ -1481,7 +1514,8 @@ int LSEditor::handle( int e_ )
 
 		case FL_MOVE:
 		case FL_DRAG:
-			update_zoom( x, y );
+			if ( _zoom && !_zoom->hidden() )
+				update_zoom( x, y );
 			if ( e_ == FL_MOVE || _mode != EDIT_LANDSCAPE )
 				return 0;
 			if ( mode )
