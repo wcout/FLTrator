@@ -1176,7 +1176,7 @@ void LSEditor::draw()
 void LSEditor::update_zoom( int x_, int y_ )
 //--------------------------------------------------------------------------
 {
-	if ( !_zoom || _zoom->hidden() )
+	if ( !_zoom || _zoom->hidden() || !_zoom->visible_r() )
 		return;
 	const int sz = _zoom->sz();
 	int X(  x_ - sz / 2 );
@@ -1514,8 +1514,7 @@ int LSEditor::handle( int e_ )
 
 		case FL_MOVE:
 		case FL_DRAG:
-			if ( _zoom && !_zoom->hidden() )
-				update_zoom( x, y );
+			update_zoom( x, y );
 			if ( e_ == FL_MOVE || _mode != EDIT_LANDSCAPE )
 				return 0;
 			if ( mode )
@@ -1716,8 +1715,7 @@ void LSEditor::redraw()
 	Inherited::redraw();
 	if ( _preview )
 		_preview->redraw();
-	if ( _zoom && !_zoom->hidden() )
-		update_zoom( Fl::event_x(), Fl::event_y() );
+	update_zoom( Fl::event_x(), Fl::event_y() );
 }
 
 void LSEditor::save()
