@@ -1092,6 +1092,7 @@ bool Audio::play( const char *file_, bool bg_/* = false*/, bool repeat_/* = true
 				cmd.erase( pos, 2 );
 				cmd.insert( pos, _bgpidfile );
 			}
+//			printf("cmd: '%s'\n", cmd.c_str());
 		}
 		if ( runInBg )
 			cmd += " &";
@@ -1167,6 +1168,7 @@ bool Audio::kill_sound( const string& pidfile_ )
 	else
 	{
 		// pidfile not yet created or already gone
+//		printf("pidfile '%s' not there\n", pidfile_.c_str());
 		success = false;
 	}
 	return success;
@@ -1207,6 +1209,7 @@ void Audio::check( bool killOnly_/* = false*/ )
 		{
 			if ( _repeat )
 			{
+//				printf("restart %s\n", _bgsound.c_str());
 				// restart bgsound
 				play( _bgsound.c_str(), true );
 			}
@@ -3214,7 +3217,7 @@ private:
 	void toggleSound() const;
 	void togglePaused();
 	void setBgSoundFile( const string &name_ = "bgsound", bool pick_random_ = true );
-	void startBgSound() const;
+	void startBgSound( bool checkForRepeat_ = false ) const;
 	void flt_draw( const char* buf_, int n_, int x_, int y_, int &sx_, int &sy_ )
 	{
 		x_ = lround( SCALE_X * x_ );
@@ -7369,11 +7372,26 @@ void FLTrator::setPaused( bool paused_ )
 	}
 }
 
-void FLTrator::startBgSound() const
+void FLTrator::startBgSound( bool checkForRepeat_/* = false*/ ) const
 //-------------------------------------------------------------------------------
 {
+	static int cnt = 0;
 	if ( _bgsound.size() )
-		Audio::instance()->play( _bgsound.c_str(), true );
+	{
+		if ( checkForRepeat_ )
+		{
+			cnt++;
+			if ( cnt % SCORE_STEP == 0 )
+			{
+				Audio::instance()->check();
+			}
+		}
+		else
+		{
+			Audio::instance()->play( _bgsound.c_str(), true );
+			cnt = 0;
+		}
+	}
 }
 
 void FLTrator::keyClick() const
@@ -8148,7 +8166,7 @@ void FLTrator::onUpdateDemo()
 	_draw_xoff = _xoff;
 	if ( !REDRAWS ) redraw();	// update the screen
 
-	Audio::instance()->check();	// test bg-sound expired
+	startBgSound( true );
 
 	if ( _done )
 	{
@@ -8202,7 +8220,7 @@ void FLTrator::onUpdate()
 	{
 		_draw_xoff = _xoff;
 		if ( !REDRAWS ) redraw();	// update the screen
-		Audio::instance()->check();
+		startBgSound( true );
 		return;
 	}
 
@@ -8231,8 +8249,8 @@ void FLTrator::onUpdate()
 		if ( _xoff > (int)( last_score_step * SCORE_STEP ) )
 			add_score( 1 );
 		last_score_step = step;
-		Audio::instance()->check();	// test bg-sound expired
 	}
+	startBgSound( true );
 
 	if ( _left && _xoff + _spaceship->cx() < _final_xoff - w() / 2 ) // no retreat at end!
 		_spaceship->left();
