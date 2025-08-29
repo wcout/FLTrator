@@ -1141,6 +1141,8 @@ bool Audio::terminate_player( pid_t pid_, const string& pidfile_ )
 	{
 		perror( "kill SIGTERM" );
 		success = false;
+		(void)pidfile_; // silence 'unused' warning
+		DBG(( "keep pidfile '%s' for pid %d", pidfile_, pid ));
 	}
 #else
 	success = TerminateProcess( pid_, 0 );
@@ -3966,6 +3968,7 @@ void FLTrator::onStateChange( State from_state_ )
 				Explosion::MC_FALLOUT_STRIKE, 2.0,
 				spaceship_explode, nbrOfItems( spaceship_explode ) );
 			Audio::instance()->stop_bg();
+			// FALLTHROUGH
 		case LEVEL_DONE:
 		{
 			if ( _state == LEVEL_DONE )
@@ -4027,13 +4030,13 @@ FLTrator::State FLTrator::changeState( State toState_/* = NEXT_STATE*/,
 				setPaused( false );
 				_state = _trainMode ? LEVEL : TITLE;
 				break;
-
 			case PAUSED:
 				if ( G_paused )
 				{
 					Fl::add_timeout( 0.5, cb_paused, this );
 					return _state;
 				}
+			// FALLTHROUGH
 			case LEVEL_DONE:
 			case LEVEL_FAIL:
 //			case PAUSED:
