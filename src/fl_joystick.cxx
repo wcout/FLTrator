@@ -76,7 +76,9 @@ void Fl_Joystick::onEvent()
 void Fl_Joystick::cb_data_ready( int fd_, void *d_ )
 //-------------------------------------------------------------------------------
 {
-	((Fl_Joystick *)d_)->update();
+	Fl_Joystick *j = (Fl_Joystick *)d_;
+	if ( j->fd() == fd_ )
+		j->update();
 }
 
 Fl_Joystick::~Fl_Joystick()
