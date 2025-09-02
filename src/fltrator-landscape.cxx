@@ -896,11 +896,11 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	while ( argc-- > 1 )
 	{
 		string arg( argv_[argi++] );
-		if ( "--help" == arg )
+		if ( "--help" == arg || "-h" == arg )
 		{
 			cout << "Usage:" << endl;
 			cout << "  " << argv_[0] << " [level] [levelfile] [options]" << endl << endl;
-			cout << "              Defaults are _ls.txt -s " << MAX_SCREENS << endl << endl;
+			cout << "              Defaults are _ls.txt -s " << DEF_SCREENS << endl << endl;
 			cout << "Options:" << endl;
 			cout << "  -p          start in object place mode" << endl;
 			cout << "  -s screens  number of screens" << endl << endl;
@@ -964,7 +964,7 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		_name = levelFile;
 	}
 
-	printf("screens: %d\n", screens );
+//	printf("screens: %d\n", screens );
 	bool loaded;
 	if ( _name.empty() )
 		_name = "_ls.txt";
@@ -1361,7 +1361,7 @@ int LSEditor::handle( int e_ )
 			if ( key == FL_Scroll_Lock )
 			{
 				_scrollLock = !_scrollLock;
-				printf( "_scrollLock: %d\n", _scrollLock );
+//				printf( "_scrollLock: %d\n", _scrollLock );
 				setTitle();
 			}
 
