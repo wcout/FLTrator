@@ -4597,34 +4597,45 @@ bool FLTrator::loadLevel( unsigned level_, string& levelFileName_ )
 		f >> g;
 		f >> obj;
 		if ( !f.good() ) break;
-		for ( int i = 0; i < filler; i++ )
-			T.push_back( TerrainPoint( g, s , 0 ) );
-		if ( filler >= 0 )
+
+		int repeat = 0;
+		if ( obj < 0 )
 		{
-			subfill += subfiller;
-			if ( subfill >= 10 )
-			{
-				T.push_back( TerrainPoint( g, s , 0 ) );
-				subfill -= 10;
-			}
+			repeat = -obj;
+			obj = 0;
 		}
-		if ( SCALE_X >= 1. || ( obj || (int)(SCALE_X * ( cnt + 1 )) != (int)( SCALE_X * cnt ) ) )
-			T.push_back( TerrainPoint( g, s, obj ) );
-		cnt++;
-		if ( obj & O_COLOR_CHANGE )
+		repeat++;
+		while ( repeat-- )
 		{
-			// fetch extra data for color change object
-			Fl_Color bg_color( T.bg_color );
-			Fl_Color ground_color( T.ground_color );
-			Fl_Color sky_color( T.sky_color );
-			readColor( f, bg_color );
-			readColor( f, ground_color );
-			readColor( f, sky_color );
-			if ( f.good() )
+			for ( int i = 0; i < filler; i++ )
+				T.push_back( TerrainPoint( g, s , 0 ) );
+			if ( filler >= 0 )
 			{
-				T.back().bg_color = bg_color;
-				T.back().ground_color = ground_color;
-				T.back().sky_color = sky_color;
+				subfill += subfiller;
+				if ( subfill >= 10 )
+				{
+					T.push_back( TerrainPoint( g, s , 0 ) );
+					subfill -= 10;
+				}
+			}
+			if ( SCALE_X >= 1. || ( obj || (int)(SCALE_X * ( cnt + 1 )) != (int)( SCALE_X * cnt ) ) )
+				T.push_back( TerrainPoint( g, s, obj ) );
+			cnt++;
+			if ( obj & O_COLOR_CHANGE )
+			{
+				// fetch extra data for color change object
+				Fl_Color bg_color( T.bg_color );
+				Fl_Color ground_color( T.ground_color );
+				Fl_Color sky_color( T.sky_color );
+				readColor( f, bg_color );
+				readColor( f, ground_color );
+				readColor( f, sky_color );
+				if ( f.good() )
+				{
+					T.back().bg_color = bg_color;
+					T.back().ground_color = ground_color;
+					T.back().sky_color = sky_color;
+				}
 			}
 		}
 	}

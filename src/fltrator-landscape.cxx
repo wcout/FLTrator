@@ -394,20 +394,31 @@ public:
 					f >> g;
 					f >> o;
 					if ( !f.good() ) break;
-					if ( size() < W || ( !W_ && size() < MAX_SCREENS * SCREEN_W ) ) // access data is ignored!
-						_ls.push_back( LSPoint( g, s, o ) );
-					if ( o & O_COLOR_CHANGE )
+
+					int repeat = 0;
+					if ( o < 0 )
 					{
-						// fetch extra data for color change object
-						Fl_Color bg_color, ground_color, sky_color;
-						readColor( f, bg_color );
-						readColor( f ,ground_color );
-						readColor( f, sky_color );
-						if ( f.good() && size() <= W )
+						repeat = -o;
+						o = 0;
+					}
+					repeat++;
+					while ( repeat-- )
+					{
+						if ( size() < W || ( !W_ && size() < MAX_SCREENS * SCREEN_W ) ) // access data is ignored!
+							_ls.push_back( LSPoint( g, s, o ) );
+						if ( o & O_COLOR_CHANGE )
 						{
-							_ls.back().bg_color = bg_color;
-							_ls.back().ground_color = ground_color;
-							_ls.back().sky_color = sky_color;
+							// fetch extra data for color change object
+							Fl_Color bg_color, ground_color, sky_color;
+							readColor( f, bg_color );
+							readColor( f ,ground_color );
+							readColor( f, sky_color );
+							if ( f.good() && size() <= W )
+							{
+								_ls.back().bg_color = bg_color;
+								_ls.back().ground_color = ground_color;
+								_ls.back().sky_color = sky_color;
+							}
 						}
 					}
 				}
@@ -647,6 +658,7 @@ public:
 	void onXoff();
 	bool changed() const { return _changed; }
 	void changed( bool changed_ );
+	void compress( bool compress_ ) { _compress = compress_; }
 	bool dont_save() const { return _dont_save; }
 	void update_zoom( int x_, int y_ );
 private:
@@ -655,6 +667,14 @@ private:
 	static void load_cb( Fl_Widget *o_, void *d_ )
 		{ ((LSEditor *)d_)->onLoad( atoi( ((Fl_Menu_Bar *)o_)->mvalue()->label() ) ); }
 	static void quit_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onQuit();}
+	static void compress_cb( Fl_Widget *o_, void *d_ )
+	{
+		LSEditor *lse = (LSEditor *)d_;
+		Fl_Menu_Bar* menu = static_cast<Fl_Menu_Bar*>( o_ );
+		const Fl_Menu_Item* compress_item = menu->mvalue();
+		lse->compress( compress_item->value() );
+		lse->redraw();
+	}
 	static void save_as_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onSaveAs(); }
 	static void save_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onSave();}
 	static void toggle_preview_cb( Fl_Widget *o_, void *d_ ) { ((LSEditor *)d_)->onTogglePreview();}
@@ -681,6 +701,7 @@ private:
 	Slider *_slider;
 	bool _menu_shown;
 	bool _dont_save;
+	bool _compress;
 	vector<UndoEntry> _undoStack;
 	Fl_Help_Dialog *_help;
 };
@@ -885,6 +906,7 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_slider( 0 ),
 	_menu_shown( true ),
 	_dont_save( false ),
+	_compress( false ),
 	_help( 0 )
 //--------------------------------------------------------------------------
 {
@@ -1007,23 +1029,24 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	static Fl_Menu_Item items[] =
 	{
 		{ "File", 0, 0, 0, FL_SUBMENU },
-			{ "Load level..", 0, load_cb, this, 0 },
-			{ "Load #level..", 0, load_cb, this, FL_SUBMENU },
-				{"1", 0, load_cb, this, 0, 0, 0, 16 },
-				{"2", 0, load_cb, this, 0, 0, 0, 16 },
-				{"3", 0, load_cb, this, 0, 0, 0, 16 },
-				{"4", 0, load_cb, this, 0, 0, 0, 16 },
-				{"5", 0, load_cb, this, 0, 0, 0, 16 },
-				{"6", 0, load_cb, this, 0, 0, 0, 16 },
-				{"7", 0, load_cb, this, 0, 0, 0, 16 },
-				{"8", 0, load_cb, this, 0, 0, 0, 16 },
-				{"9", 0, load_cb, this, 0, 0, 0, 16 },
-				{"10", 0, load_cb, this, 0, 0, 0, 16 },
+			{ "Load level..", FL_ALT+'l', load_cb, this, 0 },
+			{ "Load #level..", 0, load_cb, this, FL_SUBMENU|FL_MENU_DIVIDER },
+				{"1\t", FL_ALT+'1', load_cb, this, 0, 0, 0, 16 },
+				{"2\t", FL_ALT+'2', load_cb, this, 0, 0, 0, 16 },
+				{"3\t", FL_ALT+'3', load_cb, this, 0, 0, 0, 16 },
+				{"4\t", FL_ALT+'4', load_cb, this, 0, 0, 0, 16 },
+				{"5\t", FL_ALT+'5', load_cb, this, 0, 0, 0, 16 },
+				{"6\t", FL_ALT+'6', load_cb, this, 0, 0, 0, 16 },
+				{"7\t", FL_ALT+'7', load_cb, this, 0, 0, 0, 16 },
+				{"8\t", FL_ALT+'8', load_cb, this, 0, 0, 0, 16 },
+				{"9\t", FL_ALT+'9', load_cb, this, 0, 0, 0, 16 },
+				{"10\t", FL_ALT+'0', load_cb, this, 0, 0, 0, 16 },
 				{0},
-			{ "Save level as..", 0, save_as_cb, this, 0 },
-			{ "Save", 0, save_cb, this, FL_MENU_DIVIDER },
+			{ "Save level as..", FL_ALT+'a', save_as_cb, this, 0 },
+			{ "Save", FL_ALT+'s', save_cb, this, 0 },
+ 			{ "Compress", FL_ALT+'c', compress_cb, this, FL_MENU_TOGGLE|FL_MENU_DIVIDER },
 			{ "Toggle preview window", FL_ALT+'p', toggle_preview_cb, this, FL_MENU_DIVIDER },
-			{ "Exit without saving", 0, quit_cb, this, FL_MENU_DIVIDER, 0, FL_BOLD, 0, FL_RED },
+			{ "Exit without saving", FL_ALT+'x', quit_cb, this, FL_MENU_DIVIDER, 0, FL_BOLD, 0, FL_RED },
 			{ "Help..", FL_F+1, help_cb, this, 0, 0, 0, 18 },
 			{ 0 },
 		{ 0 }
@@ -1339,6 +1362,9 @@ int LSEditor::handle( int e_ )
 				changed( true );
 				redraw();
 			}
+
+			if ( FL_Escape == key && ( !_zoom || !_zoom->visible_r() ) )
+				return 1;
 
 			if ( 'z' == key || ( _zoom && _zoom->visible_r() && FL_Escape == key ) )
 			{
@@ -1724,7 +1750,7 @@ void LSEditor::save()
 	string name( _name );
 	if ( name.empty() )
 		name = "_ls.txt";
-	cout << "saving to " << name.c_str() << endl;
+	cout << "saving" << ( _compress ? " compressed" : "" ) << " to " << name.c_str() << endl;
 	ofstream f( name.c_str() );
 	f << 1 << endl;	// version
 	f << _ls->flags() << endl;	// preserved flags (only hand-editable currently)
@@ -1739,7 +1765,22 @@ void LSEditor::save()
 
 	for ( size_t i = 0; i < _ls->size(); i++ )
 	{
-		f << _ls->sky( i ) << " " << _ls->ground( i ) << " " << _ls->object( i );
+		int s =_ls->sky( i );
+		int g =_ls->ground( i );
+		int o =_ls->object( i );
+		f << s << " " << g << " ";
+		if ( !o && _compress )
+		{
+			int repeat = 0;
+			while ( i + 1 < _ls->size() &&
+		           _ls->sky( i + 1 ) == s && _ls->ground( i + 1 ) == g && _ls->object( i + 1 ) == o )
+			{
+				i++;
+				repeat++;
+			}
+			o = -repeat;
+		}
+		f << o;
 		if ( _ls->object( i ) & O_COLOR_CHANGE )
 		{
 			// save extra data for color change object
