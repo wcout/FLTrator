@@ -6063,7 +6063,7 @@ void FLTrator::draw_title()
 			                "A reminiscence to 1983 'Penetrator' on the ZX Spectrum!\n\n"
 			                "Your challenge: Steer a spaceship by keyboard through ten\n"
 			                "fast scrolling levels and afterwards return safely back.\n"
-					          "But - you are not alone, there are some enemies to overcome...\n\n"
+			                "But - you are not alone, there are some enemies to overcome...\n\n"
 			                "Besides your quick reflexes and your intuition you are\n"
 			                "assisted by your ships missiles and bombs to clear the way.\n\n"
 					          "                        GOOD LUCK !!!" )
