@@ -51,7 +51,7 @@ bonus=Bonus: %u
 hiscores=Hiscores
 
 key_help=%c/%c	up/down\
-         %c/%c	left/right\
+         %c/%c	fwd/stall\
          %c	fire missile\
          space	drop bomb\
          7-9	hold game

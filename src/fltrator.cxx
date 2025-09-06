@@ -936,6 +936,13 @@ static void trim( string& s_ )
 		s_.erase( s_.size() - 1 );
 }
 
+static void rtrim( string& s_ )
+//-------------------------------------------------------------------------------
+{
+	while ( s_.size() && isspace( s_[s_.size() - 1] ) )
+		s_.erase( s_.size() - 1 );
+}
+
 static string quote( string s_ )
 //-------------------------------------------------------------------------------
 {
@@ -4503,6 +4510,7 @@ static void loadParameter( ifstream& f_, IniParameter& ini_ )
 //-------------------------------------------------------------------------------
 {
 	string line;
+	size_t left_col = 0;
 	while ( getline( f_, line ) )
 	{
 		if ( isspace( line[0] ) )
@@ -4516,12 +4524,17 @@ static void loadParameter( ifstream& f_, IniParameter& ini_ )
 		trim( name );
 		if ( name.empty() ) continue;
 		string value = line.substr( pos + 1 );
+		left_col = pos + 1;
+		string left( left_col, ' ' );
 		trim( value );
 		while ( value.size() && value[ value.size() - 1 ] == '\\' )
 		{
 			value.erase( value.size() - 1 );
 			getline( f_, line );
-			trim( line );
+			rtrim( line );
+			// try to keep indentation
+			if ( line.size() >= left_col && line.substr( 0, left_col ) == left )
+				line.erase( 0, left_col );
 			value.push_back( '\n' );
 			value += line;
 		}
@@ -6060,7 +6073,7 @@ void FLTrator::draw_title()
 		if ( _about )
 		{
 			static string s( _texts.value( "about_text", 500,
-			                "A reminiscence to 1983 'Penetrator' on the ZX Spectrum!\n\n"
+			                "A reminiscence to 1983 arcade 'Penetrator' on the ZX Spectrum!\n\n"
 			                "Your challenge: Steer a spaceship by keyboard through ten\n"
 			                "fast scrolling levels and afterwards return safely back.\n"
 			                "But - you are not alone, there are some enemies to overcome...\n\n"
@@ -6079,13 +6092,13 @@ void FLTrator::draw_title()
 			static int TW = -1; // dynamic calc. of required table width for key table
 			int tw = drawTableBlock( TW, 270, _texts.value( "key_help", 100,
 				"%c/%c\tup/down\n"
-			   "%c/%c\tleft/right\n"
+			   "%c/%c\tfwd/stall\n"
 				"%c\tfire missile\n"
 				"space\tdrop bomb\n"
 				"7-9\thold game" ),
 			   30, 44, FL_WHITE,
 				KEY_UP, KEY_DOWN,
-				KEY_LEFT, KEY_RIGHT,
+				KEY_RIGHT, KEY_LEFT,
 				KEY_RIGHT );
 			if ( TW <= 0 )
 				TW = rangedValue( tw + 50, 390, 460 );

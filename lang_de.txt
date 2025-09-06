@@ -53,7 +53,7 @@ bonus=Bonus: %u
 hiscores=Bestenliste
 
 key_help=%c/%c	rauf/runter\
-         %c/%c	links/rechts\
+         %c/%c	vor/verzögern\
          %c	Laser feuern\
          Leertaste	Bombe werfen\
          7-9	Spiel pausieren
@@ -71,3 +71,16 @@ greeting=freut sich\
          zu präsentieren...
 
 get_ready=ES GEHT LOS!
+
+about=Über
+
+about_text=Eine Hommage an das 1983 Arcade 'Penetrator' am ZX Spectrum!\
+           \
+           Deine Aufgabe: Überwinde zehn rasant scrollende Level mit\
+           deinem Schiff und kehre anschließend wohlbehalten zurück.\
+           Aber - es gibt einige Widersacher, die das verhindern wollen...\
+           \
+           Mithilfe deiner schnellen Reflexe und deiner Intuition, sowie\
+           der Bewaffnung deines Schiffs, wirst du erfolgreich sein.\
+           \
+                                   VIEL GLÜCK !!!
