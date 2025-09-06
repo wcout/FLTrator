@@ -3355,6 +3355,7 @@ private:
 	vector<int> _colorChangeList;
 	bool _exit_demo_on_collision; // set to true, if demo should end at collision
 	bool _dimmout;
+	bool _about;
 };
 
 /*static*/ Fl_Waiter FLTrator::_waiter;
@@ -3520,7 +3521,8 @@ FLTrator::FLTrator( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	_alpha_matte( 0 ),
 	_TO( 0. ),
 	_exit_demo_on_collision( false ),
-	_dimmout( false )
+	_dimmout( false ),
+	_about( false )
 {
 	end();
 	_DX = DX;
@@ -5562,20 +5564,26 @@ int FLTrator::drawTable( int w_, int y_, const char *text_, size_t sz_, Fl_Color
 	fl_draw( l, strlen( l ), x + SCALE_Y * 2, y_ + SCALE_Y * 2 );
 	if ( r )
 		fl_draw( r, strlen( r ), x + w_ - wr + SCALE_Y * 2, y_ + SCALE_Y * 2 );
+
+	// draw 'dots'
 	static int DOT_SIZE = lround( SCALE_X * 5 );
 	int lw = ( x + w_ - wr - 2 * DOT_SIZE ) - ( x + wl + 2 * DOT_SIZE );
 	lw = ( ( lw + DOT_SIZE / 2 ) / DOT_SIZE + 1 ) * DOT_SIZE;
 	int lx = x + wl + 2 * DOT_SIZE;
-	for ( int i = 0; i < lw / ( DOT_SIZE * 2 ); i++ )
-		fl_rectf( lx + SCALE_Y * 2 + i * DOT_SIZE * 2, y_ - SCALE_Y * 4, DOT_SIZE, DOT_SIZE );
+	if ( r )
+	{
+		for ( int i = 0; i < lw / ( DOT_SIZE * 2 ); i++ )
+			fl_rectf( lx + SCALE_Y * 2 + i * DOT_SIZE * 2, y_ - SCALE_Y * 4, DOT_SIZE, DOT_SIZE );
+	}
 	fl_color( c_ );
 	fl_draw( l, strlen( l ), x, y_ );
 	if ( r )
+	{
 		fl_draw( r, strlen( r ), x + w_ - wr, y_ );
-	fl_color( fl_color_average( c_, cc, .8 ) );
-	for ( int i = 0; i < lw / ( DOT_SIZE * 2 ); i++ )
-		fl_rectf( lx + i * DOT_SIZE * 2, y_ - SCALE_Y * 5, DOT_SIZE, DOT_SIZE );
-
+		fl_color( fl_color_average( c_, cc, .8 ) );
+		for ( int i = 0; i < lw / ( DOT_SIZE * 2 ); i++ )
+			fl_rectf( lx + i * DOT_SIZE * 2, y_ - SCALE_Y * 5, DOT_SIZE, DOT_SIZE );
+	}
 	return x;
 }
 
@@ -5951,6 +5959,7 @@ void FLTrator::draw_title()
 		delete bgImage2;
 		bgImage2 = 0;
 		reveal_height = 0;
+		_about = false;
 	}
 
 	int border_w = lround( 40 * SCALE_X );
@@ -6017,7 +6026,10 @@ void FLTrator::draw_title()
 		(title_anim = new AnimText( 0, SCALE_Y * 20, w(), "FL'TRATOR",
 		                            FL_RED, FL_WHITE, 90, 80, false,
 		                            gimmicks(), 2 ))->start();
-	if ( !G_paused && _cfg->non_zero_scores() && _flip++ % (FPS * 8) > ( FPS * 5) )
+	if ( !G_paused )
+		_flip++;
+	bool do_flip = _about ? false : _flip % (FPS * 8) > (FPS * 5);
+	if ( !G_paused && _cfg->non_zero_scores() && do_flip )
 	{
 		if ( bgImage2 )
 			bgImage2->draw( SCALE_X * 60, SCALE_Y * 120 );
@@ -6044,23 +6056,41 @@ void FLTrator::draw_title()
 		else if ( bgImage )
 			bgImage->draw( SCALE_X * 60, SCALE_Y * 40 );
 		fl_pop_clip();
-		int x = drawText( -1, 220, "%s (%u)", 30, _user.completed ? FL_YELLOW : FL_GREEN,
-		          _user.name.empty() ? "N.N." : _user.name.c_str(), _first_level );
-		if ( reversLevel() )	// draw a down-arrow to denote going reverse levels
-			fl_draw_symbol( "@+22->", SCALE_X * ( x - 20 ), SCALE_Y * (210 - 15), SCALE_X * 20, SCALE_Y * 30, FL_RED );
-      static int TW = -1; // dynamic calc. of required table width for key table
-		int tw = drawTableBlock( TW, 270, _texts.value( "key_help", 100,
-			"%c/%c\tup/down\n"
-		   "%c/%c\tleft/right\n"
-			"%c\tfire missile\n"
-			"space\tdrop bomb\n"
-			"7-9\thold game" ),
-		   30, 44, FL_WHITE,
-			KEY_UP, KEY_DOWN,
-			KEY_LEFT, KEY_RIGHT,
-			KEY_RIGHT );
-		if ( TW <= 0 )
-			TW = rangedValue( tw + 50, 390, 460 );
+
+		if ( _about )
+		{
+			static string s( _texts.value( "about_text", 500,
+			                "A reminiscence to 1983 'Penetrator' on the ZX Spectrum!\n\n"
+			                "Your challenge: Steer a spaceship by keyboard through ten\n"
+			                "fast scrolling levels and afterwards return safely back.\n"
+					          "But - you are not alone, there are some enemies to overcome...\n\n"
+			                "Besides your quick reflexes and your intuition you are\n"
+			                "assisted by your ships missiles and bombs to clear the way.\n\n"
+					          "                        GOOD LUCK !!!" )
+ 			               );
+			drawTableBlock( 660, 220, s.c_str(), 18, 28, FL_RED );
+		}
+		else
+		{
+			int x = drawText( -1, 220, "%s (%u)", 30, _user.completed ? FL_YELLOW : FL_GREEN,
+			                  _user.name.empty() ? "N.N." : _user.name.c_str(), _first_level );
+			if ( reversLevel() )	// draw a down-arrow to denote going reverse levels
+				fl_draw_symbol( "@+22->", SCALE_X * ( x - 20 ), SCALE_Y * (210 - 15), SCALE_X * 20, SCALE_Y * 30, FL_RED );
+			static int TW = -1; // dynamic calc. of required table width for key table
+			int tw = drawTableBlock( TW, 270, _texts.value( "key_help", 100,
+				"%c/%c\tup/down\n"
+			   "%c/%c\tleft/right\n"
+				"%c\tfire missile\n"
+				"space\tdrop bomb\n"
+				"7-9\thold game" ),
+			   30, 44, FL_WHITE,
+				KEY_UP, KEY_DOWN,
+				KEY_LEFT, KEY_RIGHT,
+				KEY_RIGHT );
+			if ( TW <= 0 )
+				TW = rangedValue( tw + 50, 390, 460 );
+		}
+
 		if ( _mouseMode || _joyMode )
 			drawText( -1, 500, _joyMode ? _texts.value( "joystick_mode", 30, "joystick mode" ) :
 			                              _texts.value( "mouse_mode", 30, "mouse mode" ),
@@ -6089,6 +6119,8 @@ void FLTrator::draw_title()
 			Audio::instance()->bg_enabled() ? _texts.value( "disable", 12, "disable" ) :
 			                               _texts.value( "enable", 12, "enable" ) );
 		drawText( -90, -26, "fps=%d", 8, FL_CYAN, FPS );
+		string about = _texts.value( "about", 12, "about" );
+		drawText( 60, -26, ( (string)"F1:" + about ).c_str(), 8, FL_GRAY );
 	}
 	drawText( 45, 34, VERSION, 8, FL_CYAN );
 
@@ -8608,6 +8640,10 @@ int FLTrator::handle( int e_ )
 			else if ( '+' == Fl::event_text()[0] )
 			{
 				setup( -FPS - 1, _HAVE_SLOW_CPU, _USE_FLTK_RUN );
+			}
+			else if ( FL_F+1 == c )
+			{
+				_about = !_about;
 			}
 		}
 		if ( ( e_ == FL_KEYDOWN && ' ' == c ) ||
