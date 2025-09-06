@@ -3,6 +3,7 @@ static const char HelpText[] = "<head><title>FLTrator Landscape Editor Help</tit
 "<p>You see two windows: the main work window that shows one screen size "
 "of a level and a scaled down <strong>preview window</strong>, which shows the complete level "
 "with the current view section marked.</p>"
+"<p>There is a <code>File</code> pulldown menu in the upper left corner of the main window, to load and save level files.</p>"
 "<h2>Moving the view</h2>"
 "<p>Move the view with keys <code>Left/Right/Pg Up/Pg Down/Home/End</code> or use the scroll bar. "
 "Double click in the <strong>preview window</strong> to jump to that position in the main window.</p>"
@@ -36,6 +37,6 @@ static const char HelpText[] = "<head><title>FLTrator Landscape Editor Help</tit
 "to put the object or on the object you want to remove.</p>"
 "<h2>Saving/Exiting</h2>"
 "<p>When closing the window all changes will be saved. "
-"Press <code>ESC</code> if you want to exit <em>without</em> saving.</p>"
-"<p>There is also a <code>File</code> pulldown menu in the upper left corner.</p>"
+"Exit via <em>Esc-key</em> is disabled in order not to inadvertedly loose changes. "
+"Use the pulldown menu entry <em>Exit without saving</em> instead to discard changes.</p>"
 ;
