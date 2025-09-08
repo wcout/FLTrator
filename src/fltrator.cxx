@@ -4092,9 +4092,9 @@ void FLTrator::position_spaceship()
 void FLTrator::addScrollinZone()
 //-------------------------------------------------------------------------------
 {
-	T.insert( T.begin(), T[0] );	// TODO: this makes size() an odd number
+	T.insert( T.begin(), T[0] );	// this makes size() an odd number
 	T[0].object( 0 ); // ensure there are no objects in scrollin zone!
-	for ( int i = 0; i < w() / 2; i++ )
+	for ( int i = 0; i < w() / 2 - 1; i++ ) // -1 to correct size() to even number
 		T.insert( T.begin(), T[0] );
 	_final_xoff = T.size();
 }
