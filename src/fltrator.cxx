@@ -2150,9 +2150,7 @@ public:
 				p.beg_x = p.r * cos( p.angle * M_PI / 180.0 ) + cx();
 				p.beg_y = p.r * sin( p.angle * M_PI / 180.0 ) + cy();
 				double f = ( p.end_r - p.r ) / ( p.end_r - p.start_r );
-				int mask = 256. * f;
-				if ( !mask )
-					mask++;
+
 				if ( p.multicolor )
 					p.curr_color = _colors[ Random::pRand() % _nColors ];
 				else
