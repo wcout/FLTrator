@@ -5487,8 +5487,8 @@ int FLTrator::drawText( int x_, int y_, const char *text_, size_t sz_, Fl_Color 
 	y_ *= SCALE_Y;
 	if ( y_ < 0 )
 		y_ = h() + y_;
-	if ( x_ < -1 )
-		x_ = w() + x_;
+	if ( x_ < -1 ) // space between right edge and text end
+		x_ = w() - (int)fl_width( buf ) + x_;
 
 	int x = x_;
 	if ( x_ < 0 )
@@ -5756,7 +5756,7 @@ void FLTrator::draw_score()
 	}
 	if ( _trainMode )
 	{
-		drawText( -110, 20, _texts.value( "trainer", 7, "TRAINER" ), 20, FL_RED );
+		drawText( -5, 20, _texts.value( "trainer", 7, "TRAINER" ), 20, FL_RED );
 	}
 
 	flt_font( FL_COURIER, 30 );
@@ -6128,7 +6128,7 @@ void FLTrator::draw_title()
 			                               _texts.value( "enable", 12, "enable" ),
 			Audio::instance()->bg_enabled() ? _texts.value( "disable", 12, "disable" ) :
 			                               _texts.value( "enable", 12, "enable" ) );
-		drawText( -90, -26, "fps=%d", 8, FL_CYAN, FPS );
+		drawText( -60, -26, "fps=%d", 8, FL_CYAN, FPS );
 		string about = _texts.value( "about", 12, "about" );
 		drawText( 60, -26, ( (string)"F1:" + about ).c_str(), 8, FL_GRAY );
 	}
