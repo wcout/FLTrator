@@ -1149,12 +1149,12 @@ bool Audio::terminate_player( pid_t pid_, const string& pidfile_ )
 		perror( "kill SIGTERM" );
 		success = false;
 		(void)pidfile_; // silence 'unused' warning
-		DBG(( "keep pidfile '%s' for pid %d", pidfile_, pid ));
+		DBG( "keep pidfile '" << pidfile_ << "' for pid " << pid_ );
 	}
 #else
 	success = TerminateProcess( pid_, 0 );
 	// WIN32: terminated process can't close pidfile, so we must do this
-	DBG(( "remove pidfile '%s'", pidfile_.c_str() ));
+	DBG( "remove pidfile '" << pidfile_ << "'" );
 	std::remove( pidfile_.c_str() );
 #endif
 	return success;
