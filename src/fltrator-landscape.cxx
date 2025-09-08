@@ -452,16 +452,6 @@ public:
 			_ls[ x_ ].sky = s_;
 		}
 	}
-	void setRocket( int x_, bool set_ )
-	{
-		if ( x_ >= 0 && x_ < (int)size() )
-		{
-			if ( set_ )
-				_ls[ x_ ].object = _ls[ x_ ].object | O_ROCKET;
-			else
-				_ls[ x_ ].object = _ls[ x_ ].object & ~O_ROCKET;
-		}
-	}
 	void setObject( int id_, int x_, bool set_ )
 	{
 		if ( x_ >= 0 && x_ < (int)size() )
@@ -1668,6 +1658,7 @@ void LSEditor::onLoad( int level_/*= 0*/ )
 		}
 		changed( false );
 	}
+	else delete ls;
 	redraw();
 }
 

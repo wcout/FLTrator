@@ -984,7 +984,7 @@ static void parseAudioCmd( const string &cmd_,
 	else if ( "ext" == type )
 		ext_ = arg;
 	else
-		PERR( "Invalid audio command: '" << arg.c_str() << "'" );
+		PERR( "Invalid audio command: '" << arg << "'" );
 }
 
 static void parseAudioCmdLine( const string &cmd_,
@@ -4384,7 +4384,7 @@ bool FLTrator::loadDemoData( unsigned level_/* = 0*/, bool dryrun_/* = false*/ )
 		return false;
 	if ( dryrun_ )
 		return true;
-	LOG( "Using demo data " <<  demoFileName().c_str() );
+	LOG( "Using demo data " <<  demoFileName() );
 	_demoData.seed( seed );
 	unsigned long flags;
 	f >> flags;
@@ -4416,7 +4416,7 @@ bool FLTrator::loadDemoData( unsigned level_/* = 0*/, bool dryrun_/* = false*/ )
 		{
 			_demoData.set( index, sx, sy, bomb, missile, seed, seed2 );
 			index++;
-			int c = (f >> std::ws).peek(); // (peek one character skipping whitespace)
+			c = (f >> std::ws).peek(); // (peek one character skipping whitespace)
 			if ( '*' != c ) break;
 			f.get();
 		}
@@ -4430,7 +4430,7 @@ bool FLTrator::saveDemoData() const
 	ofstream f( demoFileName().c_str() );
 	if ( !f.is_open() )
 		return false;
-	LOG( "save to demo data " << demoFileName().c_str() );
+	LOG( "save to demo data " << demoFileName() );
 	f << _demoData.seed() << endl;
 	f << _ship << endl;
 	f << DX << endl;
@@ -4545,7 +4545,7 @@ bool FLTrator::loadDefaultIniParameter()
 //-------------------------------------------------------------------------------
 {
 	string iniFileName( levelPath( "ini.txt" ) );
-	LOG( "iniFileName: '" << iniFileName.c_str() << "'" );
+	LOG( "iniFileName: '" << iniFileName << "'" );
 	ifstream f( iniFileName.c_str() );
 	if ( !f.is_open() )
 		return false;
@@ -4560,7 +4560,7 @@ bool FLTrator::loadTranslations()
 		return false;
 
 	string langFileName( homeDir() + "lang_" + _lang + ".txt" );
-	LOG( "langFileName: '" << langFileName.c_str() << "'" );
+	LOG( "langFileName: '" << langFileName << "'" );
 	ifstream f( langFileName.c_str() );
 	if ( !f.is_open() )
 		return false;
@@ -4895,7 +4895,7 @@ bool FLTrator::create_terrain()
 	if ( (int)T.size() < w() )
 	{
 		string err( T.empty() && errno ? strerror( errno ) : "File is not a valid level file" );
-		PERR( "Failed to load level file " << levelFile << ": " << err.c_str() );
+		PERR( "Failed to load level file " << levelFile << ": " << err );
 		return false;
 	}
 	else if ( !_internal_levels && loaded )
@@ -5762,7 +5762,7 @@ void FLTrator::draw_score()
 	flt_font( FL_COURIER, 30 );
 	fl_color( fl_contrast( FL_WHITE, T.ground_color ) );
 
-	char buf[50];
+	char buf[100];
 	int n = snprintf( buf, sizeof( buf ), "Hiscore: %06u", _hiscore );
 	static int sx = 0;
 	static int sy = 0;
@@ -5881,7 +5881,6 @@ void FLTrator::draw_score()
 			if ( !_anim_level_finished )
 			{
 				string s = _texts.value( "level_finished", 50,  "LEVEL %u FINISHED!" );
-				char buf[200];
 				snprintf( buf, sizeof( buf ), s.c_str(), _level );
 				(_anim_level_finished = new AnimText( 0, SCALE_Y * 10, w(), buf,
 						FL_WHITE, FL_BLACK, 50, 30, false ))->start();
@@ -8000,7 +7999,7 @@ void FLTrator::onNextScreen( bool fromBegin_/* = false*/ )
 				_level_repeat = 0;
 				_bonus = 0;
 
-				show_scores &= _level == _first_level && _level_repeat == 0;
+				show_scores &= _level == _first_level && _level_repeat == 0; // ??? alwaws true
 				if ( show_scores )
 				{
 					_input = _user.name == DEFAULT_USER ? "" : _user.name;
