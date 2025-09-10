@@ -3459,6 +3459,40 @@ private:
 	FLTrator *_fltrator;
 };
 
+static bool wayland_session()
+//-------------------------------------------------------------------------------
+{
+	const char *session = fl_getenv( "XDG_SESSION_TYPE" );
+	return session && (string)session == "wayland";
+}
+
+static bool get_key( int key_ )
+//-------------------------------------------------------------------------------
+{
+	bool key( false );
+	if ( wayland_session() )
+	{
+		// Workaround for Wayland to read keyboard before
+		// application window is shown.
+		Fl_Window win( 1, 1 );
+		win.end();
+//		win.border( 0 );
+		win.show();
+		int tries = 100;	// wait 1s at most for focus
+		bool focus( false );
+		while ( --tries && !focus )
+		{
+			Fl::wait( 0.01 );
+			focus = Fl::focus() == &win;
+		}
+//		printf("tries=%d, focus=%d\n", tries, focus);
+		if ( focus )
+			Fl::wait( 0.1 );
+	}
+	key = Fl::get_key( key_ );
+	return key;
+}
+
 //-------------------------------------------------------------------------------
 // class FLTrator : public Fl_Double_Window
 //-------------------------------------------------------------------------------
@@ -3569,7 +3603,13 @@ FLTrator::FLTrator( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	// set default spaceship image as icon
 	setIcon();
 
-	if ( !ret || Fl::get_key( FL_Control_L ) )
+	bool force_fts( false );
+	if ( argc == 2 && ((string)argv_[1]) == "--setup" )
+	{
+		force_fts = true;
+		--argc;
+	}
+	if ( !ret || get_key( FL_Control_L ) || force_fts )
 	{
 		if ( argc <= 1 )
 		{
@@ -3831,6 +3871,7 @@ FLTrator::FLTrator( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		     << "  --classic\tplay in classic look (same color for landscape/sky/ground + outline)" << endl
 		     << "  --help\tprint out this text and exit" << endl
 		     << "  --info\tprint out some runtime information and exit" << endl
+		     << "  --setup\tstart for (another) 'first time setup'" << endl
 		     << "  --version\tprint out version  and exit" << endl;
 		exit( EXIT_SUCCESS );
 	}
@@ -4919,8 +4960,7 @@ bool FLTrator::create_terrain()
 		if ( !MAX_LEVEL_IMAGE_SIZE )
 		{
 			MAX_LEVEL_IMAGE_SIZE = 32766;
-			const char *session = fl_getenv( "XDG_SESSION_TYPE" );
-			if ( session && (string)session == "wayland" )
+			if ( wayland_session() )
 			{
 				// We are on wayland, but maybe we are using XWayland
 				// XWayland seems to have a limit for offscreen drawing
@@ -7525,7 +7565,8 @@ bool FLTrator::setFullscreen( bool fullscreen_ )
 				border( 1 );
 				size_range( SCREEN_W, SCREEN_H, SCREEN_W, SCREEN_H ); // disable resizable
 				PERR( "Failed to set resolution to " << SCREEN_W << "x"<< SCREEN_H <<
-				      " (is: " << W << "x" << H << ")" );
+				      " (is: " << W << "x" << H << ")" << endl <<
+				      "Try to start with -Wf switch instead." );
 			}
 		}
 		show();
@@ -8866,14 +8907,16 @@ string FLTrator::firstTimeSetup()
 		if ( fullscreen == 2 )	// YES
 		{
 			cmd += " -f";
-			if ( speed == 2 )	// very fast computer
+			if ( speed == 2 	// very fast computer
+				  || wayland_session() )	// NOTE: Wayland resolution change not possible
 #ifdef WIN32
 				cmd += " -Wf -r40";
 #else
 				cmd += " -Wf -R50";
 #endif
 		}
-		else if ( speed == 2 )	// very fast computer
+		else if ( speed == 2	// very fast computer
+		          || wayland_session() )
 #ifdef WIN32
 			cmd += " -W -r40";
 #else
