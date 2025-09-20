@@ -1309,7 +1309,7 @@ int LSEditor::handle( int e_ )
 		y = Fl::event_y();
 	}
 
-	if ( y >= SCREEN_H && e_ != FL_LEAVE && e_ != FL_ENTER )
+	if ( y >= SCREEN_H && e_ != FL_LEAVE && e_ != FL_ENTER && e_ != FL_KEYDOWN )
 	{
 		return Inherited::handle( e_ );
 	}
