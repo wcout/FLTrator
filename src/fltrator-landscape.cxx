@@ -1043,6 +1043,9 @@ LSEditor::LSEditor( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 	};
 	_menu = new Fl_Sys_Menu_Bar( 0, 0, 45, 20, "&File" );
 	_menu->box( FL_FLAT_BOX );
+	_menu->color( 0xe0e0e000 );
+	_menu->textcolor( 0x60606000 );
+	_menu->selection_color( FL_YELLOW );
 	_menu->menu( items );
 	_menu->tooltip( "Hide/show this menu with F10" );
 
@@ -1967,12 +1970,11 @@ void LSEditor::setTitle()
 			n.erase( 0, n.size() - 40 );
 			n.insert( 0, "..");
 		}
-//		os << n << ( _changed ? "*" : "" ) << "      ";
 	}
-	os << n << ( _changed ? "*" : "" ) << "      ";
-	os << info << "      xpos: " << _xoff << " (Screen " << ( _xoff / w() ) + 1 << "/" << _ls->size() / w() << ")";
+	os << n << ( _changed ? "*" : "" ) << "\t";
+	os << info << "\txpos: " << _xoff << " (Screen " << ( _xoff / w() ) + 1 << " of " << _ls->size() / w() << ")";
 	if ( _mode == EDIT_LANDSCAPE && _scrollLock )
-		os << "                SCROLL";
+		os << "\t\tSCROLL";
 	t += " - " + os.str();
 	copy_label( t.c_str() );
 }
@@ -2041,7 +2043,9 @@ int main( int argc_, const char *argv_[] )
 #ifdef WIN32
 	Console console;	// output goes to command window (if started from there)
 #endif
-	Fl::scheme( "gtk+" );
+	Fl::scheme( "oxy" ); // since FLTK 1.4
+	if ( !Fl::is_scheme( "oxy" ) )
+		Fl::scheme( "gtk+" );
 	LSEditor editor( argc_, argv_ );
 	cout << "ready!" << endl;
 	Fl::run();
