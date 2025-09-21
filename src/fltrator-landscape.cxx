@@ -324,7 +324,7 @@ static bool readColors( ifstream& f_, Fl_Color& c_, vector<Fl_Color>& alt_ )
 	readColor( is, c_ );
 	while ( !is.fail() )
 	{
-		Fl_Color c;
+		Fl_Color c( FL_BLACK );
 		readColor( is, c );
 		if ( !is.fail() )
 			alt_.push_back( c );
