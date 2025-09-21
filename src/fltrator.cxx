@@ -3893,6 +3893,16 @@ FLTrator::FLTrator( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 		     << "Audio::cmd    = '" << Audio::instance()->cmd() << "'" << endl
 		     << "Audio::bg_cmd = '" << Audio::instance()->cmd( true ) << "'" << endl
 		     << "FLTK version  = " << Fl::version() << endl;
+#if FLTK_USE_WAYLAND || FLTK_USE_X11
+		cout << "Wayland sess. = " << ( wayland_session() ?  "yes" : "no" ) << endl;
+		cout << "Cairo drawg.  = ";
+#ifdef FLTK_USE_CAIRO
+		cout << "yes";
+#else
+		cout << "no";
+#endif
+		cout << endl;
+#endif
 #if FLTK_HAS_NEW_FUNCTIONS
 		cout << "FLTK_HAS_NEW_FUNCTIONS" << endl;
 #endif
