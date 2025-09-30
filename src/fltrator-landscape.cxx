@@ -18,6 +18,7 @@
 #ifdef WIN32
 // needed for mingw 4.6 to accept AttachConsole()
 #define _WIN32_WINNT 0x0501
+#include <windows.h>
 #endif
 
 #include <cstdio>
