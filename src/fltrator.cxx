@@ -4997,9 +4997,14 @@ bool FLTrator::create_terrain()
 		}
 		else
 		{
-			PERR( "Can't prebuild landscape for level " << _level <<
-			      ": T.size() > " << MAX_LEVEL_IMAGE_SIZE <<
-			      " (" << T.size() << ")" );
+			static map<int, bool> reported_levels;
+			if ( reported_levels.find( _level ) == reported_levels.end() )
+			{
+				PERR( "Can't prebuild landscape for level " << _level <<
+				      ": T.size() > " << MAX_LEVEL_IMAGE_SIZE <<
+				      " (" << T.size() << ")" );
+				reported_levels[ _level ] = true;
+			}
 		}
 	}
 #endif // NO_PREBUILD_LANDSCAPE
