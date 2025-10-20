@@ -97,6 +97,9 @@
 #include <FL/fl_config.h>
 #endif
 
+static const char APPLICATION[] = "fltrator";
+static const char VENDOR[] = "CG";
+
 static const unsigned MAX_LEVEL = 10;
 static const unsigned MAX_LEVEL_REPEAT = 3;
 
@@ -375,7 +378,8 @@ static const string& homeDir()
 			fl_filename_expand( home_path, "$HOME/." );
 #endif
 			home = home_path;
-			home += "fltrator/";
+			home += APPLICATION;
+			home += "/";
 			if ( access( (home + "wav").c_str(), R_OK ) == 0  &&
 			     access( (home + "levels").c_str(), R_OK ) == 0 &&
 			     access( (home + "images").c_str(), R_OK ) == 0 )
@@ -663,6 +667,7 @@ Cfg::Cfg( const char *vendor_, const char *appl_ ) :
 	getUserdataPath( buf, sizeof( buf ) );
 	_pathName = buf;
 	_pathName.erase( _pathName.size() - 1 );	// remove last '/'
+	rmdir( _pathName.c_str() ); // remove not needed empty dir
 	_pathName += ".prefs";
 	LOG( "cfg: " << _pathName );
 	load();
@@ -3391,7 +3396,7 @@ public:
 		if ( yearStr > crYearStr )
 			crYearStr += ( "-" + yearStr );
 		ostringstream welcome;
-		welcome << "CG\n© " << crYearStr << "\n\n" << greeting_;
+		welcome << VENDOR  << "\n© " << crYearStr << "\n\n" << greeting_;
 		(_text = new AnimText( 0, win_.h(), win_.w(), welcome.str().c_str(),
 			FL_GRAY, FL_RED, 50, 40, false ))->start();
 		while ( Fl::first_window() && win_.children() )
@@ -3595,8 +3600,8 @@ FLTrator::FLTrator( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 #endif
 
 	string defaultArgs;
-	string cfgName( "fltrator" );
-	_cfg = new Cfg( "CG", cfgName.c_str() );
+	string cfgName( APPLICATION );
+	_cfg = new Cfg( VENDOR, cfgName.c_str() );
 	char *value = 0;
 	int ret = _cfg->get( "defaultArgs", value, "" );
 
@@ -3878,7 +3883,7 @@ FLTrator::FLTrator( int argc_/* = 0*/, const char *argv_[]/* = 0*/ ) :
 
 	if ( _internal_levels )
 		cfgName += "_internal";	// don't mix internal levels with real levels
-	_cfg = new Cfg( "CG", cfgName.c_str() );
+	_cfg = new Cfg( VENDOR, cfgName.c_str() );
 
 	if ( info )
 	{
