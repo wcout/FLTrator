@@ -1327,7 +1327,9 @@ public:
 		clipImage( X, Y, W, H, ox, oy, SCREEN_W, SCREEN_H );
 		drawImage()->draw( X, Y, W, H, _ox + ox, oy );
 #else	// !defined(WIN32) && !defined(FLTK_USES_XRENDER)
-		drawImage()->draw( x_, y_, _w, _h, _ox, 0 );
+		fl_push_clip( x_, y_, _w, _h );
+		drawImage()->draw( x_ - _ox, y_ );
+		fl_pop_clip();
 #endif
 	}
 	bool get( const char *image_, double scale_ = 1. )
@@ -6535,7 +6537,9 @@ void FLTrator::do_draw()
 	if ( _terrain )
 	{
 		// "blit" in pre-built image
-		_terrain->draw( 0, 0, w(), h(), _xoff );
+		fl_push_clip( 0, 0, w(), h() );
+		_terrain->draw( -_xoff, 0 );
+		fl_pop_clip();
 	}
 	else
 	{
@@ -6579,9 +6583,11 @@ void FLTrator::do_draw()
 	if ( _landscape && _background )
 	{
 		// "blit" in pre-built images
-		_background->draw( 0, 0, w(), h(), _xoff );
+		fl_push_clip( 0, 0, w(), h() );
+		_background->draw( -_xoff, 0 );
 		draw_decoration();
-		_landscape->draw( 0, 0, w(), h(), _xoff );
+		_landscape->draw( -_xoff, 0 );
+		fl_pop_clip();
 
 		// must redraw objects
 		draw_objects( true );
